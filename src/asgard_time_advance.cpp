@@ -21,7 +21,7 @@ void steady_state<P>::next_step(
   #if defined(ASGARD_USE_GPU)
   gcurrent = current;
   gendstep.resize(gcurrent.size());
-  next_step_gpu_(disc, gcurrent.data(), gendstep.data());
+  next_step(disc, gcurrent, gendstep);
   gendstep.copy_to_host(endstep);
   return;
   #endif
@@ -85,9 +85,12 @@ void steady_state<P>::next_step(
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void steady_state<P>::next_step_gpu_(discretization_manager<P> const &disc,
-                                     P const current[], P endstep[]) const
+void steady_state<P>::next_step(discretization_manager<P> const &disc,
+                                gpu::vector<P> const &current,
+                                gpu::vector<P> &endstep) const
 {
+  tools::time_event performance_("solve steady state-gpu");
+
   P const time = disc.stop_time();
 
   // if the grid changed since the last time we used the solver
@@ -96,16 +99,18 @@ void steady_state<P>::next_step_gpu_(discretization_manager<P> const &disc,
 
   if (solver.uses_inplace_solve()) {
 
-    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, endstep);
+    endstep.resize(current.size());
+
+    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, endstep.data());
 
     if (disc.is_leader())
-      solver.solve_inplace(endstep);
+      solver.solve_inplace(endstep.data());
 
   } else { // iterative solver
     // form the right-hand-side inside work
     int64_t const num_entries = disc.num_dof();
 
-    gpu::memcopy_dev2dev(num_entries, current, endstep);
+    endstep = current;
 
     gwork.resize(num_entries);
     disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, gwork.data()); // right-hand-side
@@ -116,15 +121,13 @@ void steady_state<P>::next_step_gpu_(discretization_manager<P> const &disc,
       return;
     }
 
-    gpu::wrap_array<P> wrapend(endstep, num_entries);
-
     switch (precon.method()) {
     case precon_method::none:
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.mpi_leader_apply_gpu(alpha, x, beta, y);
-        }, gwork, wrapend);
+        }, gwork, endstep);
     break;
     case precon_method::jacobi:
       solver.iterate_solve(
@@ -136,7 +139,7 @@ void steady_state<P>::next_step_gpu_(discretization_manager<P> const &disc,
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.mpi_leader_apply_gpu(alpha, x, beta, y);
-        }, gwork, wrapend);
+        }, gwork, endstep);
     break;
     default:
       throw std::runtime_error("steady state solver cannot use the adi preconditioner");
@@ -291,6 +294,21 @@ void rungekutta<P>::next_step(
     discretization_manager<P> const &disc, gpu::vector<P> const &current,
     gpu::vector<P> &next) const
 {
+  std::string const name = [&]() -> std::string {
+      switch (rktype) {
+        case time_method::forward_euler:
+          return "forw-euler gpu";
+        case time_method::rk2:
+          return "runge kutta 2 gpu";
+        case time_method::rk3:
+          return "runge kutta 3 gpu";
+        default: // case method::rk4:
+          return "runge kutta 4 gpu";
+      };
+    }();
+
+  tools::time_event performance_(name);
+
   next.resize(disc.num_dof());
   expect(next.size() == current.size());
 
@@ -393,7 +411,7 @@ void crank_nicolson<P>::next_step(
   #if defined(ASGARD_USE_GPU)
   gcurrent = current;
   gnext.resize(gcurrent.size());
-  next_step_gpu_(disc, gcurrent.data(), gnext.data());
+  next_step(disc, gcurrent, gnext);
   gnext.copy_to_host(next);
   return;
   #endif
@@ -463,19 +481,25 @@ void crank_nicolson<P>::next_step(
 #ifdef ASGARD_USE_GPU
 template<typename P>
 void crank_nicolson<P>::set_rhs_gpu(discretization_manager<P> const &disc, P substep, P time, P dt,
-                                    P const current[], P rhs[]) const
+                                    gpu::vector<P> const &current, gpu::vector<P> &rhs) const
 {
+  rhs.resize(current.size());
   if (substep == 1)
-    disc.ode_euler_gpu(time + substep * dt, current, terms_scale{0}, sources_scale{dt}, rhs);
+    disc.ode_euler_gpu(time + substep * dt, current.data(),
+                       terms_scale{0}, sources_scale{dt}, rhs.data());
   else
-    disc.ode_euler_gpu(time + substep * dt, current,
-                       terms_scale{dt * (1 - substep)}, sources_scale{dt}, rhs);
+    disc.ode_euler_gpu(time + substep * dt, current.data(),
+                       terms_scale{dt * (1 - substep)}, sources_scale{dt}, rhs.data());
 }
 
 template<typename P>
-void crank_nicolson<P>::next_step_gpu_(
-    discretization_manager<P> const &disc, P const current[], P next[]) const
+void crank_nicolson<P>::next_step(discretization_manager<P> const &disc,
+                                  gpu::vector<P> const &current,
+                                  gpu::vector<P> &next) const
 {
+  tools::time_event performance_(
+      (method == time_method::cn) ? "crank-nicolson-gpu" : "back-euler-gpu");
+
   P const time = disc.time();
   P const dt   = disc.dt();
 
@@ -488,14 +512,14 @@ void crank_nicolson<P>::next_step_gpu_(
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     if (disc.is_leader())
-      solver.solve_inplace(next);
+      solver.solve_inplace(next.data());
 
   } else { // iterative solver
     // form the right-hand-side inside work
     int64_t const num_entries = disc.num_dof();
     gwork.resize(num_entries);
 
-    set_rhs_gpu(disc, substep, time, dt, current, gwork.data());
+    set_rhs_gpu(disc, substep, time, dt, current, gwork);
 
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
@@ -505,9 +529,7 @@ void crank_nicolson<P>::next_step_gpu_(
     }
 
     // use the current step as the initial guess
-    gpu::memcopy_dev2dev(num_entries, current, next);
-
-    gpu::wrap_array<P> wrap_next(next, num_entries);
+    next = current;
 
     switch (precon.method()) {
     case precon_method::none:
@@ -516,7 +538,7 @@ void crank_nicolson<P>::next_step_gpu_(
         {
           gpu::axpby(num_entries, alpha, x, beta, y);
           disc.mpi_leader_apply_gpu(substep * alpha * dt, x, 1, y);
-        }, gwork, wrap_next);
+        }, gwork, next);
     break;
     case precon_method::jacobi:
       solver.iterate_solve(
@@ -529,7 +551,7 @@ void crank_nicolson<P>::next_step_gpu_(
         {
           gpu::axpby(num_entries, alpha, x, beta, y);
           disc.mpi_leader_apply_gpu(substep * alpha * dt, x, 1, y);
-        }, gwork, wrap_next);
+        }, gwork, next);
     break;
     default:
     break;
@@ -618,7 +640,7 @@ void imex_stepper<P>::next_step(
   #if defined(ASGARD_USE_GPU)
   gcurrent = current;
   gnext.resize(gcurrent.size());
-  next_step_gpu_(disc, gcurrent.data(), gnext.data());
+  next_step(disc, gcurrent, gnext);
   gnext.copy_to_host(next);
   return;
   #endif
@@ -650,13 +672,13 @@ void imex_stepper<P>::next_step(
 template<typename P>
 void imex_stepper<P>::implicit_solve(
     discretization_manager<P> const &disc, size_t stage,
-    P time, P dt, preconditioner_data<P> &precon, P current[], P R[]) const
+    P time, P dt, preconditioner_data<P> &precon, gpu::vector<P> &current, gpu::vector<P> &R) const
 {
   int64_t const num_entries = disc.num_dof();
   if (disc.has_moments())
   {
-    std::vector<P> cpu_current(num_entries);
-    gpu::memcopy_dev2host(num_entries, current, cpu_current.data());
+    std::vector<P> cpu_current;
+    current.copy_to_host(cpu_current);
     disc.compute_moments(group_id{imex_implicit}, cpu_current);
   }
 
@@ -665,22 +687,19 @@ void imex_stepper<P>::implicit_solve(
 
   bool const uses_inplace = solver.uses_inplace_solve();
   if (not uses_inplace)
-    gpu::memcopy_dev2dev(num_entries, current, R); // save current as the initial guess
+    R = current; // save current as the initial guess
 
-  disc.add_ode_rhs_sources_group_gpu(group_id{imex_implicit}, time, dt, current);
+  disc.add_ode_rhs_sources_group_gpu(group_id{imex_implicit}, time, dt, current.data());
 
   if (uses_inplace) {
-    gpu::memcopy_dev2dev(num_entries, current, R);
-    solver.solve_inplace(group_id{imex_implicit}, stage, R);
+    R = current;
+    solver.solve_inplace(group_id{imex_implicit}, stage, R.data());
   } else { // iterative solver
 
     if (not disc.is_leader()) {
-      disc.mpi_iteration_apply_gpu(group_id{imex_implicit}, current);
+      disc.mpi_iteration_apply_gpu(group_id{imex_implicit}, current.data());
       return;
     }
-
-    gpu::wrap_array<P> wrap_current(current, num_entries);
-    gpu::wrap_array<P> wrap_R(R, num_entries);
 
     switch (precon.method()) {
     case precon_method::none:
@@ -689,7 +708,7 @@ void imex_stepper<P>::implicit_solve(
         {
           gpu::axpby(num_entries, alpha, x, beta, y);
           disc.mpi_leader_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
-        }, wrap_current, wrap_R);
+        }, current, R);
     break;
     case precon_method::jacobi:
       solver.iterate_solve(
@@ -702,7 +721,7 @@ void imex_stepper<P>::implicit_solve(
         {
           gpu::axpby(num_entries, alpha, x, beta, y);
           disc.mpi_leader_apply_gpu(group_id{imex_implicit}, alpha * dt, x, 1, y);
-        }, wrap_current, wrap_R);
+        }, current, R);
     break;
     default:
       throw std::runtime_error("adi preconditioner not available for IMEX steppers");
@@ -714,31 +733,34 @@ void imex_stepper<P>::implicit_solve(
 }
 
 template<typename P>
-void imex_stepper<P>::next_step_gpu_(
-    discretization_manager<P> const &disc, P const current[], P next[]) const
+void imex_stepper<P>::next_step(
+    discretization_manager<P> const &disc, gpu::vector<P> const &current,
+    gpu::vector<P> &next) const
 {
+  tools::time_event performance_("stepper-imex-gpu");
+
   int64_t const num_entries = disc.num_dof();
 
   P const time = disc.time();
   P const dt   = disc.dt();
 
   gf.resize(num_entries);
-  disc.ode_euler_gpu(group_id{imex_explicit}, time, current, dt, gf.data());
+  disc.ode_euler_gpu(group_id{imex_explicit}, time, current.data(), dt, gf.data());
 
   constexpr size_t stage0 = 0;
-  implicit_solve(disc, stage0, time + dt, dt, precon1, gf.data(), next);
+  implicit_solve(disc, stage0, time + dt, dt, precon1, gf, next);
 
   if (method == time_method::imex1)
     return;
 
-  disc.ode_rhs_gpu(group_id{imex_explicit}, time + dt, next, gf.data());
+  disc.ode_rhs_gpu(group_id{imex_explicit}, time + dt, next.data(), gf.data());
 
   if (disc.is_leader())
     // f = 0.5 * current + 0.5 * next + 0.5 * dt * f
-    gpu::axpbygz(num_entries, 0.5, current, 0.5, next, 0.5 * dt, gf.data());
+    gpu::axpbygz(num_entries, 0.5, current.data(), 0.5, next.data(), 0.5 * dt, gf.data());
 
   constexpr size_t stage1 = 1;
-  implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, gf.data(), next);
+  implicit_solve(disc, stage1, time + dt, P{0.5} * dt, precon2, gf, next);
 }
 #endif
 
@@ -807,6 +829,18 @@ void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
              }, method);
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void time_advance_manager<P>::next_step(discretization_manager<P> const &dist,
+                                        gpu::vector<P> const &current,
+                                        gpu::vector<P> &next) const
+{
+  std::visit([&](auto const &stepper) {
+                 stepper.next_step(dist, current, next);
+             }, method);
+}
+#endif
+
 template<typename P> // implemented in time-advance
 bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
@@ -835,11 +869,22 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   sparse_grid::strategy grid_strategy = sparse_grid::strategy::refine;
 
+  #ifdef ASGARD_USE_GPU
+  // in GPU mode, move the data to the device and do not move back until the end
+  // exception is made only when using refinement
+  stepper.gcurrent = manager.state;
+  #endif
+
   std::vector<P> next;
   while (--num_steps >= 0)
   {
+    #ifdef ASGARD_USE_GPU
+    stepper.next_step(manager, stepper.gcurrent, stepper.gnext);
+    #else
     stepper.next_step(manager, manager.state, next);
+    #endif
 
+    #ifndef ASGARD_USE_GPU
     if (manager.safe_step) {
       tools::time_event performance_("check for inf/nan");
       // technically the found-bad is OK/not-OK
@@ -857,17 +902,21 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         found_bad += local_bad;
       }
       if (found_bad > 0) {
-        if (not manager.stop_verbosity())
-          std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
-                    << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
-                    << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
-                    << "       max-grid level is too low, time-step is too large, etc.\n";
+        std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
+                  << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
+                  << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
+                  << "       max-grid level is too low, time-step is too large, etc.\n";
 
         return false;
       }
     }
+    #endif
 
     if (manager.refinement) {
+      #ifdef ASGARD_USE_GPU
+      if (manager.is_leader())
+        stepper.gnext.copy_to_host(next);
+      #endif
       int const gen = grid.generation();
       manager.refine(grid_strategy, next);
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
@@ -882,16 +931,22 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::adapt;
         }
+        #ifdef ASGARD_USE_GPU
+        if (manager.is_leader())
+          stepper.gnext = next;
+        else
+          stepper.gnext.resize(manager.num_dof());
+        #endif
       }
     }
 
-    #ifdef ASGARD_USE_MPI
+    #ifdef ASGARD_USE_GPU
+    std::swap(stepper.gnext, stepper.gcurrent);
+    #else
     if (manager.is_leader())
       std::swap(manager.state, next);
-    else
+    else // no used unless using MPI
       manager.state.resize(grid.num_indexes() * manager.get_hier().block_size());
-    #else
-    std::swap(manager.state, next);
     #endif
 
     params.take_step();
@@ -900,7 +955,11 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       // if verbosity is not turned off, report every 2 or 10 seconds
       double duration = tools::simple_timer::duration_since(wctime);
       if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
+        #ifdef ASGARD_USE_GPU
+        manager.progress_report(std::cout, stepper.gcurrent.size());
+        #else
         manager.progress_report();
+        #endif
         wctime = tools::simple_timer::current_time();
         if (manager.options_.show_memusage)
           manager.report_memusage();
@@ -910,6 +969,10 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     if (stepper.is_steady_state())
       params.set_final_time();
   }
+  #ifdef ASGARD_USE_GPU
+  if (manager.is_leader())
+    stepper.gcurrent.copy_to_host(manager.state);
+  #endif
 
   return true;
 }

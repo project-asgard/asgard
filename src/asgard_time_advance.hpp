@@ -117,7 +117,8 @@ struct steady_state
 
   #ifdef ASGARD_USE_GPU
   //! Solves for the final step using the GPU
-  void next_step_gpu_(discretization_manager<P> const &disc, P const current[], P endstep[]) const;
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &endstep) const;
   #endif
 
   //! requires a solver
@@ -247,21 +248,21 @@ struct crank_nicolson
            method == time_method::back_euler);
   }
   //! computes the rhs of the implicit solver using single MPI operation
-  void set_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
+  void set_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
                std::vector<P> const &current, std::vector<P> &next) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
-  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+  void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
 
   #ifdef ASGARD_USE_GPU
   //! computes the rhs of the implicit solver using single MPI operation
-  void set_rhs_gpu(discretization_manager<P> const &dist, P time, P substep, P dt,
-                   P const current[], P next[]) const;
+  void set_rhs_gpu(discretization_manager<P> const &disc, P time, P substep, P dt,
+                   gpu::vector<P> const &current, gpu::vector<P> &next) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
-  void next_step_gpu_(discretization_manager<P> const &dist, P const current[],
-                      P next[]) const;
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
   #endif
 
   //! requires a solver
@@ -325,7 +326,8 @@ struct imex_stepper
 
   #ifdef ASGARD_USE_GPU
   //! Performs IMEX step, arrays sit on the GPU device
-  void next_step_gpu_(discretization_manager<P> const &disc, P const current[], P next[]) const;
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
   #endif
 
   //! requires a solver
@@ -354,7 +356,7 @@ private:
   //! same as above but uses arrays allocated on the GPU
   void implicit_solve(discretization_manager<P> const &disc, size_t stage,
                       P time, P dt, preconditioner_data<P> &precon,
-                      P current[], P R[]) const;
+                      gpu::vector<P> &current, gpu::vector<P> &R) const;
   #endif
 
   time_method method = time_method::imex2;
@@ -471,6 +473,16 @@ struct time_advance_manager
   //! wrapper around the specific method being used
   std::variant<time_advance::steady_state<P>, time_advance::rungekutta<P>,
                time_advance::crank_nicolson<P>, time_advance::imex_stepper<P>> method;
+
+  #ifdef ASGARD_USE_GPU
+  //! advance to the next time-step
+  void next_step(discretization_manager<P> const &dist, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  //! moves the current step from the CPU to the GPU
+  mutable gpu::vector<P> gcurrent;
+  //! holds the next step compute on the GPU
+  mutable gpu::vector<P> gnext;
+  #endif
 };
 
 }

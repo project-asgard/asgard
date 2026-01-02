@@ -462,18 +462,19 @@ void self_test() {
   // of the matrices grows very fast with the level
   // thus, the tests are primarily done in double-precision
 
+  constexpr bool chain_md = false; // opposite of chain 1D, the default for dotest
 #ifdef ASGARD_ENABLE_DOUBLE
   // check convergence w.r.t. level
   dotest(1.E-3, 1, "-l 4 -n 20 -sv direct");
   dotest(1.E-4, 1, "-l 5 -n 20 -sv direct");
   dotest(5.E-5, 1, "-l 6 -n 20 -sv direct");
 
-  dotest<double, false>(1.E-3, 1, "-l 4 -n 20 -sv direct"); // check chaining
-  dotest<double, false>(1.E-4, 1, "-l 5 -n 20 -sv direct");
-  dotest<double, false>(5.E-5, 1, "-l 6 -n 20 -sv direct");
+  dotest<double, chain_md>(1.E-3, 1, "-l 4 -n 20 -sv direct"); // check chaining
+  dotest<double, chain_md>(1.E-4, 1, "-l 5 -n 20 -sv direct");
+  dotest<double, chain_md>(5.E-5, 1, "-l 6 -n 20 -sv direct");
 
   dotest<double>(1.E-4, 1, "-l 5 -n 10 -sv bicgstab"); // check the jacobi preconditioner
-  dotest<double, false>(1.E-4, 1, "-l 5 -n 10 -sv bicgstab"); // both chain-modes
+  dotest<double, chain_md>(1.E-4, 1, "-l 5 -n 10 -sv bicgstab"); // both chain-modes
 
   dotest(1.E-1, 1, "-l 5 -d 0 -n 20 -sv direct");
   dotest(5.E-3, 1, "-l 5 -d 1 -n 20 -sv direct");

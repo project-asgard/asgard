@@ -478,8 +478,8 @@ public:
     return advance_in_time(*this, num_steps);
   }
 
-  //! report time progress
-  void progress_report(std::ostream &os = std::cout) const {
+  //! report time progress, ndof is the degrees-of-freedom, if different from current_state.size()
+  void progress_report(std::ostream &os = std::cout, int64_t ndof = -1) const {
     if (stepper.is_steady_state())
     {
       os << "refinement iteration " << std::setw(10) << tools::split_style(stepper.data.step());
@@ -494,8 +494,12 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes())
-       << "  dof: " << std::setw(14) << tools::split_style(state.size());
+    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes());
+    if (ndof >= 0) {
+      os << "  dof: " << std::setw(14) << tools::split_style(ndof);
+    } else {
+      os << "  dof: " << std::setw(14) << tools::split_style(state.size());
+    }
 
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = tools::timer.max_flops();
