@@ -868,7 +868,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   sparse_grid &grid = manager.grid;
 
-  sparse_grid::strategy grid_strategy = sparse_grid::strategy::refine;
+  sparse_grid::strategy grid_strategy = sparse_grid::strategy::adapt;
 
   #ifdef ASGARD_USE_GPU
   // in GPU mode, move the data to the device and do not move back until the end
@@ -941,7 +941,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
           manager.poisson.update_level(grid.current_level(0));
         if (stepper.is_steady_state()) {
           num_steps = 1;
-          grid_strategy = sparse_grid::strategy::adapt;
+          grid_strategy = sparse_grid::strategy::refine;
         }
         #ifdef ASGARD_USE_GPU
         if (manager.is_leader())

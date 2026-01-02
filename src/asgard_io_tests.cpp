@@ -158,7 +158,7 @@ void reset_time_params() {
   std::string const title    = "restart changes the time parameters";
   std::string const subtitle = "test 2";
 
-  prog_opts options = make_opts("-d 3 -l 3 -m 4 -dt 0.5 -time 3.0 -a 0.0625");
+  prog_opts options = make_opts("-d 3 -l 3 -m 4 -dt 0.5 -time 3.0 -ar 0.0625");
   options.title    = title;
   options.subtitle = subtitle;
   pde_domain<TestType> domain(num_dims);
@@ -174,15 +174,18 @@ void reset_time_params() {
   discretization_manager<TestType> d1(pde_scheme<TestType>(opts2, domain));
   tassert(d1.time() == 2);
   tassert(d1.stop_time() == 4);
-  tassert(d1.options().adapt_threshold);
-  tassert(d1.options().adapt_threshold.value() == 0.0625);
+  tassert(not d1.options().adapt_threshold);
+  tassert(d1.options().adapt_relative);
+  tassert(d1.options().adapt_relative.value() == 0.0625);
 
   opts2 = make_opts("-restart " + filename + " -dt 0.25 -a 0.125");
   discretization_manager<TestType> d2(pde_scheme<TestType>(opts2, domain));
   tassert(d2.dt() == TestType{0.25});
   // stop time minus current time is 1, with dt = 0.25 we have 4 steps
   tassert(d2.remaining_steps() == 4);
+  tassert(d2.options().adapt_threshold);
   tassert(d2.options().adapt_threshold.value() == 0.125);
+  tassert(not d2.options().adapt_relative);
 
   opts2 = make_opts("-restart " + filename + " -n 8 -noa");
   discretization_manager<TestType> d3(pde_scheme<TestType>(opts2, domain));
@@ -435,6 +438,7 @@ void restart_moments() {
 
   disc.advance_time();
   double constexpr tol2 = (std::is_same_v<P, double>) ? 1.E-14 : 5.E-6;
+
   tassert(std::abs(get_qoi_indicator<pde, P>(rdisc) - get_qoi_indicator<pde, P>(disc)) < tol2);
 }
 
