@@ -182,16 +182,7 @@ public:
   void bcast_gpu(int count, T *data) const {
     compute->set_device(gpu::device{0});
     #ifdef ASGARD_GPUMPI_DIRECT
-    if (num_ranks<cm>() >= mpi::bcast_threshold) {
-      MPI_Bcast(data, count, mpi::datatype<T>(), root, get_comm<cm>());
-    } else {
-      if (is_leader()) {
-        for (int r = 1; r < num_ranks<cm>(); r++)
-          MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
-      } else {
-        MPI_Recv(data, count, mpi::datatype<T>(), root, bcast_tag, get_comm<cm>(), MPI_STATUS_IGNORE);
-      }
-    }
+    bcast<T, cm>(count, data);
     #else
     if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
       cpu_work.resize(static_cast<size_t>(count) * sizeof(T));
@@ -208,13 +199,7 @@ public:
   void bcast_gpu(int count, T const *data) const {
     compute->set_device(gpu::device{0});
     #ifdef ASGARD_GPUMPI_DIRECT
-    expect(rank_ == root); // otherwise we will violate const-correctness
-    if (num_ranks<cm>() >= mpi::bcast_threshold) {
-      MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, get_comm<cm>());
-    } else {
-      for (int r = 1; r < num_ranks<cm>(); r++)
-        MPI_Send(data, count, mpi::datatype<T>(), r, bcast_tag, get_comm<cm>());
-    }
+    bcast<T, cm>(count, data);
     #else
     if (static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
       cpu_work.resize(static_cast<size_t>(count) * sizeof(T));

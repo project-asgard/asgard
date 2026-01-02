@@ -346,7 +346,7 @@ void crank_nicolson<P>::next_step(
   tools::time_event performance_(
       (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
-  #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
+  #if defined(ASGARD_USE_GPU)
   gcurrent = current;
   gnext.resize(gcurrent.size());
   next_step_gpu_(disc, gcurrent.data(), gnext.data());
