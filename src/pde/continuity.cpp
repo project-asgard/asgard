@@ -481,6 +481,9 @@ void self_test() {
   dotest<double>(1.E-3, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-3");
   dotest<double>(1.E-4, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-4");
 
+  // longer test, expect drop in the degrees of freedom
+  dolongtest<double>(1.E-4, 2, "-l 4 -m 8 -d 2 -n 300 -a 1.E-4", 8500);
+
   // test different number of dimensions
   dotest<double>(1.E-1, 1, "-l 4 -m 8 -d 2 -n 20 -a 1.E-1");
   dotest<double>(1.E-1, 3, "-l 4 -m 8 -d 2 -n 10 -a 1.E-1");
