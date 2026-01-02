@@ -149,6 +149,25 @@ private:
   int64_t size_ = 0;
 };
 
+/*!
+ * \brief wraps a raw-array into a non-owning container that can be used a gpu::vector
+ *
+ * Essentially, this provides a way to mix raw-arrays and gpu::vector.
+ * This is intended for local use only, do not set as a member of a class.
+ */
+template<typename T>
+struct wrap_array {
+  //! wrap the array
+  wrap_array(T *data, int64_t num_entries) : vec(data, num_entries) {}
+  //! destructor, does not delete the data
+  ~wrap_array() { vec.release(); }
+  //! can be passed in place of a vector-ref
+  operator gpu::vector<T> &() { return vec; }
+
+  gpu::vector<T> vec;
+};
+
+
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
 template<typename T>
 void mcopy(device src_dev, vector<T> const &src, device dest_dev, vector<T> &dest) {
