@@ -483,6 +483,7 @@ template<typename P>
 void crank_nicolson<P>::set_rhs_gpu(discretization_manager<P> const &disc, P substep, P time, P dt,
                                     gpu::vector<P> const &current, gpu::vector<P> &rhs) const
 {
+  expect(current.size() == disc.num_dof());
   rhs.resize(current.size());
   if (substep == 1)
     disc.ode_euler_gpu(time + substep * dt, current.data(),
@@ -934,19 +935,20 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         #ifdef ASGARD_USE_GPU
         if (manager.is_leader())
           stepper.gnext = next;
-        else
-          stepper.gnext.resize(manager.num_dof());
         #endif
       }
     }
 
     #ifdef ASGARD_USE_GPU
-    std::swap(stepper.gnext, stepper.gcurrent);
+    if (manager.is_leader())
+      std::swap(stepper.gnext, stepper.gcurrent);
+    else
+      stepper.gcurrent.resize(manager.num_dof());
     #else
     if (manager.is_leader())
       std::swap(manager.state, next);
     else // no used unless using MPI
-      manager.state.resize(grid.num_indexes() * manager.get_hier().block_size());
+      manager.state.resize(manager.num_dof());
     #endif
 
     params.take_step();
@@ -972,6 +974,8 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   #ifdef ASGARD_USE_GPU
   if (manager.is_leader())
     stepper.gcurrent.copy_to_host(manager.state);
+  else
+    manager.state.resize(manager.num_dof());
   #endif
 
   return true;
