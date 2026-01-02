@@ -585,13 +585,16 @@ void discretization_manager<precision>::ode_euler_base(
     else
       out.resize(in.size());
 
-    if (term_scal.value != 0)
+    if (term_scal.value != 0) {
       terms.apply(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
-
-    if (not terms.has_terms()) // R wasn't zeroes out above
+      if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
-
-    //tools::dump(out, "after terms");
+    } else {
+      // term_scal == 0 means ignoring the terms, the leader is already set to in
+      // so the workers have to zero out their vectors, others out will be uninitialized
+      if (not is_leader())
+        std::fill(out.begin(), out.end(), 0);
+    }
   }{
     tools::time_event performance_("ode-rhs sources");
     if (source_scal.value == 1)
@@ -599,8 +602,6 @@ void discretization_manager<precision>::ode_euler_base(
     else
       terms.template apply_sources<data_mode::scal_inc>(group, grid, conn, hier, time,
                                                         source_scal.value, out);
-
-    //tools::dump(out, "after sources");
   }
 
   #ifdef ASGARD_USE_MPI
@@ -789,11 +790,14 @@ void discretization_manager<precision>::ode_euler_base_gpu(
       gpu::memcopy_dev2dev(num_entries, in, out);
     }
 
-    if (term_scal.value != 0)
+    if (term_scal.value != 0) {
       terms.apply_gpu(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
-
-    if (not terms.has_terms()) // R wasn't zeroes out above
-      compute->fill_zeros(num_entries, out);
+      if (not terms.has_terms())
+        compute->fill_zeros(num_entries, out);
+    } else {
+      if (not is_leader())
+        compute->fill_zeros(num_entries, out);
+    }
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
     if (source_scal.value == 1)

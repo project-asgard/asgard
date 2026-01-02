@@ -346,15 +346,6 @@ void crank_nicolson<P>::next_step(
   tools::time_event performance_(
       (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
-  P const time = disc.time();
-  P const dt   = disc.dt();
-
-  P const substep = (method == time_method::cn) ? 0.5 : 1;
-
-  // if the grid changed since the last time we used the solver
-  // update the matrices and preconditioners, update-grid checks what's needed
-  solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
-
   #if defined(ASGARD_USE_GPU) && !defined(ASGARD_USE_MPI)
   gcurrent = current;
   gnext.resize(gcurrent.size());
@@ -363,10 +354,17 @@ void crank_nicolson<P>::next_step(
   return;
   #endif
 
+  P const time = disc.time();
+  P const dt   = disc.dt();
+
+  P const substep = (method == time_method::cn) ? 0.5 : 1;
+
   if (solver.uses_inplace_solve()) {
 
     next.resize(current.size());
     set_rhs(disc, substep, time, dt, current, next);
+
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     if (disc.is_leader())
       solver.solve_inplace(next);
@@ -376,6 +374,8 @@ void crank_nicolson<P>::next_step(
     work.resize(current.size());
 
     set_rhs(disc, substep, time, dt, current, work);
+
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     next = current; // use the current step as the initial guess
 
@@ -437,12 +437,11 @@ void crank_nicolson<P>::next_step_gpu_(
 
   P const substep = (method == time_method::cn) ? 0.5 : 1;
 
-  // assumes this has already been called
-  // solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
-
   if (solver.uses_inplace_solve()) {
 
     set_rhs_gpu(disc, substep, time, dt, current, next);
+
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     if (disc.is_leader())
       solver.solve_inplace(next);
@@ -453,6 +452,8 @@ void crank_nicolson<P>::next_step_gpu_(
     gwork.resize(num_entries);
 
     set_rhs_gpu(disc, substep, time, dt, current, gwork.data());
+
+    solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     if (not disc.is_leader()) {
       disc.mpi_iteration_apply_gpu(gwork.data());
