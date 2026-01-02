@@ -389,6 +389,32 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
   };
 }
 
+template<typename P, int num_threads>
+__global__ void kernel_num_non_finite(int64_t num, P const x[], int *sum)
+{
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  while (i < num) {
+    if (! isfinite(x[i]))
+      atomicAdd(sum, int{1});
+    i += num_threads * gridDim.x;
+  }
+}
+
+template<typename P>
+int num_non_finite(int64_t num, P const x[]) {
+  constexpr int max_threads = 1024;
+  int const num_blocks = round_up(num, max_threads);
+  static ::asgard::gpu::vector<int> sum = []() -> ::asgard::gpu::vector<int> {
+        ::asgard::gpu::vector<int> result(1);
+        compute->fill_zeros(result);
+        return result;
+      }();
+  kernel_num_non_finite<P, max_threads><<<num_blocks, max_threads>>>(num, x, sum.data());
+  int cpu_res = 0;
+  gpu::memcopy_dev2host(1, sum.data(), &cpu_res);
+  return cpu_res;
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void jacobi_apply<double>(gpu::vector<double> const &, double[]);
 template void compute_last_bicgstab<double>(double, double, gpu::vector<double> const &,
@@ -408,6 +434,8 @@ template void sum5(gpu::vector<double> const &, double, gpu::vector<double> cons
 
 template void tensor_by_index(int, int, int, int const[], double const[], double const[], double const[],
                               double const[], double const[], double const[], double[]);
+
+template int num_non_finite(int64_t num, double const x[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -428,5 +456,7 @@ template void sum5(gpu::vector<float> const &, float, gpu::vector<float> const &
 
 template void tensor_by_index(int, int, int, int const[], float const[], float const[], float const[],
                               float const[], float const[], float const[], float[]);
+
+template int num_non_finite(int64_t num, float const x[]);
 #endif
 }

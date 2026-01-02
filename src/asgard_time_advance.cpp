@@ -885,9 +885,13 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     stepper.next_step(manager, manager.state, next);
     #endif
 
-    #ifndef ASGARD_USE_GPU
     if (manager.safe_step) {
       tools::time_event performance_("check for inf/nan");
+
+      #ifdef ASGARD_USE_GPU
+      int const found_bad = gpu::num_non_finite(stepper.gnext.size(), stepper.gnext.data());
+      // int const found_bad = 0;
+      #else
       // technically the found-bad is OK/not-OK
       // but OpenMP works better with int or size_t
       size_t found_bad = 0;
@@ -902,16 +906,23 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         #pragma omp atomic
         found_bad += local_bad;
       }
+      #endif
       if (found_bad > 0) {
         std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
                   << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
                   << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
                   << "       max-grid level is too low, time-step is too large, etc.\n";
 
+        #ifdef ASGARD_USE_GPU
+        if (manager.is_leader())
+            stepper.gcurrent.copy_to_host(manager.state);
+        else
+            manager.state.resize(manager.num_dof());
+        #endif
+
         return false;
       }
     }
-    #endif
 
     if (manager.refinement) {
       #ifdef ASGARD_USE_GPU

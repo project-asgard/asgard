@@ -55,4 +55,8 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
                      P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[],
                      P x[]);
 
+//! returns the number of inf/nan entries in a vector
+template<typename P>
+int num_non_finite(int64_t num, P const x[]);
+
 }
