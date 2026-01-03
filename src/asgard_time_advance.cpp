@@ -873,17 +873,27 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   #ifdef ASGARD_USE_GPU
   // in GPU mode, move the data to the device and do not move back until the end
   // exception is made only when using refinement
-  stepper.gcurrent = manager.state;
+  gpu::vector<P> &current = stepper.gcurrent;
+  gpu::vector<P> &next    = stepper.gnext;
+
+  current = manager.state;
+
+  std::vector<P> cpu_next;
+
+  auto found_bad = [&]() -> int { return gpu::num_non_finite(next); };
+
+  #else
+  std::vector<P> &current = manager.state;
+  std::vector<P> next;
   #endif
 
-  std::vector<P> next;
   while (--num_steps >= 0)
   {
-    #ifdef ASGARD_USE_GPU
-    stepper.next_step(manager, stepper.gcurrent, stepper.gnext);
-    #else
+    // #ifdef ASGARD_USE_GPU
+    // stepper.next_step(manager, stepper.gcurrent, stepper.gnext);
+    // #else
     stepper.next_step(manager, manager.state, next);
-    #endif
+    // #endif
 
     if (manager.safe_step) {
       tools::time_event performance_("check for inf/nan");

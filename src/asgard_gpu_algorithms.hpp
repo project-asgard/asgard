@@ -59,4 +59,8 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
 template<typename P>
 int num_non_finite(int64_t num, P const x[]);
 
+//! returns the number of inf/nan entries in a vector
+template<typename P>
+int num_non_finite(gpu::vector<P> const &data) { return num_non_finite(data.size(), data.data()); }
+
 }
