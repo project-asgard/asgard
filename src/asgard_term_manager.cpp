@@ -261,8 +261,8 @@ void term_manager<P>::apply_tmpl_gpu(
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory()) {
-        interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, in, ifield,
-               al, tme.tmd, be, out, kwork,
+        interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, in,
+               ifield, gpu_ifield, al, tme.tmd, be, out, kwork,
                cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
       } else {
         block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
@@ -327,7 +327,13 @@ void term_manager<P>::apply_tmpl_gpu(
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
 
-    if (not ifield.empty()) {
+    if (not gpu_ifield.empty()) {
+      // TODO: multi-GPU logic here
+      gpu_ifield.resize(gpu_it1[0].size());
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, gpu_ifield.data(), kwork);
+      if (not ifield.empty())
+        gpu_ifield.copy_to_host(ifield);
+    } else if (not ifield.empty()) {
       interp.wav2nodal(gpu::device{0}, grid, xpntr, gpu_it1[0].data(), kwork);
       gpu_it1[0].copy_to_host(ifield);
     }

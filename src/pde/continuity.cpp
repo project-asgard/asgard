@@ -387,7 +387,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 }
 
 template<typename P>
-void dolongtest(double tol, int num_dims, std::string const &opts) {
+void dolongtest(double tol, int num_dims, std::string const &opts, int num_dof = -1) {
   current_test<P> test_(opts, num_dims);
 
   auto options = make_opts(opts);
@@ -400,6 +400,9 @@ void dolongtest(double tol, int num_dims, std::string const &opts) {
   double const err = get_error_l2(disc);
 
   tcheckless(disc.current_step(), err, tol);
+
+  if (num_dof > 0)
+    tassert(disc.current_state().size() < static_cast<size_t>(num_dof));
 }
 
 template<typename P>
@@ -477,6 +480,9 @@ void self_test() {
   dotest<double>(1.E-2, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-2");
   dotest<double>(1.E-3, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-3");
   dotest<double>(1.E-4, 2, "-l 4 -m 8 -d 2 -n 20 -a 1.E-4");
+
+  // longer test, expect drop in the degrees of freedom
+  dolongtest<double>(1.E-4, 2, "-l 4 -m 8 -d 2 -n 300 -a 1.E-4", 8500);
 
   // test different number of dimensions
   dotest<double>(1.E-1, 1, "-l 4 -m 8 -d 2 -n 20 -a 1.E-1");

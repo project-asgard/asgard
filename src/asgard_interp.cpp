@@ -15,6 +15,10 @@ interpolation_manager<P>::interpolation_manager(
       perm_low(num_dims, conn_fill::lower_udiag),
       perm_up(num_dims, conn_fill::upper)
 {
+  #ifdef ASGARD_USE_GPU
+  gpu_nodes_grid_gen_.fill(-1);
+  #endif
+
   if (domain.num_pos() > 0) {
     perm_pos = kronmult::permutes(domain.num_pos());
   }
@@ -351,6 +355,8 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
   if (grid.generation() == grid_gen)
     return nodes_;
 
+  tools::time_event perf_("recompute nodes");
+
   int64_t const num_points = grid.num_indexes() * block_size;
 
   nodes_.resize(num_dims, num_points);
@@ -387,6 +393,19 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
 
   return nodes_;
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+P const *interpolation_manager<P>::gpu_nodes(gpu::device dev, sparse_grid const &grid) const
+{
+  if (gpu_nodes_grid_gen_[dev.id] != grid.generation()) {
+    gpu_nodes_[dev.id] = nodes(grid).data_vector();
+    gpu_nodes_grid_gen_[dev.id] = grid.generation();
+  }
+
+  return gpu_nodes_[dev.id].data();
+}
+#endif
 
 template<typename P> block_sparse_matrix<P>
 interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hier,

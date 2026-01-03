@@ -89,6 +89,12 @@ public:
   std::vector<precision> const &current_state() const { return state; }
   //! returns the size of the current state
   int64_t state_size() const { return static_cast<int64_t>(state.size()); }
+  //! returns the number of degrees of freedom, will match state_size()
+  int64_t num_dof() const {
+    // developer purposes mostly, need to know the state inbetween computations
+    // when the state vector has not been updated yet due to GPU/MPI considerations
+    return grid.num_indexes() * hier.block_size();
+  }
 
   //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
   reconstruct_solution get_snapshot() const
@@ -184,6 +190,55 @@ public:
   void add_ode_rhs_sources_group(group_id gid, precision time, precision alpha, std::vector<precision> &src) const {
     ode_rhs_sources<data_mode::scal_inc>(gid, time, alpha, src);
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_rhs_gpu(group_id gid, precision time, precision const current[], precision R[]) const
+  {
+    ode_rhs_base_gpu(gid, time, current, R);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_rhs_gpu(precision time, precision const current[], precision R[]) const
+  {
+    ode_rhs_base_gpu(group_id::all(), time, current, R);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(group_id gid, precision time, precision const current[],
+                     terms_scale term_scal, sources_scale source_scal, precision next[]) const
+  {
+    ode_euler_base_gpu(gid, time, current, term_scal, source_scal, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(group_id gid, precision time, precision const current[],
+                     precision scale, precision next[]) const
+  {
+    ode_euler_base_gpu(gid, time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(precision time, precision const current[],
+                     terms_scale term_scal, sources_scale source_scal, precision next[]) const
+  {
+    ode_euler_base_gpu(group_id::all(), time, current, term_scal, source_scal, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void ode_euler_gpu(precision time, precision const current[],
+                     precision scale, precision next[]) const
+  {
+    ode_euler_base_gpu(group_id::all(), time, current, terms_scale{scale}, sources_scale{scale}, next);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void set_ode_rhs_sources_group_gpu(group_id gid, precision time, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::replace>(gid, time, 1, src);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void add_ode_rhs_sources_group_gpu(group_id gid, precision time, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::increment>(gid, time, 1, src);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void add_ode_rhs_sources_group_gpu(group_id gid, precision time, precision alpha, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::scal_inc>(gid, time, alpha, src);
+  }
+  #endif
 
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
@@ -283,6 +338,30 @@ public:
   {
     mpi_leader_apply_base(gid, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_GPU
+  //! same as the CPU version but the input array is on the GPU-device
+  void mpi_iteration_apply_gpu(group_id gid, precision work[]) const {
+    mpi_iteration_apply_base_gpu(gid, work);
+  }
+  //! initiate iterative loop on MPI for the all groups and given workspace
+  void mpi_iteration_apply_gpu(precision work[]) const {
+    mpi_iteration_apply_base_gpu(group_id::all(), work);
+  }
+  //! stop the currently working iteration
+  void mpi_iteration_stop_gpu() const;
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply_gpu(precision alpha, precision const x[], precision beta,
+                            precision y[]) const
+  {
+    mpi_leader_apply_base_gpu(group_id::all(), alpha, x, beta, y);
+  }
+  //! performs apply operation on the leader, assuming the non-leader ranks are running mpi_iteration_apply()
+  void mpi_leader_apply_gpu(group_id gid, precision alpha, precision const x[],
+                            precision beta, precision y[]) const
+  {
+    mpi_leader_apply_base_gpu(gid, alpha, x, beta, y);
+  }
+  #endif
   #else
   void mpi_iteration_apply(group_id, std::vector<precision> &) const {}
   void mpi_iteration_apply(std::vector<precision> &) const {}
@@ -297,6 +376,21 @@ public:
   {
     terms_apply(gid, alpha, x, beta, y);
   }
+  #ifdef ASGARD_USE_GPU
+  void mpi_iteration_apply_gpu(group_id, precision[]) const {}
+  void mpi_iteration_apply_gpu(precision[]) const {}
+  void mpi_iteration_stop_gpu() const {}
+  void mpi_leader_apply_gpu(precision alpha, precision const x[], precision beta,
+                            precision y[]) const
+  {
+    terms_apply_gpu(group_id::all(), alpha, x, beta, y);
+  }
+  void mpi_leader_apply_gpu(group_id gid, precision alpha, precision const x[],
+                            precision beta, precision y[]) const
+  {
+    terms_apply_gpu(gid, alpha, x, beta, y);
+  }
+  #endif
   #endif
 
   //! write out snapshot data, same as checkpoint but can be invoked manually
@@ -384,8 +478,8 @@ public:
     return advance_in_time(*this, num_steps);
   }
 
-  //! report time progress
-  void progress_report(std::ostream &os = std::cout) const {
+  //! report time progress, ndof is the degrees-of-freedom, if different from current_state.size()
+  void progress_report(std::ostream &os = std::cout, int64_t ndof = -1) const {
     if (stepper.is_steady_state())
     {
       os << "refinement iteration " << std::setw(10) << tools::split_style(stepper.data.step());
@@ -400,8 +494,12 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes())
-       << "  dof: " << std::setw(14) << tools::split_style(state.size());
+    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes());
+    if (ndof >= 0) {
+      os << "  dof: " << std::setw(14) << tools::split_style(ndof);
+    } else {
+      os << "  dof: " << std::setw(14) << tools::split_style(state.size());
+    }
 
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = tools::timer.max_flops();
@@ -627,6 +725,19 @@ protected:
   template<data_mode mode>
   void ode_rhs_sources(group_id gid, precision time, precision alpha,
                        std::vector<precision> &src) const;
+  #ifdef ASGARD_USE_GPU
+  //! same as ode_rhs_base() but the arrays are pre-allocated and on the GPU device 0
+  void ode_rhs_base_gpu(group_id gid, precision time, precision const current[],
+                        precision R[]) const;
+  //! same as ode_euler_base() but the arrays are pre-allocated and on the GPU device 0
+  void ode_euler_base_gpu(group_id gid, precision time, precision const current[],
+                          terms_scale term_scal, sources_scale source_scal,
+                          precision next[]) const;
+  //! same as ode_rhs_sources() but the arrays are pre-allocated and on the GPU device 0
+  template<data_mode mode>
+  void ode_rhs_sources_gpu(group_id gid, precision time, precision alpha, precision src[]) const;
+  #endif
+
   //! returns a snapshot of the state on the current MPI rank
   reconstruct_solution get_local_snapshot() const
   {
@@ -657,6 +768,11 @@ protected:
   //! leader iteration apply
   void mpi_leader_apply_base(group_id gid, precision alpha, precision const x[],
                              precision beta, precision y[]) const;
+  #ifdef ASGARD_USE_GPU
+  void mpi_iteration_apply_base_gpu(group_id gid, precision work[]) const;
+  void mpi_leader_apply_base_gpu(group_id gid, precision alpha, precision const x[],
+                                 precision beta, precision y[]) const;
+  #endif
   #endif
 #endif // __ASGARD_DOXYGEN_SKIP_INTERNAL
 
@@ -697,6 +813,11 @@ private:
   mutable
   #endif
   std::vector<precision> state;
+
+  #ifdef ASGARD_USE_GPU
+  // remove when moments can be computed from the GPU directly
+  mutable std::vector<precision> moments_workspace;
+  #endif
 
   //! fields to store and save for plotting
   std::vector<aux_field_entry<precision>> aux_fields;

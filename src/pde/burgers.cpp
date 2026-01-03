@@ -41,7 +41,7 @@
 
 /*!
  * \ingroup asgard_examples_burgers
- * \brief Make an elliptic PDE
+ * \brief Make a Burger's PDE
  *
  * Constructs the pde description for the given umber of dimensions
  * and options.
@@ -478,6 +478,7 @@ int main(int argc, char **argv) {
     std::cout << "<< additional options for this file >>\n";
     std::cout << "-dims            -dm     int        accepts: 1 - 2\n";
     std::cout << "                                    the number of dimensions\n\n";
+    std::cout << "-nu                                 diffusion coefficient\n";
     std::cout << "-test                               perform self-testing\n\n";
     return 0;
   }

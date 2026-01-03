@@ -49,6 +49,13 @@ struct source_entry
     for (auto const &v : consts) t += v.size() * sizeof(P);
     return t;
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! constant components on the gpu
+  std::array<gpu::vector<P>, max_num_dimensions> gpu_consts;
+  //! vector for the current grid
+  gpu::vector<P> gpu_val;
+  #endif
 };
 
 //! holds the data for an interpolatory source entry
@@ -61,23 +68,39 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    expect(not std::holds_alternative<std::monostate>(func));
+    expect(not uses_gpu());
     if (std::holds_alternative<moment_source<P>>(func)) {
       std::get<moment_source<P>>(func)(t, x, moments, vals);
     } else {
       std::get<md_func<P>>(func)(t, x, vals);
     }
   }
+  //! calls the moment variant, if set for moments
+  void operator() (int64_t const num, P t, P const x[], momentset<P> const &,
+                   P vals[]) const
+  {
+    expect(not std::holds_alternative<std::monostate>(func));
+    std::get<md_gpu_func<P>>(func)(num, t, x, vals);
+  }
   //! returns the moment source, use only if is_moment()
   moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
   //! indicates whether the entry contains a moment function
-  bool is_moment() const { return std::holds_alternative<moment_source<P>>(func); }
+  bool is_moment() const {
+    return std::holds_alternative<moment_source<P>>(func);
+  }
   //! indicates whether the entry contains a non-moment function
-  bool is_non_moment() const { return std::holds_alternative<md_func<P>>(func); }
+  bool is_non_moment() const {
+    return std::holds_alternative<md_func<P>>(func)
+           or std::holds_alternative<md_gpu_func<P>>(func);
+  }
+  //! indicates whether the entry contains a moment function
+  bool uses_gpu() const {
+    return std::holds_alternative<md_gpu_func<P>>(func);
+  }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
   //! interpolatory function for the source entry
-  std::variant<std::monostate, md_func<P>, moment_source<P>> func;
+  md_source_var<P> func;
 };
 
 /*!
@@ -118,6 +141,13 @@ struct boundary_entry {
   std::array<std::vector<P>, max_num_dimensions> consts;
   //! index if lumped with other sources
   int ilump = -1;
+
+  #ifdef ASGARD_USE_GPU
+  //! constant components on the gpu
+  std::array<gpu::vector<P>, max_num_dimensions> gpu_consts;
+  //! vector for the current grid
+  gpu::vector<P> gpu_val;
+  #endif
 };
 
 /*!

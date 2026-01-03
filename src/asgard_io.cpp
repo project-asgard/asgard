@@ -82,7 +82,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
 
     double const adapt = options.adapt_threshold.value_or(-1);
     H5Easy::dump(file, "grid_adapt_threshold", adapt);
-    double const adapt_rel = options.adapt_threshold.value_or(-1);
+    double const adapt_rel = options.adapt_relative.value_or(-1);
     H5Easy::dump(file, "grid_adapt_relative", adapt_rel);
   }
 

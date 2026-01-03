@@ -15,3 +15,9 @@ add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/inputs_1d" "-i
 foreach (_example @_asgard_doc_pdes_str@)
     add_test(${_example}  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -test)
 endforeach()
+
+if ("@ASGARD_USE_CUDA@" OR "@ASGARD_USE_ROCM@")
+    foreach (_example @_asgard_gpu_pdes_str@)
+        add_test(${_example}  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -test)
+    endforeach()
+endif()

@@ -119,17 +119,23 @@ struct term_manager
   interpolation_manager<P> interp;
   //! values for the interpolation field, allows reuse for several interp ops
   mutable std::vector<P> ifield;
+  #ifdef ASGARD_USE_GPU
+  //! field value sitting on the GPU
+  mutable gpu::vector<P> gpu_ifield;
+  #endif
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> it1, it2; // used for interpolation
   mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
+  mutable std::vector<P> cpu_s1; // used for sources on the CPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   // for both multi-gpu support and interpolation evals on the CPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
+  mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
   //! has Poisson solver for the given group
@@ -150,6 +156,10 @@ struct term_manager
   #ifdef ASGARD_USE_MPI
   //! workspace for MPI
   mutable std::vector<P> mpiwork;
+  #ifdef ASGARD_USE_GPU
+  //! workspace for MPI+GPU
+  mutable gpu::vector<P> gpumpi_work;
+  #endif
   #endif
 
   //! return the range for the given group, returns full range for group -1
@@ -333,6 +343,21 @@ struct term_manager
                 alpha, x, beta, y, kwork);
     }
   }
+  #ifdef ASGARD_USE_GPU
+  //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
+  void kron_term(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
+                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  {
+    if (tme.is_interpolatory()) {
+      interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {}, {},
+             alpha, tme.tmd, beta, y, kwork,
+             cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+    } else {
+      block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
+                alpha, x, beta, y, kwork, tme.coeffs);
+    }
+  }
+  #endif
 
   //! build the diagonal preconditioner
   template<data_mode mode>
@@ -344,13 +369,6 @@ struct term_manager
   void apply_sources(group_id group, sparse_grid const &grid,
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
-  //! process all the sources and store the result into pre-allocated vector
-  template<data_mode dmode>
-  void apply_sources(sparse_grid const &grid,
-                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                     P time, P alpha, P y[]) {
-    apply_sources<dmode>(group_id::all(), grid, conns, hier, time, alpha, y);
-  }
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
   void apply_sources(group_id group, sparse_grid const &grid,
@@ -360,15 +378,12 @@ struct term_manager
     expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
     apply_sources<dmode>(group, grid, conns, hier, time, alpha, y.data());
   }
-  //! process all sources and apply the dmode operation to y
+  #ifdef ASGARD_USE_GPU
   template<data_mode dmode>
-  void apply_sources(sparse_grid const &grid,
-                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                     P time, P alpha, std::vector<P> &y)
-  {
-    expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(group_id::all(), grid, conns, hier, time, alpha, y.data());
-  }
+  void apply_sources_gpu(group_id group, sparse_grid const &grid,
+                         connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
+                         P time, P alpha, P y[]);
+  #endif
 
   //! prints the total memory used
   void print_bytes(std::ostream &os = std::cout) const;
@@ -378,6 +393,8 @@ protected:
   int workspace_grid_gen = -1;
   //! remember which grid was cached for the sources
   int sources_grid_gen = -1;
+  //! remember which grid was cached for the sources
+  int sources_gpu_grid_gen = -1;
   //! dependencies for each term group, if empty then no poisson dependence for any group
   std::vector<bool> has_poisson_;
   //! if operators have separable moment dependencies, used to update preconditioners

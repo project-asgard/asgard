@@ -153,6 +153,17 @@ public:
   //! solves Ax = b
   void operator() (group_id group, std::vector<P> &b) const { (*this)(group, 0, b); }
 
+  #ifdef ASGARD_USE_GPU
+  //! solves Ax = b, b is in GPU memory
+  void operator() (group_id group, size_t stage, P b[]) const {
+    size_t const idx = mat_index(group, stage);
+    expect(idx < mats.size());
+    mats[idx].dense_mat.solve(b);
+  }
+  //! solves Ax = b, b is in GPU memory
+  void operator() (group_id group, P b[]) const { (*this)(group, 0, b); }
+  #endif
+
   //! set the number of stages
   void set_num_stages(size_t num) { num_stages = num; }
 
@@ -395,6 +406,8 @@ public:
   #ifdef ASGARD_USE_GPU
   //! solve for the given linear operators, right-hand-side and initial iterate
   void operator() (group_id group, size_t stage, gpu::vector<P> &x) const;
+  //! solve for the given linear operators, right-hand-side and initial iterate
+  void operator() (group_id group, size_t stage, P x[]) const;
   #endif
 
   //! set the number of stages
@@ -411,6 +424,10 @@ private:
   size_t s_index(group_id group, size_t stage) const {
     return static_cast<size_t>((group() + 1) * num_stages + stage);
   }
+  #ifdef ASGARD_USE_GPU
+  //! expected state size on the GPU
+  int64_t num_entries = 0;
+  #endif
   //! number of stored stages
   size_t num_stages = 1;
   //! scale factor
@@ -575,7 +592,6 @@ struct solver_manager
       std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
     else
       std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
-
   }
   //! direct solver only, just call the matrix inversion method
   void solve_inplace(group_id group, size_t stage, std::vector<P> &x) {
@@ -584,6 +600,23 @@ struct solver_manager
     else
       std::get<solvers::scaled_identity<P>>(var)(group, stage, x);
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! direct solver only, just call the matrix inversion method
+  void solve_inplace(P x[]) {
+    if (method() == solver_method::direct)
+      std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
+    else
+      std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
+  }
+  //! direct solver only, just call the matrix inversion method
+  void solve_inplace(group_id group, size_t stage, P x[]) {
+    if (method() == solver_method::direct)
+      std::get<solvers::direct<P>>(var)(group, stage, x);
+    else
+      std::get<solvers::scaled_identity<P>>(var)(group, stage, x);
+  }
+  #endif
 
   //! iterative solver, calls the appropriate iterative solver
   void iterate_solve(solvers::operatoin_apply_lhs<P> apply_lhs,

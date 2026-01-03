@@ -56,6 +56,14 @@ if (ASGARD_USE_MPI)
   set (ASGARD_MPI_BCAST_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Bcast")
   set (ASGARD_MPI_REDUCE_THRESHOLD "4" CACHE STRING "Number of ranks to switch from Send/Recv to collective Reduce")
   set (ASGARD_TEST_MPI_OMP_NUM_THREADS "" CACHE STRING "Sets the OMP_NUM_THREADS variable in MPI testing (only in testing)")
+
+  if (ASGARD_USE_CUDA AND ASGARD_USE_ROCM)
+    option (ASGARD_GPUMPI_DIRECT "Optional enable GPU-Aware MPI communication, make sure the MPI version supports GPU-Aware MPI" OFF)
+  endif()
+endif()
+
+if (ASGARD_GPUMPI_DIRECT AND NOT ASGARD_USE_MPI) # maybe ASGARD_GPUMPI_DIRECT is set by an external script
+  set(ASGARD_GPUMPI_DIRECT OFF CACHE FORCE)
 endif()
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
@@ -101,8 +109,11 @@ if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
 
   option(ASGARD_GPU_MEMGREEDY "Use a greedy approach with higher memory usage but also faster speed" ON)
 else()
-  # if neither CUDA nor ROCm are present, then never use GPUs
+  # if neither CUDA nor ROCm are present, then never use GPUs or GPU-Aware things
   set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
+  if (ASGARD_GPUMPI_DIRECT) # if set by a script or by mistake
+    set(ASGARD_GPUMPI_DIRECT OFF CACHE FORCE)
+  endif()
 endif()
 
 #Enable HighFive IO if any of the following variables are defined
@@ -121,12 +132,17 @@ endif()
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
 set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers bgk")
+set (_asgard_gpu_pdes "burgers_gpu")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration
 separate_arguments(_asgard_doc_pdes) # switch to list format for the documentation PDEs
 
+set (_asgard_gpu_pdes_str "${_asgard_gpu_pdes}") # save for examples configuration
+separate_arguments(_asgard_gpu_pdes)
+
 list(APPEND _asgard_pdes ${_asgard_doc_pdes})
+list(APPEND _asgard_pdes ${_asgard_gpu_pdes})
 list(APPEND _asgard_pdes ${_asgard_int_pdes})
 
 ###############################################################################
@@ -496,7 +512,6 @@ if (ASGARD_USE_ROCM)
     target_compile_features (libasgard PUBLIC hip_std_17)
 endif()
 
-
 #-------------------------------------------------------------------------------
 #  Define a asgard executables targets.
 #-------------------------------------------------------------------------------
@@ -511,12 +526,29 @@ target_link_libraries (asgard_exe PRIVATE libasgard)
 foreach (_asgexe IN LISTS _asgard_pdes)
     add_executable (${_asgexe} "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp")
     target_link_libraries (${_asgexe} PUBLIC libasgard)
-    if (${_asgexe} IN_LIST _asgard_doc_pdes)
+    if (${_asgexe} IN_LIST _asgard_doc_pdes OR ${_asgexe} IN_LIST _asgard_gpu_pdes)
         install(TARGETS ${_asgexe} RUNTIME DESTINATION "share/asgard/pde")
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgexe}.cpp"
                 DESTINATION "share/asgard/examples")
     endif()
 endforeach()
+
+# GPU_COMPONENT and GPU_LAND are used to configure the examples CMakeLists
+# if the GPU is disable, those will be set to CUDA but will not be used since
+# the CUDA component will not be found, ROCM needs to change those to the right values
+set (__asgard_GPU_COMPONENT "asgard_CUDA_FOUND")
+set (__asgard_GPU_LANG "CUDA")
+if (ASGARD_USE_CUDA OR ASGARD_USE_ROCM)
+    if (ASGARD_USE_ROCM)
+        set (__asgard_GPU_LANG "HIP") # using HIP
+        set (__asgard_GPU_COMPONENT "asgard_ROCM_FOUND")
+    endif()
+
+    foreach (_asgpde ${_asgard_gpu_pdes})
+        set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/pde/${_asgpde}.cpp
+                                     PROPERTIES LANGUAGE ${__asgard_GPU_LANG})
+    endforeach()
+endif()
 
 #-------------------------------------------------------------------------------
 # Builds the documentation, must come after asgard target is defined
@@ -680,6 +712,9 @@ if (ASGARD_BUILD_TESTS)
     foreach(_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
       message(STATUS "  ${_opt}=${${_opt}}")
     endforeach()
+  endif()
+  if ((ASGARD_USE_CUDA OR ASGARD_USE_ROCM) AND ASGARD_USE_MPI)
+    message(STATUS "  ASGARD_GPUMPI_DIRECT=${ASGARD_GPUMPI_DIRECT}")
   endif()
   message(STATUS "")
 

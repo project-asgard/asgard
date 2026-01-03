@@ -115,6 +115,12 @@ struct steady_state
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &endstep) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! Solves for the final step using the GPU
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &endstep) const;
+  #endif
+
   //! requires a solver
   static bool constexpr needs_solver = true;
   //! needed precondtioner, if using an iterative solver
@@ -139,7 +145,8 @@ private:
   // workspace (rhs)
   mutable std::vector<P> work;
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> t1, t2; // GPU workspace
+  mutable gpu::vector<P> gcurrent, gendstep;
+  mutable gpu::vector<P> gwork;
   #endif
 };
 
@@ -162,9 +169,15 @@ struct rungekutta
     expect(rktype == time_method::forward_euler or rktype == time_method::rk2
            or rktype == time_method::rk3 or rktype == time_method::rk4);
   }
-  //! Performs RK3 step forward in time, uses the current and next step
+  //! Performs RK step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
+  #ifdef ASGARD_USE_GPU
+  //! Performs RK step forward in time, uses the current and next step
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  #endif
+
   //! explicit solver and does not require a solver
   static bool constexpr needs_solver = false;
   //! prints the total memory used
@@ -206,6 +219,10 @@ private:
 
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, k4, s1;
+  #ifdef ASGARD_USE_GPU
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gk1, gk2, gk3, gk4, gs1;
+  #endif
 };
 
 /*!
@@ -230,13 +247,23 @@ struct crank_nicolson
     expect(method == time_method::cn or
            method == time_method::back_euler);
   }
-    //! computes the rhs of the implicit solver using single MPI operation
-  void set_rhs(discretization_manager<P> const &dist, P time, P substep, P dt,
+  //! computes the rhs of the implicit solver using single MPI operation
+  void set_rhs(discretization_manager<P> const &disc, P time, P substep, P dt,
                std::vector<P> const &current, std::vector<P> &next) const;
 
   //! Performs Crank-Nicolson step forward in time, uses the current and next step
-  void next_step(discretization_manager<P> const &dist, std::vector<P> const &current,
+  void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! computes the rhs of the implicit solver using single MPI operation
+  void set_rhs_gpu(discretization_manager<P> const &disc, P time, P substep, P dt,
+                   gpu::vector<P> const &current, gpu::vector<P> &next) const;
+
+  //! Performs Crank-Nicolson step forward in time, uses the current and next step
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  #endif
 
   //! requires a solver
   static bool constexpr needs_solver = true;
@@ -264,7 +291,8 @@ private:
   mutable std::vector<P> work;
 
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> t1, t2; // GPU workspace
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gwork;
   #endif
 };
 
@@ -292,9 +320,15 @@ struct imex_stepper
     if (method != time_method::imex1)
       solver.set_num_stages(2);
   }
-  //! Performs Crank-Nicolson step forward in time, uses the current and next step
+  //! Performs IMEX step forward in time, uses the current and next step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
                  std::vector<P> &next) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! Performs IMEX step, arrays sit on the GPU device
+  void next_step(discretization_manager<P> const &disc, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  #endif
 
   //! requires a solver
   static bool constexpr needs_solver = true;
@@ -318,6 +352,13 @@ private:
                       P time, P dt, preconditioner_data<P> &precon,
                       std::vector<P> &current, std::vector<P> &R) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! same as above but uses arrays allocated on the GPU
+  void implicit_solve(discretization_manager<P> const &disc, size_t stage,
+                      P time, P dt, preconditioner_data<P> &precon,
+                      gpu::vector<P> &current, gpu::vector<P> &R) const;
+  #endif
+
   time_method method = time_method::imex2;
   // the solver used
   mutable solver_manager<P> solver;
@@ -328,10 +369,11 @@ private:
   imex_implicit_group imex_implicit;
   imex_explicit_group imex_explicit;
   // workspace
-  mutable std::vector<P> fs, f;
+  mutable std::vector<P> f;
 
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> t1, t2; // GPU workspace
+  mutable gpu::vector<P> gcurrent, gnext;
+  mutable gpu::vector<P> gf;
   #endif
 };
 
@@ -363,31 +405,18 @@ struct time_advance_manager
                  std::vector<P> &next) const;
   //! returns whether the manager requires a solver
   bool needs_solver() const {
-    switch (method.index()) {
-      case 0:
-        return time_advance::steady_state<P>::needs_solver;
-      case 1:
-        return time_advance::rungekutta<P>::needs_solver;
-      case 2:
-        return time_advance::crank_nicolson<P>::needs_solver;
-      case 3:
-        return time_advance::imex_stepper<P>::needs_solver;
-      default:
-        return false; // unreachable
-    };
+    return std::visit([&](auto const &s) -> bool {
+                          return std::remove_reference_t<decltype(s)>::needs_solver;
+                       }, method);
   }
   //! returns the precondtioner required by the solver, if any
   precon_method needed_precon() const {
-    switch (method.index()) {
-      case 0: // steady state
-        return std::get<0>(method).needed_precon();
-      case 2: // implicit stepper
-        return std::get<2>(method).needed_precon();
-      case 3: // implicit stepper
-        return std::get<3>(method).needed_precon();
-      default:
-        return precon_method::none;
-    };
+    return std::visit([&](auto const &s) -> precon_method {
+                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                            return s.needed_precon();
+                          else
+                            return precon_method::none;
+                       }, method);
   }
 
   //! prints the time-advance stats
@@ -425,16 +454,12 @@ struct time_advance_manager
   }
   //! returns the count the iterations of the iterative solver, -1 if using a direct solver
   int64_t solver_iterations() const {
-    switch (method.index()) {
-      case 0:
-        return std::get<0>(method).num_apply_calls();
-      case 2:
-        return std::get<2>(method).num_apply_calls();
-      case 3:
-        return std::get<3>(method).num_apply_calls();
-      default:
-        return -1;
-    };
+    return std::visit([&](auto const &s) -> int64_t {
+                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                            return s.num_apply_calls();
+                          else
+                            return -1;
+                       }, method);
   }
   //! returns true of the stepper is set to steady-state
   bool is_steady_state() const { return (method.index() == 0); }
@@ -448,6 +473,16 @@ struct time_advance_manager
   //! wrapper around the specific method being used
   std::variant<time_advance::steady_state<P>, time_advance::rungekutta<P>,
                time_advance::crank_nicolson<P>, time_advance::imex_stepper<P>> method;
+
+  #ifdef ASGARD_USE_GPU
+  //! advance to the next time-step
+  void next_step(discretization_manager<P> const &dist, gpu::vector<P> const &current,
+                 gpu::vector<P> &next) const;
+  //! moves the current step from the CPU to the GPU
+  mutable gpu::vector<P> gcurrent;
+  //! holds the next step compute on the GPU
+  mutable gpu::vector<P> gnext;
+  #endif
 };
 
 }

@@ -73,6 +73,7 @@ public:
   //! \brief Copy the data from the std::vector
   vector<T> &operator=(std::vector<T> const &other)
   {
+    // tools::time_event perf_("copy-from-std::vector");
     this->resize(other.size());
     gpu::memcopy_host2dev(size_, other.data(), data_);
     return *this;
@@ -105,15 +106,18 @@ public:
   }
   //! \brief Copy to a host array, the destination must be large enough
   void copy_to_host(T *destination) const {
+    // tools::time_event perf_("copy-to-host");
     gpu::memcopy_dev2host(size_, data_, destination);
   }
   //! \brief Copy number of entries to a host array, the destination must be large enough
   void copy_to_host(int64_t num, T *destination) const {
+    // tools::time_event perf_("copy-to-host");
     gpu::memcopy_dev2host(num, data_, destination);
   }
   //! \brief Copy to a std::vector on the host.
   void copy_to_host(std::vector<T> &destination) const
   {
+    // tools::time_event perf_("copy-resize-to-host");
     destination.resize(size_);
     this->copy_to_host(destination.data());
   }
@@ -132,10 +136,37 @@ public:
   //! \brief Custom conversion, so we can assign to std::vector.
   operator std::vector<T>() const { return this->copy_to_host(); }
 
+  //! non-owning mode, no safeguards, make sure resize is not called with new size and release before destruct
+  vector(T *d, int64_t s) : data_(d), size_(s) {}
+  //! release without destruction
+  T *release() {
+    size_ = 0;
+    return std::exchange(data_, nullptr);
+  }
+
 private:
   T *data_ = nullptr;
   int64_t size_ = 0;
 };
+
+/*!
+ * \brief wraps a raw-array into a non-owning container that can be used a gpu::vector
+ *
+ * Essentially, this provides a way to mix raw-arrays and gpu::vector.
+ * This is intended for local use only, do not set as a member of a class.
+ */
+template<typename T>
+struct wrap_array {
+  //! wrap the array
+  wrap_array(T *data, int64_t num_entries) : vec(data, num_entries) {}
+  //! destructor, does not delete the data
+  ~wrap_array() { vec.release(); }
+  //! can be passed in place of a vector-ref
+  operator gpu::vector<T> &() { return vec; }
+
+  gpu::vector<T> vec;
+};
+
 
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
 template<typename T>
@@ -147,6 +178,13 @@ void mcopy(device src_dev, vector<T> const &src, device dest_dev, vector<T> &des
 template<typename T>
 void mcopy(device src_dev, T const src[], device dest_dev, vector<T> &dest) {
   mcopy(dest.size(), src_dev, src, dest_dev, dest.data());
+}
+//! \brief Copy data to the CPU and dump for debugging
+template<typename P>
+void dump(int n, P const x[], std::string message = "") {
+  std::vector<P> cpu(n);
+  memcopy_dev2host(n, x, cpu.data());
+  tools::dump(cpu, message);
 }
 
 } // namespace gpu
@@ -184,8 +222,14 @@ public:
   void getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const;
   //! PLU solve of an M x M matrix
   template<typename P>
+  void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv, P b[]) const;
+  //! PLU solve of an M x M matrix
+  template<typename P>
   void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
-             gpu::vector<P> &b) const;
+             gpu::vector<P> &b) const
+  {
+    getrs<P>(M, A, ipiv, b.data());
+  }
   //! PLU solve of an M x M matrix
   template<typename P>
   void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
