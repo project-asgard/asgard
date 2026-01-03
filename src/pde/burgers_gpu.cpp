@@ -290,13 +290,6 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
       }
     };
 
-  auto f2 = [=](P, asgard::vector2d<P> const &,
-                std::vector<P> const &f, std::vector<P> &vals) ->
-    void {
-      for (size_t i = 0; i < f.size(); i++) {
-        vals[i] = f[i] * f[i];
-      }
-    };
   #endif
 
   auto f2cpu = [=](P, asgard::vector2d<P> const &,

@@ -882,29 +882,30 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   auto found_bad = [&]() -> int { return gpu::num_non_finite(next); };
 
+  auto resync_gpu = [&]() -> void {
+      if (manager.is_leader())
+        current.copy_to_host(manager.state);
+      else
+        manager.state.resize(manager.num_dof());
+    };
+
+  auto refine_to_cpu = [&]() -> void {
+      if (manager.is_leader()) next.copy_to_host(cpu_next);
+    };
+
+  auto refine_to_gpu = [&]() -> void {
+      if (manager.is_leader()) next = cpu_next;
+    };
+
   #else
+
   std::vector<P> &current = manager.state;
   std::vector<P> next;
-  #endif
+  std::vector<P> &cpu_next = next;
 
-  while (--num_steps >= 0)
-  {
-    // #ifdef ASGARD_USE_GPU
-    // stepper.next_step(manager, stepper.gcurrent, stepper.gnext);
-    // #else
-    stepper.next_step(manager, manager.state, next);
-    // #endif
-
-    if (manager.safe_step) {
-      tools::time_event performance_("check for inf/nan");
-
-      #ifdef ASGARD_USE_GPU
-      int const found_bad = gpu::num_non_finite(stepper.gnext.size(), stepper.gnext.data());
-      // int const found_bad = 0;
-      #else
-      // technically the found-bad is OK/not-OK
-      // but OpenMP works better with int or size_t
-      size_t found_bad = 0;
+  auto found_bad = [&]()
+    -> size_t {
+      size_t nbad = 0;
       #pragma omp parallel
       {
         size_t local_bad = 0;
@@ -914,38 +915,50 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
             ++local_bad;
 
         #pragma omp atomic
-        found_bad += local_bad;
+        nbad += local_bad;
       }
-      #endif
-      if (found_bad > 0) {
+      return nbad;
+    };
+
+  auto resync_gpu = [&]() -> void {};
+  auto refine_to_cpu = [&]() -> void {};
+  auto refine_to_gpu = [&]() -> void {};
+  #endif
+
+  auto accept_next = [&]() -> void {
+      if (manager.is_leader())
+        std::swap(next, current);
+      else
+        current.resize(manager.num_dof());
+      params.take_step();
+    };
+
+  while (--num_steps >= 0)
+  {
+    stepper.next_step(manager, current, next);
+
+    if (manager.safe_step) {
+      tools::time_event performance_("check for inf/nan");
+
+      if (found_bad() > 0) {
         std::cerr << "ERROR: found 'inf' or 'nan' entries in the next time-step\n"
                   << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
                   << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
                   << "       max-grid level is too low, time-step is too large, etc.\n";
-
-        #ifdef ASGARD_USE_GPU
-        if (manager.is_leader())
-            stepper.gcurrent.copy_to_host(manager.state);
-        else
-            manager.state.resize(manager.num_dof());
-        #endif
-
+        resync_gpu();
         return false;
       }
     }
 
     if (manager.refinement) {
-      #ifdef ASGARD_USE_GPU
-      if (manager.is_leader())
-        stepper.gnext.copy_to_host(next);
-      #endif
+      refine_to_cpu();
       int const gen = grid.generation();
-      manager.refine(grid_strategy, next);
+      manager.refine(grid_strategy, cpu_next);
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
 
       if (grid.generation() != gen) {
         if (manager.is_leader())
-          grid.remap(manager.hier.block_size(), next);
+          grid.remap(manager.hier.block_size(), cpu_next);
         manager.terms.prapare_kron_workspace(grid);
         if (manager.poisson)
           manager.poisson.update_level(grid.current_level(0));
@@ -953,36 +966,17 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::refine;
         }
-        #ifdef ASGARD_USE_GPU
-        if (manager.is_leader())
-          stepper.gnext = next;
-        #endif
+        refine_to_gpu();
       }
     }
 
-    #ifdef ASGARD_USE_GPU
-    if (manager.is_leader())
-      std::swap(stepper.gnext, stepper.gcurrent);
-    else
-      stepper.gcurrent.resize(manager.num_dof());
-    #else
-    if (manager.is_leader())
-      std::swap(manager.state, next);
-    else // no used unless using MPI
-      manager.state.resize(manager.num_dof());
-    #endif
-
-    params.take_step();
+    accept_next();
 
     if (not manager.stop_verbosity()) {
       // if verbosity is not turned off, report every 2 or 10 seconds
       double duration = tools::simple_timer::duration_since(wctime);
       if ((manager.high_verbosity() and duration > 2000) or (duration > 10000)) {
-        #ifdef ASGARD_USE_GPU
-        manager.progress_report(std::cout, stepper.gcurrent.size());
-        #else
-        manager.progress_report();
-        #endif
+        manager.progress_report(std::cout, static_cast<int64_t>(current.size()));
         wctime = tools::simple_timer::current_time();
         if (manager.options_.show_memusage)
           manager.report_memusage();
@@ -992,12 +986,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     if (stepper.is_steady_state())
       params.set_final_time();
   }
-  #ifdef ASGARD_USE_GPU
-  if (manager.is_leader())
-    stepper.gcurrent.copy_to_host(manager.state);
-  else
-    manager.state.resize(manager.num_dof());
-  #endif
+  resync_gpu();
 
   return true;
 }
