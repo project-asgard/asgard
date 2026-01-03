@@ -564,10 +564,12 @@ void moment_manager<P>::compute_interps(
     std::vector<P> const &state, interpolation_manager<P> const &interp,
     kronmult::workspace<P> &work, std::vector<P> &workspace) const
 {
+  size_t const num_entries = workspace.size();
   for (auto const &id : ids) {
     cache_moment(id, grid, state);
     make_nodal(id, interp, work, workspace);
   }
+  workspace.resize(num_entries);
 }
 
 template<typename P>
@@ -575,9 +577,11 @@ void moment_manager<P>::load_interp(
     interpolation_manager<P> const &interp, kronmult::workspace<P> &work,
     std::vector<P> &workspace) const
 {
+  size_t const num_entries = workspace.size();
   for (int i = 0; i < mlist.size(); i++)
     if (mlist[moment_id{i}].action == moment::interpolatory)
       make_nodal(moment_id{i}, interp, work, workspace);
+  workspace.resize(num_entries);
 }
 
 template<typename P>
@@ -585,9 +589,11 @@ void moment_manager<P>::load_interp(
     group_id group, interpolation_manager<P> const &interp,
     kronmult::workspace<P> &work, std::vector<P> &workspace) const
 {
+  size_t const num_entries = workspace.size();
   for (auto id : groups_[group()])
     if (mlist[id].action == moment::interpolatory)
       make_nodal(id, interp, work, workspace);
+  workspace.resize(num_entries);
 }
 
 template<typename P>

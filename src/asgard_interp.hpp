@@ -153,9 +153,11 @@ public:
   void pos2nodal(sparse_grid const &grid, P const f[], P scal, std::vector<P> &vals,
                  kronmult::workspace<P> &work) const
   {
-    size_t num_entries = static_cast<size_t>(grid.num_indexes() * fm::ipow(pdof, grid.num_dims()));
+    size_t const num_entries = static_cast<size_t>(grid.num_indexes()
+                                                   * fm::ipow(pdof, grid.num_dims()));
     vals.resize(num_entries);
     pos2nodal(grid, f, scal, vals.data(), work);
+
   }
 
   //! converts interpolated nodal values to hierarchical coefficients
