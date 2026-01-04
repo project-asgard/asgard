@@ -619,7 +619,7 @@ public:
       }
     } else {
     #endif
-      terms.moms.cache_moments(grid, f, gid.gid);
+      terms.moms.cache_moments(grid, f, gid);
     #ifdef ASGARD_USE_MPI
     }
     #endif

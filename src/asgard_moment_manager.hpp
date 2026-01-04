@@ -53,7 +53,8 @@ public:
                std::vector<P> const &state, std::vector<P> &vals) const;
 
   //! load all moments into the data-structures
-  void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
+  void cache_moments(sparse_grid const &grid, std::vector<P> const &state,
+                     group_id group = group_id::all()) const;
   //! computes and caches a specific moment
   void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
 
@@ -120,6 +121,11 @@ public:
 
   //! computes approximate memory usage by the object
   size_t used_bytes() const;
+
+  #ifdef ASGARD_USE_GPU
+  //! return the set of cached interpolation values, all relevant moments must be cached already
+  momentset_gpu<P> const &get_cached_interps(gpu::device_id dev) const { return gpu_interps[dev()]; }
+  #endif
 
 protected:
   //! set the new groups
@@ -194,6 +200,10 @@ private:
   mutable momentset<P> raw_vals; // computed on pos-grid
   mutable momentset<P> full_level; // operator matrices need full level moments
   mutable momentset<P> interps; // moment values for interpolation
+
+  #ifdef ASGARD_USE_GPU
+  mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
+  #endif
 
   mutable std::vector<P> poisson_raw_; // computed on pos-grid (or full grid for 1D)
   mutable std::vector<P> poisson_level_; // Poisson extended to full level

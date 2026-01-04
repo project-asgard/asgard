@@ -213,4 +213,43 @@ private:
   std::vector<std::vector<P>> moms_;
 };
 
+#ifdef ASGARD_USE_GPU
+/*!
+ * \brief Holds the computed moments on the GPU
+ *
+ * Stores the data for each moment after it has been computed,
+ * can hold either the hierarchical coefficients or the interpolation values.
+ */
+template<typename P>
+class momentset_gpu {
+public:
+  //! create an empty moment list
+  momentset_gpu() = default;
+  //! create the new set with the given number of moments
+  momentset_gpu(int num_moments) : moms_(num_moments) {}
+
+  //! returns the number of stored moments
+  size_t size() const { return moms_.size(); }
+
+  //! return the provided moment, const variant
+  gpu::vector<P> const &operator[] (moment_id mid) const { return moms_[mid()]; }
+  //! return the provided moment
+  gpu::vector<P> &operator[] (moment_id mid) { return moms_[mid()]; }
+  //! return the provided moment, never const
+  gpu::vector<P> &get(moment_id mid) { return moms_[mid()]; }
+  //! return the raw-array for the provided moment
+  P const *data(moment_id mid) const { return moms_[mid()].data(); }
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = 0;
+    for (auto const &v : moms_) t += v.size();
+    return t * sizeof(P);
+  }
+
+private:
+  std::vector<gpu::vector<P>> moms_;
+};
+#endif
+
 }

@@ -479,9 +479,9 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
 template<typename P>
 void moment_manager<P>::cache_moments(
-    sparse_grid const &grid, std::vector<P> const &state, int group) const
+    sparse_grid const &grid, std::vector<P> const &state, group_id group) const
 {
-  if (group < 0) { // do all moments
+  if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
     for (int i : iindexof(mlist.size())) {
       if (mlist[moment_id{i}].action != moment::inactive) {
@@ -491,8 +491,8 @@ void moment_manager<P>::cache_moments(
       }
     }
   } else {
-    tools::time_event performance_("cache moments (" + std::to_string(group) + ")");
-    for (auto const &id : groups_[group]) {
+    tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
+    for (auto const &id : groups_[group()]) {
       if (mlist[id].action != moment::inactive) {
         compute(grid, id, state, raw_vals.get(id));
         full_level.get(id).resize(0);
