@@ -74,8 +74,12 @@ struct device {
   explicit device(int gpuid) : id(gpuid) {}
   //! Compare two devices and if they match
   bool operator == (device const &other) const { return (id == other.id); }
+  //! returns the id index
+  int operator() () const { return id; }
   //! The device ID, e.g., 0, 1, 2, 3, ...
   int id = -1; // default to an invalid ID, forces an error if used uninitialized
+  //! id indicating no-device
+  static int none() { return -1; }
 };
 
 }

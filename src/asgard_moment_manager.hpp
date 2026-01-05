@@ -124,7 +124,7 @@ public:
 
   #ifdef ASGARD_USE_GPU
   //! return the set of cached interpolation values, all relevant moments must be cached already
-  momentset_gpu<P> const &get_cached_interps(gpu::device_id dev) const { return gpu_interps[dev()]; }
+  momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   #endif
 
 protected:
@@ -172,6 +172,14 @@ private:
     zero,
     //! need to consider all levels
     all,
+  };
+
+  //! indicates a moment, group and the corresponding device
+  struct moment_info {
+    //! the moment_id
+    moment_id id;
+    //! device
+    gpu::device dev = gpu::device::none();
   };
 
   int num_dims_ = 0;
