@@ -605,6 +605,36 @@ size_t moment_manager<P>::used_bytes() const {
   return t;
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void moment_manager<P>::set_moment_distributino(
+    std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
+    std::vector<std::vector<moment_id>> const &cpu_mom)
+{
+  // avoiding the double-vector, lumping moment for all groups together
+  // group-0-moment-0, ..., moment_id::unset(), group-1-moment-0, ...., unset()
+  for (int dev : iindexof(max_num_gpus)) {
+    auto const &groups = gpu_mom[dev];
+    size_t num_moms = 0; // get the total number of moments for this GPU
+    for (auto const &m : groups)
+      num_moms += m.size();
+    if (num_moms == 0) { // nothing to do on this device
+      gpu_moments[dev].resize(0);
+    } else { // some group has at least one moment
+      gpu_moments[dev].reserve(num_moms + groups.size());
+      for (auto const &mg : groups) {
+        for (auto const &m : mg) // copy the moments for this group
+          gpu_moments[dev].push_back(m);
+        // using unset moments to indicate the end of the group
+        gpu_moments[dev].push_back(moment_id::unset());
+      }
+      expect(num_moms + groups.size() == gpu_moments[dev].size());
+    }
+  }
+  groups_ = cpu_mom;
+}
+#endif
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template class moment_manager<double>;
 #endif

@@ -123,6 +123,23 @@ public:
   size_t used_bytes() const;
 
   #ifdef ASGARD_USE_GPU
+  /*!
+   * \brief Set the distribution of inteprolatory moments across GPU devices
+   *
+   * Interpolation moments require most expensive kronmult operations and can be fed into
+   * user provided functions on the GPU device. But this must respect the distribution
+   * of moments across GPU devices, and this applies only to interpolatory moments.
+   * The format is device dev, group grp has a vector of moments mom[dev][grp].
+   *
+   * CPU moments can be interpolated, regular or inactive. The interpolated moments
+   * will be computed on device 0 and moved back to the CPU.
+   * Regular moments will be computed on the CPU.
+   */
+  void set_moment_distributino(std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
+                               std::vector<std::vector<moment_id>> const &cpu_mom);
+  //! load the inteprolatory moments, specified device and group
+  void load_interp(gpu::device dev, group_id group, interpolation_manager<P> const &interp,
+                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   #endif
@@ -174,14 +191,6 @@ private:
     all,
   };
 
-  //! indicates a moment, group and the corresponding device
-  struct moment_info {
-    //! the moment_id
-    moment_id id;
-    //! device
-    gpu::device dev = gpu::device::none();
-  };
-
   int num_dims_ = 0;
   int num_vel_ = 0;
   int pdof = 0;
@@ -198,8 +207,7 @@ private:
   mutable std::vector<int> pntr;
 
   moments_list mlist;
-  std::vector<std::vector<moment_id>> groups_; // Remove later
-  std::vector<std::vector<moment_info>> groups2_; // Ugh, moments can have multiple GPUs
+  std::vector<std::vector<moment_id>> groups_;
 
   bool all_levels_zero = true;
   std::array<moment_level, max_mom_dims> dim_level;
@@ -211,6 +219,8 @@ private:
   mutable momentset<P> interps; // moment values for interpolation
 
   #ifdef ASGARD_USE_GPU
+  bool has_regular_moments = false; // if moments have to computed on the CPU too
+  std::array<std::vector<moment_id>, max_num_gpus> gpu_moments;
   mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
   #endif
 

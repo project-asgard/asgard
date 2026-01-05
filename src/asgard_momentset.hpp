@@ -93,24 +93,26 @@ public:
   //! default placeholder id
   moment_id() = default;
   //! explicit constructor for the new id
-  explicit moment_id(int num) : id_(num) {}
+  explicit constexpr moment_id(int num) : id_(num) {}
   //! get the id
-  int get() const { return id_; }
+  constexpr int get() const { return id_; }
   //! another getter
-  int operator () () const { return id_; }
+  constexpr int operator () () const { return id_; }
 
   //! check whether two ids are the same
-  bool operator == (moment_id const &other) const {
+  constexpr bool operator == (moment_id const &other) const {
     return id_ == other.id_;
   }
   //! check whether two ids are different
-  bool operator != (moment_id const &other) const {
+  constexpr bool operator != (moment_id const &other) const {
     return not (*this == other);
   }
+  //! unset moment
+  static constexpr moment_id unset() { return moment_id{-1}; }
 
 private:
   //! stored value for the ID
-  int id_ = -1;
+  int id_ = unset()();
 };
 
 /*!

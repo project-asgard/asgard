@@ -71,15 +71,15 @@ namespace gpu {
  */
 struct device {
   //! Make a new device identifier
-  explicit device(int gpuid) : id(gpuid) {}
+  explicit constexpr device(int gpuid) : id(gpuid) {}
   //! Compare two devices and if they match
-  bool operator == (device const &other) const { return (id == other.id); }
+  bool constexpr operator == (device const &other) const { return (id == other.id); }
   //! returns the id index
-  int operator() () const { return id; }
+  int constexpr operator() () const { return id; }
   //! The device ID, e.g., 0, 1, 2, 3, ...
-  int id = -1; // default to an invalid ID, forces an error if used uninitialized
+  int id = none()(); // default to an invalid ID, forces an error if used uninitialized
   //! id indicating no-device
-  static int none() { return -1; }
+  static constexpr device none() { return device{-1}; }
 };
 
 }
