@@ -198,7 +198,8 @@ private:
   mutable std::vector<int> pntr;
 
   moments_list mlist;
-  std::vector<std::vector<moment_id>> groups_;
+  std::vector<std::vector<moment_id>> groups_; // Remove later
+  std::vector<std::vector<moment_info>> groups2_; // Ugh, moments can have multiple GPUs
 
   bool all_levels_zero = true;
   std::array<moment_level, max_mom_dims> dim_level;
