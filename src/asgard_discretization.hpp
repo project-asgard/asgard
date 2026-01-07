@@ -623,10 +623,7 @@ public:
     #ifdef ASGARD_USE_MPI
     }
     #endif
-    if (gid == group_id::all())
-      terms.moms.load_interp(terms.interp, terms.kwork, terms.it1);
-    else
-      terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
+    terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
 
     compute_poisson(gid);
     terms.rebuild_moment_terms(gid, grid, conn, hier);

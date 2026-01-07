@@ -112,9 +112,6 @@ public:
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &work, std::vector<P> &workspace) const;
-  //! load the inteprolatory moments, all groups
-  void load_interp(interpolation_manager<P> const &interp,
-                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! load the inteprolatory moments, specified group
   void load_interp(group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;

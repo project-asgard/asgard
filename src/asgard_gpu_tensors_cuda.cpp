@@ -363,11 +363,11 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
 }
 
 template<typename P>
-void moment_reduce_zero(int pdof, int pos_block, int full_block, int pdims, int vdims,
-                        std::array<bool, max_mom_dims> lzero, int const *indexes,
-                        gpu::vector<int> const &rij,
-                        P const integ0[], P const integ1[], P const integ2[],
-                        gpu::vector<P> const &state, gpu::vector<P> &vals)
+void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims,
+                   std::array<bool, max_mom_dims> lzero, int const *indexes,
+                   gpu::vector<int> const &rij,
+                   P const integ0[], P const integ1[], P const integ2[],
+                   gpu::vector<P> const &state, gpu::vector<P> &vals)
 {
   unsigned int const zeros = [&]() -> unsigned int {
       unsigned int res = 0;
@@ -451,6 +451,54 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int pdims, int 
   }
 }
 
+template<typename P, int num_cycles = 1, int cycle_size = 1>
+__global__ void kernel_moment_expand(int pos_block, int vel_block,
+                                     int const num_rij, int const rij[],
+                                     P const pos_data[], P vals[])
+{
+  int blk = threadIdx.y + blockIdx.x * blockDim.y;
+  while (blk < num_rij)
+  {
+    int const i = rij[2 * blk]; // source block
+    int const j = rij[2 * blk + 1]; // destination block
+
+    if constexpr (num_cycles == 1) {
+      P const src = pos_data[i * pos_block + threadIdx.x / vel_block];
+      vals[j * pos_block * vel_block + threadIdx.x] = src;
+    } else
+      for (int c = 0; c < num_cycles; c++) {
+        P const src = pos_data[i * pos_block + (threadIdx.x + c * cycle_size) / vel_block];
+        vals[j * pos_block * vel_block + threadIdx.x + (threadIdx.x + c * cycle_size)] = src;
+      }
+
+    blk += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename P>
+void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
+                   gpu::vector<P> const &pos_data, gpu::vector<P> &vals)
+{
+  int const pos_block = fm::ipow(pdof, num_pos);
+  int const vel_block = fm::ipow(pdof, num_vel);
+
+  constexpr int max_threads = 1024;
+  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+
+  int const team_size = pos_block * vel_block;
+  if (team_size > max_threads) { // multiple cycles
+    expect(pdof == 4 and num_pos == 3 and num_vel == 3);
+    dim3 const launch_grid(max_threads, 1);
+    kernel_moment_expand<P, 4, max_threads><<<launch_blocks, launch_grid>>>(
+        pos_block, vel_block, static_cast<int>(rij.size()), rij.data(), pos_data.data(), vals.data());
+  } else {
+    const int num_teams = max_threads / team_size;
+    dim3 const launch_grid(team_size, num_teams);
+    kernel_moment_expand<P><<<launch_blocks, launch_grid>>>(
+        pos_block, vel_block, static_cast<int>(rij.size()), rij.data(), pos_data.data(), vals.data());
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void tensor_by_index(int, int, int, int const[], double const[], double const[], double const[],
                               double const[], double const[], double const[], double[]);
@@ -459,10 +507,13 @@ template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  double const[], double const[], double const[],
                                  gpu::vector<double> const &, gpu::vector<double> &);
 
-template void moment_reduce_zero(
+template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, double const[], double const[], double const[],
     gpu::vector<double> const &, gpu::vector<double> &);
+
+template void moment_expand(
+    int, int, int, gpu::vector<int> const &, gpu::vector<double> const &, gpu::vector<double> &);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -473,10 +524,13 @@ template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  float const[], float const[], float const[],
                                  gpu::vector<float> const &, gpu::vector<float> &);
 
-template void moment_reduce_zero(
+template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, float const[], float const[], float const[],
     gpu::vector<float> const &, gpu::vector<float> &);
+
+template void moment_expand(
+    int, int, int, gpu::vector<int> const &, gpu::vector<float> const &, gpu::vector<float> &);
 #endif
 
 }
