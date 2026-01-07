@@ -405,8 +405,6 @@ set(asgard_components
     compute_cpu
     discretization
     domain
-    gpu_algorithms
-    gpu_tensors
     grid_1d
     indexset
     interp
