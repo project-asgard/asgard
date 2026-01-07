@@ -26,4 +26,62 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
                      P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[],
                      P x[]);
 
+/*!
+ * \brief Computes the moments from the state into vals, assumes level-zero is sufficient
+ *
+ * Assuming the polynomials order is sufficient to compute the moment from only level 0,
+ * computes the moment.
+ *
+ * \tparam P is float or double
+ *
+ * \param pdof is the polynomial degrees of freedom
+ * \param pos_block is the position block, e.g., fm::ipow(pdof, position-dimensions)
+ * \param full_block is the full block, e.g., fm::ipow(pdof, num-all-dimensions)
+ * \param vdims is the velocity dimensions
+ * \param rij is the map for blocks, (i, j) = rij(2 * k, 2 * k + 1),
+ *        then state block j corresponds to the vals block i
+ * \param integ0 is the integrals for velocity dimension 0
+ * \param integ1 is the integrals for velocity dimension 1, used only if vdims >= 2
+ * \param integ2 is the integrals for velocity dimension 2, used only if vdims >= 3
+ *
+ * \param state is the current state using both position and velocity dimensions
+ * \param vals is the output using only position dimensions
+ */
+template<typename P>
+void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
+                        gpu::vector<int> const &rij,
+                        P const integ0[], P const integ1[], P const integ2[],
+                        gpu::vector<P> const &state, gpu::vector<P> &vals);
+
+/*!
+ * \brief Computes the moments from the state into vals, assumes some dims don't use level 0
+ *
+ * Assuming at least in one direction the polynomial order is not sufficient to compute
+ * the moments from the level 0 data.
+ *
+ * \tparam P is float or double
+ *
+ * \param pdof is the polynomial degrees of freedom
+ * \param pos_block is the position block, e.g., fm::ipow(pdof, position-dimensions)
+ * \param full_block is the full block, e.g., fm::ipow(pdof, num-all-dimensions)
+ * \param pdims is the position dimensions
+ * \param vdims is the velocity dimensions
+ * \param lzero is an array with true/false in each direction indicating if going above level 0
+ * \param indexes are the sparse grid multi-indexes, size is (pdims + vdims) * max-i-index-in-rij
+ * \param rij is the map for blocks, (i, j) = rij(2 * k, 2 * k + 1),
+ *        then state block j corresponds to the vals block i
+ * \param integ0 is the integrals for velocity dimension 0
+ * \param integ1 is the integrals for velocity dimension 1, used only if vdims >= 2
+ * \param integ2 is the integrals for velocity dimension 2, used only if vdims >= 3
+ *
+ * \param state is the current state using both position and velocity dimensions
+ * \param vals is the output using only position dimensions
+ */
+template<typename P>
+void moment_reduce_zero(int pdof, int pos_block, int full_block, int pdims, int vdims,
+                        std::array<bool, max_mom_dims> lzero, int const *indexes,
+                        gpu::vector<int> const &rij,
+                        P const integ0[], P const integ1[], P const integ2[],
+                        gpu::vector<P> const &state, gpu::vector<P> &vals);
+
 }

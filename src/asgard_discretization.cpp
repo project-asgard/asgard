@@ -388,7 +388,7 @@ discretization_manager<precision>::project_function(
 template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
   std::vector<precision> result;
-  terms.moms.compute(grid, id, state, result);
+  terms.moms.mcompute(grid, id, state, result);
   return result;
 }
 
@@ -397,7 +397,7 @@ std::vector<precision> discretization_manager<precision>::get_moment_level(momen
   rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
   std::vector<precision> tmp;
   std::vector<precision> result;
-  terms.moms.compute(grid, id, state, tmp);
+  terms.moms.mcompute(grid, id, state, tmp);
   terms.moms.complete_level(hier, tmp, result);
   return result;
 }

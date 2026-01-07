@@ -49,8 +49,8 @@ public:
   //! returns a grid indexes, used for I/O
   std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
   //! computes the specified moment
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
 
   //! load all moments into the data-structures
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state,
@@ -161,12 +161,12 @@ protected:
    * degrees of freedom (pdof) to speed up work.
    */
   template<int nvel, int tpdof>
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
   //! mid-step, realizes the template from above using the pdof
   template<int nvel>
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
   /*!
    * \brief computes the position grid from the given global grid
    *
@@ -219,6 +219,9 @@ private:
   mutable momentset<P> interps; // moment values for interpolation
 
   #ifdef ASGARD_USE_GPU
+  std::array<std::array<gpu::vector<P>, max_mom_dims>, max_num_gpus> gpu_integ;
+  mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij; // pairs of ij corresponding to pos-grid to global-grid
+  mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij_allzero; // special case, only using level zero
   bool has_regular_moments = false; // if moments have to computed on the CPU too
   std::array<std::vector<moment_id>, max_num_gpus> gpu_moments;
   mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU

@@ -6,13 +6,6 @@ namespace asgard
 {
 
 /*!
- * \brief Maximum number of dimensions for the moments
- *
- * Do not change unless you really know what you're doing.
- */
-inline constexpr int max_mom_dims = 3;
-
-/*!
  * \brief Holds the coefficients for the moments
  */
 struct moment

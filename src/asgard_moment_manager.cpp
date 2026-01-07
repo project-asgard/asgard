@@ -130,6 +130,13 @@ void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, legendre_bas
       std::copy_n(work.data(), pdof, integ[dim][m]);
     }
   }
+  #ifdef ASGARD_USE_GPU
+  int const num_gpus = compute->num_gpus();
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    gpu_integ[g][dim] = integ[dim].data_vector();
+  }
+  #endif
 }
 
 template<typename P>
@@ -215,6 +222,13 @@ void moment_manager<P>::set_mass(
       hier.transform(max_level, work.data(), integ[dim][m]);
     }
   }
+  #ifdef ASGARD_USE_GPU
+  int const num_gpus = compute->num_gpus();
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    gpu_integ[g][dim] = integ[dim].data_vector();
+  }
+  #endif
 }
 
 template<typename P>
@@ -225,8 +239,17 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
   pos_indexes.resize(npos, 0); // zero index
   pos_indexes.reserve(grid.num_indexes() * npos);
-  pntr.resize(1);
   pntr.reserve(grid.num_indexes() + 1);
+  pntr.resize(1); // 0 -> 0 case
+
+  #ifdef ASGARD_USE_GPU
+  std::vector<int> rij;
+  rij.reserve(2 * grid.num_indexes());
+  rij.resize(2); // 0 -> 0 case
+  std::vector<int> rij_zero;
+  rij_zero.reserve(2 * grid.num_indexes());
+  rij_zero.resize(2); // 0 -> 0 case
+  #endif
 
   auto position_mismatch = [&](int const idx1[], int const idx2[])
         -> bool {
@@ -243,13 +266,21 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   int ipos = 0;
 
   // this loop is sequential (do not use parallel for)
-  for (int i = 0; i < grid.num_indexes(); i++)
+  for (int i = 1; i < grid.num_indexes(); i++)
   {
     if (position_mismatch(pos_grid[ipos], grid[i])) { // found new entry
       pos_indexes.insert(pos_indexes.end(), grid[i], grid[i] + npos);
       pntr.push_back(i);
       ipos++;
+      #ifdef ASGARD_USE_GPU
+      rij_zero.push_back(ipos);
+      rij_zero.push_back(i);
+      #endif
     }
+    #ifdef ASGARD_USE_GPU
+    rij.push_back(ipos);
+    rij.push_back(i);
+    #endif
   }
 
   pos_grid.iset_.num_indexes_ = ipos + 1;
@@ -259,12 +290,21 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   // take the highest levels for full-level vectors
   for (int d = 0; d < pos_grid.num_dims(); d++)
     pos_grid.level_[d] = grid.level_[d];
+
+  #ifdef ASGARD_USE_GPU
+  int const num_gpus = compute->num_gpus();
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++) {
+    reduce_ij[g]         = rij;
+    reduce_ij_allzero[g] = rij_zero;
+  }
+  #endif
 }
 
 template<typename P>
 template<int nvel, int tpdof>
-void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
-                                std::vector<P> const &state, std::vector<P> &vals) const
+void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
+                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
   int const num = pos_grid.num_indexes();
   vals.resize(pos_block * num);
@@ -354,23 +394,15 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
       }
 
       // if we got here, the j-th index has a contribution to the i-th block
-      P const *v1 = integ[0][mom.pows[0]];
-      if (dim_level[0] == moment_level::all) {
-        v1 += grid[j][npos] * tpdof;
-      }
+      P const *v1 = integ[0][mom.pows[0]] + grid[j][npos] * tpdof;
       P const *v2, *v3;
-      if constexpr (nvel >= 2) {
-        v2 = integ[1][mom.pows[1]];
-        if (dim_level[1] == moment_level::all)
-          v2 += grid[j][npos + 1] * tpdof;
-      }
-      if constexpr (nvel >= 3) {
-        v3 = integ[2][mom.pows[2]];
-        if (dim_level[2] == moment_level::all)
-          v3 += grid[j][npos + 2] * tpdof;
-      }
+      if constexpr (nvel >= 2)
+        v2 = integ[1][mom.pows[1]] + grid[j][npos + 1] * tpdof;
 
-      P const *in  = state.data() + full_block * j;
+      if constexpr (nvel >= 3)
+        v3 = integ[2][mom.pows[2]] + grid[j][npos + 2] * tpdof;
+
+      P const *in = state.data() + full_block * j;
 
       // TODO: test SIMD directives below, although this is pretty cheap overall
       if constexpr (nvel == 1) {
@@ -419,21 +451,21 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
 template<typename P>
 template<int nvel>
-void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
+void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
   switch (pdof) {
   case 1:
-    compute<nvel, 1>(grid, id, state, vals);
+    mcompute<nvel, 1>(grid, id, state, vals);
     break;
   case 2:
-    compute<nvel, 2>(grid, id, state, vals);
+    mcompute<nvel, 2>(grid, id, state, vals);
     break;
   case 3:
-    compute<nvel, 3>(grid, id, state, vals);
+    mcompute<nvel, 3>(grid, id, state, vals);
     break;
   case 4:
-    compute<nvel, 4>(grid, id, state, vals);
+    mcompute<nvel, 4>(grid, id, state, vals);
     break;
   default:
     // unreachable
@@ -442,8 +474,8 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 }
 
 template<typename P>
-void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
-                                std::vector<P> const &state, std::vector<P> &vals) const
+void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
+                                 std::vector<P> const &state, std::vector<P> &vals) const
 {
   if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
     switch (pos_grid.num_dims()) {
@@ -464,13 +496,13 @@ void moment_manager<P>::compute(sparse_grid const &grid, moment_id id,
 
   switch (num_vel_) {
   case 1:
-    compute<1>(grid, id, state, vals);
+    mcompute<1>(grid, id, state, vals);
     break;
   case 2:
-    compute<2>(grid, id, state, vals);
+    mcompute<2>(grid, id, state, vals);
     break;
   case 3:
-    compute<3>(grid, id, state, vals);
+    mcompute<3>(grid, id, state, vals);
     break;
   default:
     break;
@@ -485,7 +517,7 @@ void moment_manager<P>::cache_moments(
     tools::time_event performance_("cache all moments");
     for (int i : iindexof(mlist.size())) {
       if (mlist[moment_id{i}].action != moment::inactive) {
-        compute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
+        mcompute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
         full_level.get(moment_id{i}).resize(0); // will be updated upon request
         interps.get(moment_id{i}).resize(0);
       }
@@ -494,7 +526,7 @@ void moment_manager<P>::cache_moments(
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
     for (auto const &id : groups_[group()]) {
       if (mlist[id].action != moment::inactive) {
-        compute(grid, id, state, raw_vals.get(id));
+        mcompute(grid, id, state, raw_vals.get(id));
         full_level.get(id).resize(0);
         interps.get(id).resize(0);
       }
@@ -506,7 +538,7 @@ template<typename P>
 void moment_manager<P>::cache_moment(moment_id id, sparse_grid const &grid,
                                      std::vector<P> const &state) const
 {
-  compute(grid, id, state, raw_vals.get(id));
+  mcompute(grid, id, state, raw_vals.get(id));
   full_level.get(id).resize(0);
   interps.get(id).resize(0);
 }
