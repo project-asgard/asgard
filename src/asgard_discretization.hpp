@@ -605,43 +605,18 @@ public:
     compute_moments(gid, state);
   }
   //! recomputes the moments given the state of interest and this term group
-  void compute_moments(group_id gid, std::vector<precision> const &f) const {
-    rassert(terms.moms, "no moments set for this PDE");
-    #ifdef ASGARD_USE_MPI
-    if (terms.resources.num_ranks() > 1) {
-      if (is_leader()) {
-        terms.resources.template bcast <precision, resource_comm::regular>(f);
-        terms.moms.cache_moments(grid, f, gid.gid);
-      } else {
-        terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
-        terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
-        terms.moms.cache_moments(grid, terms.mpiwork, gid.gid);
-      }
-    } else {
-    #endif
-      terms.moms.cache_moments(grid, f, gid);
-    #ifdef ASGARD_USE_MPI
-    }
-    #endif
-    terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
-
-    compute_poisson(gid);
-    terms.rebuild_moment_terms(gid, grid, conn, hier);
-  }
-  //! recomputes the moments given the state of interest and this term group
   void compute_moments(std::vector<precision> const &f) const {
     compute_moments(group_id::all(), f);
   }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments(group_id gid, std::vector<precision> const &f) const {
+    rassert(terms.moms, "no moments set for this PDE");
+    compute_moments_(gid, f);
+  }
   //! recomputes the Poisson term for the given group
-  void compute_poisson(group_id gid) const {
-    if (not poisson or (gid() >= 0 and not terms.has_poisson(gid)))
+  void compute_poisson(group_id gid = group_id::all()) const {
+    if (not poisson or not terms.has_poisson(gid))
       return;
-
-    #ifdef ASGARD_USE_MPI
-    // leader must always communicate, the rest only if they have a poisson term
-    if (not is_leader() and not terms.has_poisson())
-      return;
-    #endif
 
     // currently we only support 1d in position space, so the solver is trivial
     // the cost is so low, that everyone can do it even if it is repeated work
@@ -711,6 +686,8 @@ protected:
   void restart_from_file(pde_scheme<precision> &pde);
   //! common operations for the two start methods
   void start_moments();
+  //! recompute the moments, assuming moments are set, i.e., has_moments() is true
+  void compute_moments_(group_id gid, std::vector<precision> const &f) const;
   //! computes the right-hand-side of the ode, templated version
   void ode_rhs_base(group_id gid, precision time, std::vector<precision> const &current,
                     std::vector<precision> &R) const;

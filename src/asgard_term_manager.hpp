@@ -139,9 +139,12 @@ struct term_manager
   #endif
 
   //! has Poisson solver for the given group
-  bool has_poisson(group_id group) const { return (not has_poisson_.empty() and has_poisson_[group()]); }
-  //! has Poisson solver for any group
-  bool has_poisson() const { return (not has_poisson_.empty()); }
+  bool has_poisson(group_id group = group_id::all()) const {
+    if (group == group_id::all())
+      return (not has_poisson_.empty());
+    else
+      return (not has_poisson_.empty() and has_poisson_[group()]);
+  }
   //! the given group has separable terms that depend on the moments
   bool has_sep_moments(group_id group = group_id::all()) const {
     if (group == group_id::all())

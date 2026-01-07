@@ -511,7 +511,7 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
 
 template<typename P>
 void moment_manager<P>::cache_moments(
-    sparse_grid const &grid, std::vector<P> const &state, group_id group) const
+    group_id group, sparse_grid const &grid, std::vector<P> const &state) const
 {
   if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
@@ -633,9 +633,11 @@ size_t moment_manager<P>::used_bytes() const {
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void moment_manager<P>::set_moment_distributino(
+void moment_manager<P>::set_moment_distribution(
     std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
-    std::vector<std::vector<moment_id>> const &cpu_mom)
+    std::vector<std::vector<moment_id>> const &cpu_raw,
+    std::vector<std::vector<moment_id>> const &cpu_interp,
+    std::vector<std::vector<moment_id>> const &skip_interp)
 {
   // avoiding the double-vector, lumping moment for all groups together
   // group-0-moment-0, ..., moment_id::unset(), group-1-moment-0, ...., unset()
@@ -650,14 +652,59 @@ void moment_manager<P>::set_moment_distributino(
       gpu_moments[dev].reserve(num_moms + groups.size());
       for (auto const &mg : groups) {
         for (auto const &m : mg) // copy the moments for this group
-          gpu_moments[dev].push_back(m);
+          gpu_moments[dev].push_back(mom_on_gpu{m});
         // using unset moments to indicate the end of the group
-        gpu_moments[dev].push_back(moment_id::unset());
+        gpu_moments[dev].push_back(mom_on_gpu{});
       }
       expect(num_moms + groups.size() == gpu_moments[dev].size());
     }
   }
-  groups_ = cpu_mom;
+  // find the first moment matching the given id and group
+  auto find_mom = [&](moment_id mid, group_id group) -> mom_on_gpu &
+    {
+      if (group == group_id::all()) {
+        for (auto &dev : gpu_moments) {
+          for (auto &mom : dev) {
+            if (mom.mid == mid)
+              return mom;
+          }
+        }
+      } else {
+        int gid = 0;
+        for (auto &dev : gpu_moments) {
+          for (auto &mom : dev) {
+            if (not mom) { // moving to the next group
+              gid++;
+              continue;
+            }
+            if (not (group == group_id{gid}))
+              continue;
+            if (mom.mid == mid)
+              return mom;
+          }
+        }
+      }
+      throw std::runtime_error("could not find the moment");
+    };
+
+  int gid = 0;
+  for (auto const &gvec : cpu_raw) {
+    for (auto mid : gvec)
+      find_mom(mid, group_id{gid}).set_raw_on_cpu();
+    gid++;
+  }
+  gid = 0;
+  for (auto const &gvec : cpu_interp) {
+    for (auto mid : gvec)
+      find_mom(mid, group_id{gid}).set_interp_on_cpu();
+    gid++;
+  }
+  gid = 0;
+  for (auto const &gvec : skip_interp) {
+    for (auto mid : gvec)
+      find_mom(mid, group_id{gid}).set_skip_interp();
+    gid++;
+  }
 }
 #endif
 

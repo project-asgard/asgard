@@ -53,8 +53,11 @@ public:
                 std::vector<P> const &state, std::vector<P> &vals) const;
 
   //! load all moments into the data-structures
-  void cache_moments(sparse_grid const &grid, std::vector<P> const &state,
-                     group_id group = group_id::all()) const;
+  void cache_moments(group_id group, sparse_grid const &grid, std::vector<P> const &state) const;
+  //! load all moments into the data-structures
+  void cache_moments(sparse_grid const &grid, std::vector<P> const &state) const {
+    cache_moments(group_id::all(), grid, state);
+  }
   //! computes and caches a specific moment
   void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
 
@@ -132,8 +135,10 @@ public:
    * will be computed on device 0 and moved back to the CPU.
    * Regular moments will be computed on the CPU.
    */
-  void set_moment_distributino(std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
-                               std::vector<std::vector<moment_id>> const &cpu_mom);
+  void set_moment_distribution(std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
+                               std::vector<std::vector<moment_id>> const &cpu_raw,
+                               std::vector<std::vector<moment_id>> const &cpu_interp,
+                               std::vector<std::vector<moment_id>> const &skip_interp);
   //! load the inteprolatory moments, specified device and group
   void load_interp(gpu::device dev, group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
@@ -216,11 +221,36 @@ private:
   mutable momentset<P> interps; // moment values for interpolation
 
   #ifdef ASGARD_USE_GPU
+  //! combines the moment_id with a flag if the raw-data is needed on the CPU
+  struct mom_on_gpu {
+    //! create and set the moment id
+    mom_on_gpu(moment_id id = moment_id::unset()) : mid(id) {}
+    //! the moment id
+    moment_id mid;
+    //! flag whether to keep on the cpu or gpu
+    unsigned int flags = 0;
+    //! indicates if the moment is unset
+    operator bool () const { return (mid == moment_id::unset()); }
+    //! indicates whether to use raw-value on the cpu
+    bool raw_on_cpu() const { return ((flags & 1u) != 0); }
+    //! indicates whether to use interp value on the cpu
+    bool interp_on_cpu() const { return ((flags & 2u) != 0); }
+    //! indicated whether this is regular or interp moment
+    bool skip_interp() const { return  ((flags & 4u) != 0); }
+    //! sets the moment as needing raw on the cpu
+    void set_raw_on_cpu() { flags |= 1u; }
+    //! sets the moment as needing interp on the cpu
+    void set_interp_on_cpu() { flags |= 2u; }
+    //! sets the moment as not needing interp on the gpu
+    void set_skip_interp() { flags |= 4u; }
+  };
+
   std::array<std::array<gpu::vector<P>, max_mom_dims>, max_num_gpus> gpu_integ;
   mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij; // pairs of ij corresponding to pos-grid to global-grid
   mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij_allzero; // special case, only using level zero
   bool has_regular_moments = false; // if moments have to computed on the CPU too
-  std::array<std::vector<moment_id>, max_num_gpus> gpu_moments;
+  std::array<std::vector<mom_on_gpu>, max_num_gpus> gpu_moments; // distribution of moments across GPU devices
+
   mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
   #endif
 

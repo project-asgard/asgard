@@ -101,7 +101,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   terms.resize(num_terms);
 
-  {
+  { // copy the terms from the pde_scheme
+    // label chain-links and mark if interp or extra workspace is needed
     bool has_interp = pde.has_interp_funcs;
 
     auto ir = terms.begin();
@@ -138,14 +139,14 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   int num_bc = 0;
 
-  // check if we need to keep the intermediate terms from matrix builds
+  // link terms to boundary-condition terms
   for (auto &tt : terms) {
     int const n = static_cast<int>(tt.tmd.bc_flux_.size());
     tt.bc = indexrange(num_bc, num_bc + n);
     num_bc += n;
   }
 
-  // form groups for the boundary conditions
+  // form groups for the sources
   if (not term_groups.empty()) {
     int j = 0, bc_begin = 0, bc_end = 0; // index for the boundary conditions
     for (int groupid : iindexof(term_groups)) {
@@ -156,6 +157,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
+  // copy the boundary fluxes, set the proper chain levels and mark as sep/const
   bcs.reserve(num_bc);
   for (int tid : iindexof(terms)) {
     term_entry<P> &tt = terms[tid];
@@ -175,6 +177,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       } else {
         if (bcs.back().flux.func_.ftime()) {
           if (bcs.back().flux.func_.cdomain(dimension_id{fdim}) == 0) {
+            // using dependent term in the flux-dimension, cannot depend on space
+            // therefore it must depend on time
             bcs_have_time_dep = true;
             bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
             for (int d : iindexof(num_dims)) {
@@ -200,66 +204,70 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     xright[d] = pde.domain().xright(d);
   }
 
+  // set the mass, needed for the sources below
   build_mass_matrices(hier, conn); // large, up to max-level
   rebuild_mass_matrices(grid); // small, up to the current level
 
-  std::vector<separable_func<P>> &sep = pde.sources_sep_;
+  {// copy the separable sources, prepare the constant components
+    std::vector<separable_func<P>> &sep = pde.sources_sep_;
 
-  int num_sources = 0;
-  for (auto const &s : sep) {
-    int const dims = s.num_dims();
-    rassert(dims == 0 or dims == num_dims, "incorrect dimension set for source");
-    if (dims > 0) ++num_sources;
-  }
+    int num_sources = 0;
+    for (auto const &s : sep) {
+      int const dims = s.num_dims();
+      rassert(dims == 0 or dims == num_dims, "incorrect dimension set for source");
+      if (dims > 0) ++num_sources;
+    }
 
-  sources_md.resize(pde.sources_md_.size());
-  for (size_t i = 0; i < pde.sources_md_.size(); i++)
-    sources_md[i].func = std::move(pde.sources_md_[i]);
+    sources_md.resize(pde.sources_md_.size());
+    for (size_t i = 0; i < pde.sources_md_.size(); i++)
+      sources_md[i].func = std::move(pde.sources_md_[i]);
 
-  sources.reserve(num_sources);
+    sources.reserve(num_sources);
 
-  for (auto &s : sep) {
-    if (s.num_dims() == 0)
-      continue;
+    for (auto &s : sep) {
+      if (s.num_dims() == 0)
+        continue;
 
-    if (s.ignores_time() or s.ftime()) {
-      // using constant entry
-      if (s.ignores_time()) {
-        sources.emplace_back(source_entry<P>::time_mode::constant);
-        sources.back().func = std::monostate{}; // no need for a func
-      } else {
-        sources.emplace_back(source_entry<P>::time_mode::separable);
-        sources.back().func = s.ftime();
-      }
-
-      for (int d : iindexof(num_dims)) {
-        if (s.is_const(dimension_id{d})) {
-          sources.back().consts[d]
-              = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
+      if (s.ignores_time() or s.ftime()) {
+        // using constant entry
+        if (s.ignores_time()) {
+          sources.emplace_back(source_entry<P>::time_mode::constant);
+          sources.back().func = std::monostate{}; // no need for a func
         } else {
-          sources.back().consts[d] = hier.get_project1d_f(
-              [&](std::vector<P> const &x, std::vector<P> &y)->
-                void {
-                  s.fdomain(dimension_id{d}, x, 0, y);
-                },
-              mass[d], d, max_level);
+          sources.emplace_back(source_entry<P>::time_mode::separable);
+          sources.back().func = s.ftime();
         }
-        #ifdef ASGARD_USE_GPU
-        // TODO: mult-GPU logic
-        sources.back().gpu_consts[d] = sources.back().consts[d];
-        #endif
-      }
 
-    } else {
-      // non-separable in time
-      sources_have_time_dep = true;
-      sources.emplace_back(source_entry<P>::time_mode::time_dependent);
-      sources.back().func = std::move(s);
+        for (int d : iindexof(num_dims)) {
+          if (s.is_const(dimension_id{d})) {
+            sources.back().consts[d]
+                = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
+          } else {
+            sources.back().consts[d] = hier.get_project1d_f(
+                [&](std::vector<P> const &x, std::vector<P> &y)->
+                  void {
+                    s.fdomain(dimension_id{d}, x, 0, y);
+                  },
+                mass[d], d, max_level);
+          }
+          #ifdef ASGARD_USE_GPU
+          // TODO: mult-GPU logic
+          sources.back().gpu_consts[d] = sources.back().consts[d];
+          #endif
+        }
+
+      } else {
+        // non-separable in time
+        sources_have_time_dep = true;
+        sources.emplace_back(source_entry<P>::time_mode::time_dependent);
+        sources.back().func = std::move(s);
+      }
     }
   }
 
   prapare_kron_workspace(grid); // setup kronmult workspace
 
+  // reshuffle the terms and sources across MPI ranks and GPU devices
   has_terms_ = not terms.empty();
   assign_compute_resources();
 
@@ -318,7 +326,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   sweights.reserve(num_lumped); // one weight per lumped source
 
   // second pass on the problem of assigning workspaces and preparing objects
-  // e.g., the needed resources change if this MPI rank has no terms with need
+  // e.g., the needed resources change if this MPI rank has no terms
   {
     // set interpolatory properties
     for (int i : indexof(terms)) {
@@ -461,11 +469,12 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
     // There is a catch here. The has_poisson() logic is used to determine whether we need
     // to have a local Poisson solve and whether to update any Poisson terms at all.
-    // The has_sep_moments() logic is used to determine when any of the terms change
+    // The has_sep_moments() logic is used to determine when any of the terms change,
     // which would require updating the preconditioner even if the sparse grid is unchanged.
     // Thus, the Poisson logic considers separable and non-separable terms and excludes terms
     // no associated with this MPI rank, while the sep-mom logic considers only separable terms
     // but disregards MPI, since building the preconditioner is a global MPI operation.
+    // (maybe this should be "change-with-time" logic)
     if (has_sep_mom) {
       if (term_groups.empty())
         has_sep_moments_.resize(1, true);
