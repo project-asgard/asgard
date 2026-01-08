@@ -388,6 +388,57 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     bool has_poisson = false;
     bool has_sep_mom = false;
     #ifdef ASGARD_USE_GPU
+    // have to clean the logic of skip-interp
+    // gpu-moms should keep all moments, term1d moments -> cpu_raw
+    // cpu_interp -> when we have interp from the CPU
+    // all-interp -> CPU or GPU interp, if not there then it will be in skip-interp
+    std::array<std::vector<std::vector<moment_id>>, max_num_gpus> gpu_moms;
+    std::vector<std::vector<moment_id>> cpu_raw(std::max(term_groups.size(), size_t{1}));
+    std::vector<std::vector<moment_id>> cpu_interp(cpu_raw.size());
+    std::vector<std::vector<moment_id>> all_interp(cpu_raw.size());
+    for (auto &r : cpu_raw) r.reserve(250);
+    for (auto &r : cpu_interp) r.reserve(250);
+    for (auto &r : all_interp) r.reserve(250);
+
+    for (auto &gm : gpu_moms) {
+      gm.resize(std::max(term_groups.size(), size_t{1});
+      for (auto &r : gm) r.reserve(250);
+    }
+    if (term_groups.empty()) {
+      // no groups, everything goes in [0]
+      for (auto const &tentry : terms) {
+        #ifdef ASGARD_USE_MPI
+        if (not resources.owns(tentry.rec))
+          continue;
+        #endif
+        has_poisson = has_poisson or tentry.has_poisson;
+        if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+          for (int d : iindexof(num_dims)) {
+            auto const &mids = tentry.tmd.dim(d).mids_;
+            if (not mids.empty()) {
+              has_sep_mom = true;
+              regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+            }
+          }
+        } else if (tentry.interplan.uses_moments()) {
+          auto const &mids = tentry.tmd.mids_;
+          regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+          intp[0].insert(intp[0].end(), mids.begin(), mids.end());
+        }
+      }
+      for (auto const &src : sources_md) {
+        #ifdef ASGARD_USE_MPI
+        if (not src.is_moment() or not resources.owns(src.rec))
+          continue;
+        #else
+        if (not src.is_moment())
+          continue;
+        #endif
+        auto const &mids = src.get_mom_md().mids_;
+        regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+        intp[0].insert(intp[0].end(), mids.begin(), mids.end());
+      }
+    }
     #else
     // CPU logic here, have only regular and interp moments per group
     std::vector<std::vector<moment_id>> regular(std::max(term_groups.size(), size_t{1}));
