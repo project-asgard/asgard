@@ -132,7 +132,7 @@ struct term_manager
   mutable std::vector<P> cpu_s1; // used for sources on the CPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
-  // for both multi-gpu support and interpolation evals on the CPU
+  // for both multi-gpu support and interpolation evals on the CPU/GPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   mutable gpu::vector<P> gpu_swork, gpu_sweights;

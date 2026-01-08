@@ -333,9 +333,10 @@ __global__ void kernel_moment(int pdof, int pos_block, int full_block,
 template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
-                        P const integ0[], P const integ1[], P const integ2[],
+                        std::array<P const *, max_mom_dims> const &integ,
                         gpu::vector<P> const &state, gpu::vector<P> &vals)
 {
+  static_assert(max_mom_dims == 3, "making assumptions here");
   constexpr int max_threads = 1024;
   const int num_teams = max_threads / pos_block;
   dim3 const launch_grid(pos_block, num_teams);
@@ -345,17 +346,17 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
   case 1:
     kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
-        integ0, nullptr, nullptr, state.data(), vals.data());
+        integ[0], nullptr, nullptr, state.data(), vals.data());
     break;
   case 2:
     kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
-        integ0, integ1, nullptr, state.data(), vals.data());
+        integ[0], integ[1], nullptr, state.data(), vals.data());
     break;
   case 3:
     kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
-        integ0, integ1, integ2, state.data(), vals.data());
+        integ[0], integ[1], integ[2], state.data(), vals.data());
     break;
   default:
     break; // unreachable
@@ -366,7 +367,7 @@ template<typename P>
 void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims,
                    std::array<bool, max_mom_dims> lzero, int const *indexes,
                    gpu::vector<int> const &rij,
-                   P const integ0[], P const integ1[], P const integ2[],
+                   std::array<P const *, max_mom_dims> const &integ,
                    gpu::vector<P> const &state, gpu::vector<P> &vals)
 {
   unsigned int const zeros = [&]() -> unsigned int {
@@ -388,17 +389,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 1, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 1, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 1, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, integ2, state.data(), vals.data());
+          integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
       break; // unreachable
@@ -409,17 +410,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 2, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 2, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 2, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, integ2, state.data(), vals.data());
+          integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
       break; // unreachable
@@ -430,17 +431,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 3, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 3, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 3, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
-          integ0, integ1, integ2, state.data(), vals.data());
+          integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
       break; // unreachable
@@ -504,12 +505,12 @@ template void tensor_by_index(int, int, int, int const[], double const[], double
                               double const[], double const[], double const[], double[]);
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
-                                 double const[], double const[], double const[],
+                                 std::array<double const *, max_mom_dims> const &,
                                  gpu::vector<double> const &, gpu::vector<double> &);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
-    gpu::vector<int> const &, double const[], double const[], double const[],
+    gpu::vector<int> const &, std::array<double const *, max_mom_dims> const &,
     gpu::vector<double> const &, gpu::vector<double> &);
 
 template void moment_expand(
@@ -521,12 +522,12 @@ template void tensor_by_index(int, int, int, int const[], float const[], float c
                               float const[], float const[], float const[], float[]);
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
-                                 float const[], float const[], float const[],
+                                 std::array<float const *, max_mom_dims> const &,
                                  gpu::vector<float> const &, gpu::vector<float> &);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
-    gpu::vector<int> const &, float const[], float const[], float const[],
+    gpu::vector<int> const &, std::array<float const *, max_mom_dims> const &,
     gpu::vector<float> const &, gpu::vector<float> &);
 
 template void moment_expand(

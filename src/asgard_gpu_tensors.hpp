@@ -50,7 +50,7 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
 template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
-                        P const integ0[], P const integ1[], P const integ2[],
+                        std::array<P const *, max_mom_dims> const &integ,
                         gpu::vector<P> const &state, gpu::vector<P> &vals);
 
 /*!
@@ -78,10 +78,29 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
  * \param vals is the output using only position dimensions
  */
 template<typename P>
-void moment_reduce_zero(int pdof, int pos_block, int full_block, int pdims, int vdims,
-                        std::array<bool, max_mom_dims> lzero, int const *indexes,
-                        gpu::vector<int> const &rij,
-                        P const integ0[], P const integ1[], P const integ2[],
-                        gpu::vector<P> const &state, gpu::vector<P> &vals);
+void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims,
+                   std::array<bool, max_mom_dims> lzero, int const *indexes,
+                   gpu::vector<int> const &rij,
+                   std::array<P const *, max_mom_dims> const &integ,
+                   gpu::vector<P> const &state, gpu::vector<P> &vals);
+
+/*!
+ * \brief Expands the point-wise values of the moment to the full grid
+ *
+ * Given the nodal data at the position grid, expands the moment to the full grid.
+ *
+ * \tparam P is float or double
+ *
+ * \param pdof is the polynomial degrees of freedom
+ * \param num_pos position dimensions
+ * \param num_vel velocity dimensions
+ * \param rij is the map for blocks, (i, j) = rij(2 * k, 2 * k + 1),
+ *        then state block j corresponds to the vals block i
+ * \param pos_data is defined on the position grid
+ * \param vals is the result on the full grid
+ */
+template<typename P>
+void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
+                   gpu::vector<P> const &pos_data, gpu::vector<P> &vals);
 
 }

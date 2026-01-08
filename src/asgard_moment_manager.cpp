@@ -16,6 +16,11 @@ moment_manager<P>::moment_manager(moments_list &&mlist_in,
       groups_.push_back( mgroup.find_as_subset_of(mlist) );
   }
 
+  #ifdef ASGARD_USE_GPU
+  for (auto &ginterp : gpu_interps)
+    ginterp = momentset_gpu<P>(mlist.size());
+  #endif
+
   // start with an invalid generation, triggers update-sync with the full grid
   pos_grid.generation_ = -1;
 }
@@ -693,29 +698,28 @@ void moment_manager<P>::set_moment_distribution(
       expect(num_moms + groups.size() == gpu_moments[dev].size());
     }
   }
+
+  std::cout << " gpu-moments\n";
+  for (auto const &dev : gpu_moments) {
+    for (auto m : dev)
+      std::cout << m.mid() << "    ";
+    std::cout << '\n';
+  }
+
   // find the first moment matching the given id and group
   auto find_mom = [&](moment_id mid, group_id group) -> mom_on_gpu &
     {
-      if (group == group_id::all()) {
-        for (auto &dev : gpu_moments) {
-          for (auto &mom : dev) {
-            if (mom.mid == mid)
-              return mom;
+      int gid = 0;
+      for (auto &dev : gpu_moments) {
+        for (auto &mom : dev) {
+          if (not mom) { // moving to the next group
+            gid++;
+            continue;
           }
-        }
-      } else {
-        int gid = 0;
-        for (auto &dev : gpu_moments) {
-          for (auto &mom : dev) {
-            if (not mom) { // moving to the next group
-              gid++;
-              continue;
-            }
-            if (not (group == group_id{gid}))
-              continue;
-            if (mom.mid == mid)
-              return mom;
-          }
+          if (group != group_id{gid})
+            continue;
+          if (mom.mid == mid)
+            return mom;
         }
       }
       throw std::runtime_error("could not find the moment");
@@ -723,8 +727,9 @@ void moment_manager<P>::set_moment_distribution(
 
   int gid = 0;
   for (auto const &gvec : cpu_raw) {
-    for (auto mid : gvec)
+    for (auto mid : gvec) {
       find_mom(mid, group_id{gid}).set_raw_on_cpu();
+    }
     gid++;
   }
   gid = 0;
@@ -735,19 +740,134 @@ void moment_manager<P>::set_moment_distribution(
   }
   gid = 0;
   for (auto const &gvec : skip_interp) {
-    for (auto mid : gvec)
+    for (auto mid : gvec) {
       find_mom(mid, group_id{gid}).set_skip_interp();
+    }
     gid++;
   }
+
+  // check which group has any interpolation terms, i.e., must sync dsort
+  has_interp.resize(gid + 1);
+  std::fill(has_interp.begin(), has_interp.end(), false);
+  for (auto &dev : gpu_moments) {
+    gid = 0;
+    for (auto const &mom : dev) {
+      if (mom.is_unset()) {
+        gid++;
+        continue;
+      }
+      if (not has_interp[gid] and not mom.skip_interp())
+        has_interp[gid] = true;
+    }
+  }
+  if (std::none_of(has_interp.begin(), has_interp.end(),
+                   [](bool const &v)-> bool { return v; }))
+    has_interp.clear();
 }
 
 template<typename P>
-void moment_manager<P>::cache_moments(group_id group, sparse_grid const &grid,
-                                      gpu::vector<P> const &state) const
+void moment_manager<P>::compute_moments(
+    group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+    kronmult::workspace<P> &kwork, std::array<gpu::vector<P>, max_num_gpus> &work1,
+    std::array<gpu::vector<P>, max_num_gpus> &work2, gpu::vector<P> const &state) const
 {
+  static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
+  // when doing multiple GPUs, spread the state before computing moments
+  // which will also allow to avoid the spread when doing term-apply
 
+  if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
+    switch (pos_grid.num_dims()) {
+    case 1:
+      reduce_grid<1>(grid);
+      break;
+    case 2:
+      reduce_grid<2>(grid);
+      break;
+    case 3:
+      reduce_grid<3>(grid);
+      break;
+    default:
+      break;
+    };
+    pos_grid.generation_ = grid.generation();
+  }
+
+  if (not has_interp.empty()) {
+    if (group == group_id::all() or has_interp[group()]) {
+      if (dsort_generation != pos_grid.generation()) {
+        pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+        pos_grid.gpu_sync();
+        dsort_generation = pos_grid.generation();
+      }
+    }
+  }
+
+  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+
+  int const num_gpus = compute->num_gpus();
+  #pragma omp parallel for schedule(static, 1)
+  for (int g = 0; g < num_gpus; g++)
+  {
+    expect(work1[g].size() >= num_entries);
+    // using work[g] as workspace without resizing
+    gpu::wrap_array<P> w1(work1[g].data(), num_entries);
+    // find the begin/end iterators to the moments in the group
+    auto im = gpu_moments[g].begin();
+    auto iend = gpu_moments[g].end();
+    if (group != group_id::all()) { // pick the subgroup
+      int gid = 0;
+      while (group != group_id{gid}) {
+        if (im->is_unset()) gid++;
+        im++;
+      }
+      iend = im;
+      while (not iend->is_unset()) ++iend;
+    }
+    // perform work for all moments from im to iend
+    for (; im < iend; im++) {
+
+      moment const mom = mlist[im->mid]; // using this to get the necessary powers
+
+      std::array<P const *, max_mom_dims> itg =
+        {gpu_integ[g][0].data() + mom.pows[0] * integ[0].stride(), nullptr, nullptr};
+      for (int i = 1; i < num_vel_; i++)
+        itg[i] = gpu_integ[g][i].data() + mom.pows[i] * integ[i].stride();
+
+      bool allzero = all_levels_zero;
+      std::array<bool, max_mom_dims> lzero;
+      if (not allzero) {
+        for (int d = 0; d < max_mom_dims; d++)
+          lzero[d] = (pdof > mom[d]);
+        allzero = lzero[0] and lzero[1] and lzero[2]; // assuming only 3 entries
+      }
+
+      if (allzero) {
+        moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[g],
+                           itg, state, w1.vec);
+      } else {
+        moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
+                      lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1.vec);
+      }
+      // at this point, the moment defined on the reduced grid is stored in w.vec
+
+      if (im->raw_on_cpu()) w1.vec.copy_to_host(raw_vals[im->mid]);
+
+      if (im->skip_interp()) continue;
+
+      // now we have to compute the interpolation
+      gpu::wrap_array<P> w2(work2[g].data(), num_entries);
+
+      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+
+      gpu::vector<P> &res = gpu_interps[g][im->mid];
+      res.resize(full_block * grid.num_indexes());
+
+      moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2.vec, res);
+
+      if (im->interp_on_cpu()) res.copy_to_host(interps[im->mid]);
+    }
+  }
 }
-
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE

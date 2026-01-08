@@ -141,10 +141,19 @@ public:
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   //! load all moments into the data-structures
-  void cache_moments(group_id group, sparse_grid const &grid, gpu::vector<P> const &state) const;
+  void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+                       kronmult::workspace<P> &kwork,
+                       std::array<gpu::vector<P>, max_num_gpus> &work1,
+                       std::array<gpu::vector<P>, max_num_gpus> &work2,
+                       gpu::vector<P> const &state) const;
   //! load all moments into the data-structures
-  void cache_moments(sparse_grid const &grid, gpu::vector<P> const &state) const {
-    cache_moments(group_id::all(), grid, state);
+  void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
+                       kronmult::workspace<P> &kwork,
+                       std::array<gpu::vector<P>, max_num_gpus> &work1,
+                       std::array<gpu::vector<P>, max_num_gpus> &work2,
+                       gpu::vector<P> const &state) const
+  {
+    compute_moments(group_id::all(), grid, interp, kwork, work1, work2, state);
   }
   #endif
   /*!
@@ -261,7 +270,9 @@ private:
     //! flag whether to keep on the cpu or gpu
     unsigned int flags = 0;
     //! indicates if the moment is unset
-    operator bool () const { return (mid == moment_id::unset()); }
+    operator bool () const { return (mid != moment_id::unset()); }
+    //! indicates if the moment is unset
+    bool is_unset() const { return (mid == moment_id::unset()); }
     //! indicates whether to use raw-value on the cpu
     bool raw_on_cpu() const { return ((flags & 1u) != 0); }
     //! indicates whether to use interp value on the cpu
@@ -279,7 +290,7 @@ private:
   std::array<std::array<gpu::vector<P>, max_mom_dims>, max_num_gpus> gpu_integ;
   mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij; // pairs of ij corresponding to pos-grid to global-grid
   mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij_allzero; // special case, only using level zero
-  bool has_regular_moments = false; // if moments have to computed on the CPU too
+  std::vector<bool> has_interp; // if moments have to computed on the CPU too
   std::array<std::vector<mom_on_gpu>, max_num_gpus> gpu_moments; // distribution of moments across GPU devices
 
   mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
