@@ -278,20 +278,26 @@ void discretization_manager<precision>::compute_moments_(
   if (terms.resources.num_ranks() > 1) {
     if (is_leader()) {
       terms.resources.template bcast <precision, resource_comm::regular>(f);
-      terms.moms.cache_moments(gid, grid, f);
+      compute_moments_local(gid, f);
     } else {
       terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
       terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
-      terms.moms.cache_moments(gid, grid, terms.mpiwork);
+      compute_moments_local(gid, terms.mpiwork);
     }
   } else {
   #endif
-    terms.moms.cache_moments(gid, grid, f);
+    compute_moments_local(gid, f);
   #ifdef ASGARD_USE_MPI
   }
   #endif
-  terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
+}
 
+template<typename precision>
+void discretization_manager<precision>::compute_moments_local(
+    group_id gid, std::vector<precision> const &f) const
+{
+  terms.moms.cache_moments(gid, grid, f);
+  terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
   compute_poisson(gid);
   terms.rebuild_moment_terms(gid, grid, conn, hier);
 }
@@ -516,9 +522,8 @@ void discretization_manager<precision>::ode_rhs_base(
       #endif
     }();
 
-  // locally update all moments
   if (terms.moms)
-    compute_moments_(group, in);
+    compute_moments_local(group, in);
 
   out.resize(in.size());
 
@@ -595,9 +600,8 @@ void discretization_manager<precision>::ode_euler_base(
       #endif
     }();
 
-  // locally update all moments
   if (terms.moms)
-    compute_moments_(group, in);
+    compute_moments_local(group, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -725,7 +729,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
   if (terms.moms) {
     moments_workspace.resize(num_entries);
     gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments_(group, moments_workspace);
+    compute_moments_local(group, moments_workspace);
   }
 
   {
@@ -803,7 +807,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   if (terms.moms) {
     moments_workspace.resize(num_entries);
     gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments_(group, moments_workspace);
+    compute_moments_local(group, moments_workspace);
   }
   {
     #ifdef ASGARD_USE_FLOPCOUNTER

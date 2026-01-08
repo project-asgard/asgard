@@ -274,7 +274,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
   // the time sources cannot use workspace to accelerate computations
-  #ifdef ASGARD_USE_MPI
   auto is_active_src = [&, this](source_entry<P> const &src) -> bool
     {
       if (not resources.owns(src.rec))
@@ -287,16 +286,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         return false;
       return (not bc.is_time_dependent());
     };
-  #else
-  auto is_active_src = [&](source_entry<P> const &src) -> bool
-    {
-      return (not src.is_time_dependent());
-    };
-  auto is_active_bc = [&](boundary_entry<P> const &bc) -> bool
-    {
-      return (not bc.is_time_dependent());
-    };
-  #endif
 
   for (auto const &src : sources)
     if (is_active_src(src)) num_lumped++;
@@ -437,13 +426,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         auto const &tentry = terms[tid];
         if (not resources.owns(tentry.rec)) continue;
 
-        has_poisson = has_poisson or tentry.has_poisson;
+        //has_poisson = has_poisson or tentry.has_poisson;
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
             auto const &mids = tentry.tmd.dim(d).mids_;
             insert(mids, gpu_moms[tentry.rec.device][gid]);
             insert(mids, cpu_raw[gid]);
-            has_sep_mom = has_sep_mom or (not mids.empty());
+            //has_sep_mom = has_sep_mom or (not mids.empty());
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tentry.tmd.mids_;
@@ -521,8 +510,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     std::cout << " setting dist\n";
     moms.set_moment_distribution(gpu_moms, cpu_raw, cpu_interp, skip_interp);
+    #endif
 
-    #else
     // CPU logic here, have only regular and interp moments per group
     std::vector<std::vector<moment_id>> regular(std::max(term_groups.size(), size_t{1}));
     std::vector<std::vector<moment_id>> intp(regular.size());
@@ -563,7 +552,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     for (auto &vec : intp) remove_repeated(vec);
 
     moms.set_moment_types(regular, intp);
-    #endif
 
     if (has_poisson) {
       if (term_groups.empty())

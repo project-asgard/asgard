@@ -688,6 +688,8 @@ protected:
   void start_moments();
   //! recompute the moments, assuming moments are set, i.e., has_moments() is true
   void compute_moments_(group_id gid, std::vector<precision> const &f) const;
+  //! recompute the moments locally, assuming moments are set, i.e., has_moments() is true
+  void compute_moments_local(group_id gid, std::vector<precision> const &f) const;
   //! computes the right-hand-side of the ode, templated version
   void ode_rhs_base(group_id gid, precision time, std::vector<precision> const &current,
                     std::vector<precision> &R) const;
