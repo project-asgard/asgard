@@ -685,12 +685,14 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_gpu_(group_id gid, precision const f[]) const {
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
+    int64_t const num_entries = num_dof();
     if (is_leader()) {
-      terms.resources.template bcast_gpu <precision, resource_comm::regular>(f);
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(num_entries, f);
       compute_moments_local_gpu(gid, f);
     } else {
-      terms.gpumpi_work.resize(num_dof());
-      terms.resources.template bcast_gpu <precision, resource_comm::regular>(terms.gpumpi_work.data());
+      terms.gpumpi_work.resize(num_entries);
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(
+            num_entries, terms.gpumpi_work.data());
       compute_moments_local_gpu(gid, terms.gpumpi_work.data());
     }
   } else {

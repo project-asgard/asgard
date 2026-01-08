@@ -221,6 +221,10 @@ public:
 private:
   std::vector<gpu::vector<P>> moms_;
 };
+#else
+// placeholder type, cannot be used without enabled GPU
+template<typename P>
+class momentset_gpu {};
 #endif
 
 }

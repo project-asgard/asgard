@@ -138,6 +138,17 @@ using md_gpu_func_f = std::function<void(int64_t const, P, P const[], P const[],
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a GPU non-separable function that accepts an moment and field parameters
+ *
+ * Using this function requires either CUDA or ROCM support and the arrays will
+ * be on the GPU device.
+ */
+template<typename P>
+using md_gpu_mom_func_f = std::function<void(int64_t const, P, P const[],
+                                             momentset_gpu<P> const &, P const[], P[])>;
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function with field and moment parameters
  */
 template<typename P>
@@ -932,8 +943,10 @@ struct term_interp {
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
+  explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids)
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
-  std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>> interp;
+  std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>> interp;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
 };
@@ -1215,6 +1228,12 @@ public:
               "the GPU interpolation functions requires CUDA or ROCM enabled");
       #endif
       interp_ = std::move(std::get<md_gpu_func_f<P>>(tint.interp));
+    } else if (std::holds_alternative<md_gpu_mom_func_f<P>>(tint.interp)) {
+      #if !defined(ASGARD_USE_CUDA) && !defined(ASGARD_USE_ROCM)
+      rassert(not std::holds_alternative<md_gpu_mom_func_f<P>>(tint.interp),
+              "the GPU interpolation functions requires CUDA or ROCM enabled");
+      #endif
+      interp_ = std::move(std::get<md_gpu_mom_func_f<P>>(tint.interp));
     } else
       interp_ = std::move(std::get<md_func_f<P>>(tint.interp));
   }
@@ -1253,7 +1272,10 @@ public:
   //! return true if the term uses interpolation
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
   //! return true if the term uses interpolation on the GPU device
-  bool is_gpu_interpolatory() const { return std::holds_alternative<md_gpu_func_f<P>>(interp_); }
+  bool is_gpu_interpolatory() const {
+    return std::holds_alternative<md_gpu_func_f<P>>(interp_)
+           or std::holds_alternative<md_gpu_mom_func_f<P>>(interp_);
+  }
 
   //! sets the mass term
   void set_mass(mass_md<P> tmass) {
@@ -1342,6 +1364,14 @@ public:
     std::get<md_gpu_func_f<P>>(interp_)(num_points, t, x, f, vals);
   }
 
+  //! applies the function on the GPU device, vals = f(n, t, x, moments, f)
+  void interp(int64_t num_points, P t, P const x[], momentset_gpu<P> const &moments,
+              P const f[], P vals[]) const
+  {
+    expect(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
+    std::get<md_gpu_mom_func_f<P>>(interp_)(num_points, t, x, moments, f, vals);
+  }
+
   // allow direct access to the private data
   friend struct term_manager<P>;
 
@@ -1363,7 +1393,8 @@ private:
                std::array<term_1d<P>, max_num_dimensions>,
                md_func_f<P>,
                md_mom_func_f<P>,
-               md_gpu_func_f<P>> interp_ = std::monostate{};
+               md_gpu_func_f<P>,
+               md_gpu_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms
