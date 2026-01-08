@@ -515,22 +515,32 @@ void moment_manager<P>::cache_moments(
 {
   if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
-    for (int i : iindexof(mlist.size())) {
-      if (mlist[moment_id{i}].action != moment::inactive) {
-        mcompute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
-        full_level.get(moment_id{i}).resize(0); // will be updated upon request
-        interps.get(moment_id{i}).resize(0);
-      }
+    // for (int i : iindexof(mlist.size())) {
+    //   if (mlist[moment_id{i}].action != moment::inactive) {
+    //     mcompute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
+    //     full_level.get(moment_id{i}).resize(0); // will be updated upon request
+    //     interps.get(moment_id{i}).resize(0);
+    //   }
+    // }
+    for (auto mid : raw_moments_) {
+      if (mid == moment_id::unset()) continue;
+      mcompute(grid, mid, state, raw_vals.get(mid));
+      full_level.get(mid).resize(0);
     }
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
-    for (auto const &id : groups_[group()]) {
-      if (mlist[id].action != moment::inactive) {
-        mcompute(grid, id, state, raw_vals.get(id));
-        full_level.get(id).resize(0);
-        interps.get(id).resize(0);
-      }
+    for (auto mid = first_in(group, interp_moments_);
+         not (*mid == moment_id::unset()); mid++) {
+      mcompute(grid, *mid, state, raw_vals.get(*mid));
+      full_level.get(*mid).resize(0);
     }
+    // for (auto const &id : groups_[group()]) {
+    //   if (mlist[id].action != moment::inactive) {
+    //     mcompute(grid, id, state, raw_vals.get(id));
+    //     full_level.get(id).resize(0);
+    //     interps.get(id).resize(0);
+    //   }
+    // }
   }
 }
 
@@ -611,13 +621,21 @@ void moment_manager<P>::load_interp(
 {
   size_t const num_entries = workspace.size();
   if (group == group_id::all()) {
-    for (int i = 0; i < mlist.size(); i++)
-      if (mlist[moment_id{i}].action == moment::interpolatory)
-        make_nodal(moment_id{i}, interp, work, workspace);
+    for (auto mid : interp_moments_) {
+      if (mid == moment_id::unset()) continue;
+      make_nodal(mid, interp, work, workspace);
+    }
+    // for (int i = 0; i < mlist.size(); i++)
+    //   if (mlist[moment_id{i}].action == moment::interpolatory)
+    //     make_nodal(moment_id{i}, interp, work, workspace);
   } else {
-    for (auto id : groups_[group()])
-      if (mlist[id].action == moment::interpolatory)
-        make_nodal(id, interp, work, workspace);
+    for (auto mid = first_in(group, interp_moments_);
+         not (*mid == moment_id::unset()); mid++) {
+      make_nodal(*mid, interp, work, workspace);
+    }
+    // for (auto id : groups_[group()])
+    //   if (mlist[id].action == moment::interpolatory)
+    //     make_nodal(id, interp, work, workspace);
   }
   workspace.resize(num_entries);
 }
@@ -629,6 +647,42 @@ size_t moment_manager<P>::used_bytes() const {
   t += poisson_level_.size() * sizeof(P);
   t += poisson_interp_.size() * sizeof(P);
   return t;
+}
+
+template<typename P>
+void moment_manager<P>::set_moment_types(
+    std::vector<std::vector<moment_id>> const &raws,
+    std::vector<std::vector<moment_id>> const &intps)
+{
+  expect(not raws.empty());
+  size_t const num_groups = raws.size();
+  expect(intps.size() == num_groups);
+
+  size_t const num_raws = [&]() -> size_t {
+      size_t sum = 0;
+      for (auto const &r : raws) sum += r.size();
+      return sum;
+    }();
+
+  raw_moments_.reserve(num_raws + num_groups);
+  for (auto const &rv : raws) {
+    for (moment_id mid : rv)
+      raw_moments_.push_back(mid);
+    raw_moments_.push_back(moment_id::unset());
+  }
+
+  size_t const num_interp = [&]() -> size_t {
+      size_t sum = 0;
+      for (auto const &i : intps) sum += i.size();
+      return sum;
+    }();
+
+  interp_moments_.reserve(num_interp + num_groups);
+  for (auto const &iv : intps) {
+    for (moment_id mid : iv)
+      interp_moments_.push_back(mid);
+    interp_moments_.push_back(moment_id::unset());
+  }
 }
 
 #ifdef ASGARD_USE_GPU

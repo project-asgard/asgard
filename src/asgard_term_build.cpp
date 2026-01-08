@@ -383,70 +383,172 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     if (has_field_interp)
       ifield.resize(1);
 
-    // handle the moment dependence
-    std::vector<moment_id> regular_moments;
-    std::vector<moment_id> interp_moments;
-    regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
+    // handle the moment dependencies, identify regular and interp moments for each group
+    // respect the MPI and GPU distributions
     bool has_poisson = false;
     bool has_sep_mom = false;
-    for (auto const &tentry : terms) {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(tentry.rec))
-        continue;
-      #endif
-      has_poisson = has_poisson or tentry.has_poisson;
-      if (tentry.is_separable()) { // only separable terms can have 1D moment deps
-        for (int d : iindexof(num_dims)) {
-          auto const &mids = tentry.tmd.dim(d).mids_;
-          if (not mids.empty()) {
-            has_sep_mom = true;
-            regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
+    #ifdef ASGARD_USE_GPU
+    #else
+    // CPU logic here, have only regular and interp moments per group
+    std::vector<std::vector<moment_id>> regular(std::max(term_groups.size(), size_t{1}));
+    std::vector<std::vector<moment_id>> intp(regular.size());
+    for (auto &r : regular) r.reserve(250);
+    for (auto &r : intp) r.reserve(250);
+    if (term_groups.empty()) {
+      // no groups, everything goes in [0]
+      for (auto const &tentry : terms) {
+        #ifdef ASGARD_USE_MPI
+        if (not resources.owns(tentry.rec))
+          continue;
+        #endif
+        has_poisson = has_poisson or tentry.has_poisson;
+        if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+          for (int d : iindexof(num_dims)) {
+            auto const &mids = tentry.tmd.dim(d).mids_;
+            if (not mids.empty()) {
+              has_sep_mom = true;
+              regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+            }
+          }
+        } else if (tentry.interplan.uses_moments()) {
+          auto const &mids = tentry.tmd.mids_;
+          regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+          intp[0].insert(intp[0].end(), mids.begin(), mids.end());
+        }
+      }
+      for (auto const &src : sources_md) {
+        #ifdef ASGARD_USE_MPI
+        if (not src.is_moment() or not resources.owns(src.rec))
+          continue;
+        #else
+        if (not src.is_moment())
+          continue;
+        #endif
+        auto const &mids = src.get_mom_md().mids_;
+        regular[0].insert(regular[0].end(), mids.begin(), mids.end());
+        intp[0].insert(intp[0].end(), mids.begin(), mids.end());
+      }
+    } else {
+      for (int gid : iindexof(term_groups)) {
+        for (int tid : indexrange(term_groups[gid])) {
+          auto const &tentry = terms[tid];
+          #ifdef ASGARD_USE_MPI
+          if (not resources.owns(tentry.rec))
+            continue;
+          #endif
+          has_poisson = has_poisson or tentry.has_poisson;
+          if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+            for (int d : iindexof(num_dims)) {
+              auto const &mids = tentry.tmd.dim(d).mids_;
+              if (not mids.empty()) {
+                has_sep_mom = true;
+                regular[gid].insert(regular[gid].end(), mids.begin(), mids.end());
+              }
+            }
+          } else if (tentry.interplan.uses_moments()) {
+            auto const &mids = tentry.tmd.mids_;
+            regular[gid].insert(regular[gid].end(), mids.begin(), mids.end());
+            intp[gid].insert(intp[gid].end(), mids.begin(), mids.end());
           }
         }
-      } else if (tentry.interplan.uses_moments()) {
-        auto const &mids = tentry.tmd.mids_;
-        interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
       }
-    }
-    for (auto const &src : sources_md) {
-      #ifdef ASGARD_USE_MPI
-      if (not src.is_moment() or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src.is_moment())
-        continue;
-      #endif
-      auto const &mids = src.get_mom_md().mids_;
-      interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
-    }
-    {
-      // moments that were pushed to other MPI ranks should be "downgraded"
-      // potentially to being inactive
+      for (int gid : iindexof(source_groups)) {
+        auto const &src = sources_md[gid];
+        #ifdef ASGARD_USE_MPI
+        if (not src or not src.is_moment() or not resources.owns(src.rec))
+          continue;
+        #else
+        if (not src or not src.is_moment())
+          continue;
+        #endif
+        auto const &mids = src.get_mom_md().mids_;
+        regular[gid].insert(regular[gid].end(), mids.begin(), mids.end());
+        intp[gid].insert(intp[gid].end(), mids.begin(), mids.end());
+      }
+    }{
+      // remove redundant entries
       auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
       auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
 
-      std::sort(interp_moments.begin(), interp_moments.end(), comp_id);
-      std::sort(regular_moments.begin(), regular_moments.end(), comp_id);
-
-      auto last = std::unique(regular_moments.begin(), regular_moments.end(), match_id);
-      regular_moments.erase(last, regular_moments.end());
-
-      last = std::unique(interp_moments.begin(), interp_moments.end(), match_id);
-      interp_moments.erase(last, interp_moments.end());
-
-      for (int i : iindexof(moms.num_moments())) {
-        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::interpolatory) {
-          if (not std::binary_search(interp_moments.begin(), interp_moments.end(),
-                                     moment_id{i}, comp_id))
-            moms.set_action(moment_id{i}, moment::moment_type::regular);
-        }
-        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::regular) {
-          if (not std::binary_search(regular_moments.begin(), regular_moments.end(),
-                                     moment_id{i}, comp_id))
-            moms.set_action(moment_id{i}, moment::moment_type::inactive);
-        }
+      for (auto &vec : regular) {
+        std::sort(vec.begin(), vec.end(), comp_id);
+        auto last = std::unique(vec.begin(), vec.end(), match_id);
+        vec.erase(last, vec.end());
       }
+      for (auto &vec : intp) {
+        std::sort(vec.begin(), vec.end(), comp_id);
+        auto last = std::unique(vec.begin(), vec.end(), match_id);
+        vec.erase(last, vec.end());
+      }
+      moms.set_moment_types(regular, intp);
     }
+    #endif
+
+    // handle the moment dependence
+    // std::vector<moment_id> regular_moments;
+    // std::vector<moment_id> interp_moments;
+    // regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
+    // interp_moments.reserve(250);
+    // bool has_poisson = false;
+    // bool has_sep_mom = false;
+    // for (auto const &tentry : terms) {
+    //   #ifdef ASGARD_USE_MPI
+    //   if (not resources.owns(tentry.rec))
+    //     continue;
+    //   #endif
+    //   has_poisson = has_poisson or tentry.has_poisson;
+    //   if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+    //     for (int d : iindexof(num_dims)) {
+    //       auto const &mids = tentry.tmd.dim(d).mids_;
+    //       if (not mids.empty()) {
+    //         has_sep_mom = true;
+    //         regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
+    //       }
+    //     }
+    //   } else if (tentry.interplan.uses_moments()) {
+    //     auto const &mids = tentry.tmd.mids_;
+    //     interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+    //   }
+    // }
+    // for (auto const &src : sources_md) {
+    //   #ifdef ASGARD_USE_MPI
+    //   if (not src.is_moment() or not resources.owns(src.rec))
+    //     continue;
+    //   #else
+    //   if (not src.is_moment())
+    //     continue;
+    //   #endif
+    //   auto const &mids = src.get_mom_md().mids_;
+    //   interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+    // }
+    // {
+    //   // moments that were pushed to other MPI ranks should be "downgraded"
+    //   // potentially to being inactive
+    //   auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
+    //   auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
+    //
+    //   std::sort(interp_moments.begin(), interp_moments.end(), comp_id);
+    //   std::sort(regular_moments.begin(), regular_moments.end(), comp_id);
+    //
+    //   auto last = std::unique(regular_moments.begin(), regular_moments.end(), match_id);
+    //   regular_moments.erase(last, regular_moments.end());
+    //
+    //   last = std::unique(interp_moments.begin(), interp_moments.end(), match_id);
+    //   interp_moments.erase(last, interp_moments.end());
+    //
+    //   for (int i : iindexof(moms.num_moments())) {
+    //     if (moms.get_by_id(moment_id{i}).action == moment::moment_type::interpolatory) {
+    //       if (not std::binary_search(interp_moments.begin(), interp_moments.end(),
+    //                                  moment_id{i}, comp_id))
+    //         moms.set_action(moment_id{i}, moment::moment_type::regular);
+    //     }
+    //     if (moms.get_by_id(moment_id{i}).action == moment::moment_type::regular) {
+    //       if (not std::binary_search(regular_moments.begin(), regular_moments.end(),
+    //                                  moment_id{i}, comp_id))
+    //         moms.set_action(moment_id{i}, moment::moment_type::inactive);
+    //     }
+    //   }
+    // }
     if (has_poisson) {
       if (term_groups.empty())
         has_poisson_.resize(1, true);

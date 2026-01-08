@@ -145,6 +145,20 @@ public:
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   #endif
+  /*!
+   * \brief Defines moments that should be used as raw or interpolation
+   *
+   * The raw moments are the ones computed directly from the state and those are defined on
+   * the position grid. The level and interp moments are computed from the raw moments,
+   * where the level moments are generated on call and the interp moments require
+   * a separate call to load_interp().
+   * Thus, the raw moments include both the level moments and interp moments.
+   * The interp moments are those that require interpolation.
+   *
+   * Using access: raws[group][moment]
+   */
+  void set_moment_types(std::vector<std::vector<moment_id>> const &raws,
+                        std::vector<std::vector<moment_id>> const &intps);
 
 protected:
   //! set the new groups
@@ -184,6 +198,18 @@ protected:
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
+  //! returns an iterator to the first entry of the given group using serialized vector
+  template<typename vector_like>
+  static auto first_in(group_id group, vector_like const &vec) {
+    int gid = 0;
+    auto mid = vec.begin();
+    while (not (group == group_id{gid})) {
+      if (*mid == moment_id::unset()) gid++;
+      mid++;
+    }
+    return mid;
+  }
+
 private:
   //! indicates whether level 0 contains all the needed moment data
   enum class moment_level {
@@ -210,6 +236,9 @@ private:
 
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;
+
+  std::vector<moment_id> raw_moments_;
+  std::vector<moment_id> interp_moments_;
 
   bool all_levels_zero = true;
   std::array<moment_level, max_mom_dims> dim_level;
