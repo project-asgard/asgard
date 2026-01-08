@@ -435,10 +435,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto this_group = (term_groups.empty()) ? indexrange(terms) : indexrange(term_groups[gid]);
       for (int tid : this_group) {
         auto const &tentry = terms[tid];
-        #ifdef ASGARD_USE_MPI
-        if (not resources.owns(tentry.rec))
-          continue;
-        #endif
+        if (not resources.owns(tentry.rec)) continue;
+
         has_poisson = has_poisson or tentry.has_poisson;
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
@@ -458,13 +456,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
     for (int gid : igroups) {
       auto const &src = sources_md[gid];
-      #ifdef ASGARD_USE_MPI
-      if (not src.is_moment() or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src.is_moment())
-        continue;
-      #endif
+      if (not src.is_moment() or not resources.owns(src.rec)) continue;
+
       auto const &mids = src.get_mom_md().mids_;
       insert(mids, gpu_moms[src.rec.device][gid]);
       insert(mids, all_interp[gid]);
@@ -505,10 +498,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto this_group = (term_groups.empty()) ? indexrange(terms) : indexrange(term_groups[gid]);
       for (int tid : this_group) {
         auto const &tentry = terms[tid];
-        #ifdef ASGARD_USE_MPI
-        if (not resources.owns(tentry.rec))
-          continue;
-        #endif
+        if (not resources.owns(tentry.rec)) continue;
+
         has_poisson = has_poisson or tentry.has_poisson;
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
@@ -525,13 +516,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
     for (int gid : igroups) {
       auto const &src = sources_md[gid];
-      #ifdef ASGARD_USE_MPI
-      if (not src or not src.is_moment() or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src or not src.is_moment())
-        continue;
-      #endif
+      if (not src or not src.is_moment() or not resources.owns(src.rec)) continue;
+
       auto const &mids = src.get_mom_md().mids_;
       insert(mids, regular[gid]);
       insert(mids, intp[gid]);
@@ -552,10 +538,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         has_poisson_.resize(term_groups.size(), false);
         for (int gid : iindexof(term_groups)) {
           for (int tid : indexrange(term_groups[gid])) {
-            #ifdef ASGARD_USE_MPI
-            if (not resources.owns(terms[tid].rec))
-              continue;
-            #endif
+            if (not resources.owns(terms[tid].rec)) continue;
+
             if (terms[tid].has_poisson) {
               has_poisson_[gid] = true;
               break; // move to the next group

@@ -140,6 +140,12 @@ public:
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
+  //! load all moments into the data-structures
+  void cache_moments(group_id group, sparse_grid const &grid, gpu::vector<P> const &state) const;
+  //! load all moments into the data-structures
+  void cache_moments(sparse_grid const &grid, gpu::vector<P> const &state) const {
+    cache_moments(group_id::all(), grid, state);
+  }
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation

@@ -523,7 +523,7 @@ void moment_manager<P>::cache_moments(
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
     for (auto mid = first_in(group, raw_moments_);
-         not (*mid == moment_id::unset()); mid++) {
+         *mid != moment_id::unset(); mid++) {
       mcompute(grid, *mid, state, raw_vals.get(*mid));
       full_level.get(*mid).resize(0);
     }
@@ -740,6 +740,14 @@ void moment_manager<P>::set_moment_distribution(
     gid++;
   }
 }
+
+template<typename P>
+void moment_manager<P>::cache_moments(group_id group, sparse_grid const &grid,
+                                      gpu::vector<P> const &state) const
+{
+
+}
+
 #endif
 
 #ifdef ASGARD_ENABLE_DOUBLE

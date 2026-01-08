@@ -107,30 +107,19 @@ void term_manager<P>::apply_sources(
     // update the constant components
     for (auto &src : sources)
     {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(src.rec))
+      if (src.is_time_dependent() or not resources.owns(src.rec))
         continue;
-      #endif
 
       // the time-dependent case will construct both the 1D can mD vector for each t
       // the rest of the cases will have constant components in space and a time variable
       // this handles the space vector 1D -> mD tensoring
-
-      if (src.is_time_dependent())
-        continue;
-
       tensor_consts(src);
     }
 
     // update the constant components
     for (auto &bc : bcs)
     {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[bc.term_index].rec))
-        continue;
-      #endif
-
-      if (bc.is_time_dependent())
+      if (bc.is_time_dependent() or not resources.owns(terms[bc.term_index].rec))
         continue;
 
       // In addition to the tensoring, the boundary condition case
@@ -162,11 +151,7 @@ void term_manager<P>::apply_sources(
 
   for (int is : isrng) {
     auto const &src = sources[is];
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(src.rec))
-      continue;
-    #endif
+    if (not resources.owns(src.rec)) continue;
 
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
@@ -199,24 +184,16 @@ void term_manager<P>::apply_sources(
 
   if (group == group_id::all()) {
     for (auto const &src : sources_md) {
-      #ifdef ASGARD_USE_MPI
-      if (not src or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src)
-        continue;
-      #endif
+      if (not src or not resources.owns(src.rec)) continue;
+
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, moms.get_cached_interps(), time, 1, src, 1, y, kwork, it1, it2);
       else
         interp(grid, conns, moms.get_cached_interps(), time, alpha, src, 1, y, kwork, it1, it2);
     }
   } else {
-    #ifdef ASGARD_USE_MPI
-    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()]) {
-    #else
-    if (sources_md[group()]) {
-    #endif
+    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()])
+    {
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
         interp(grid, conns, moms.get_cached_interps(), time, 1, sources_md[group()],
                1, y, kwork, it1, it2);
@@ -231,11 +208,7 @@ void term_manager<P>::apply_sources(
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(terms[bc.term_index].rec))
-      continue;
-    #endif
+    if (not resources.owns(terms[bc.term_index].rec)) continue;
 
     switch (bc.tmode) {
       case boundary_entry<P>::time_mode::constant:
@@ -318,9 +291,6 @@ void term_manager<P>::apply_sources_gpu(
   int64_t const block_size  = hier.block_size();
   int64_t const num_entries = grid.num_indexes() * block_size;
 
-  // std::cout << " into apply GPU" << std::endl;
-  // cuda_check_error( cudaPeekAtLastError() ); std::cout << " going for apply GPU" << std::endl;
-
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   auto rechain = [&, this](gpu::device dev, boundary_entry<P> &bc, P al, P data[]) -> void
     {
@@ -357,7 +327,6 @@ void term_manager<P>::apply_sources_gpu(
           if (entry.ilump == -1) {
             entry.gpu_val.resize(num_entries);
             data = entry.gpu_val.data();
-            //std::cout << " using data in gpu_val with size: " << entry.gpu_val.size() << "\n";
           } else {
             data = gpu_swork.data() + entry.ilump * num_entries;
           }
@@ -372,25 +341,16 @@ void term_manager<P>::apply_sources_gpu(
     // update the constant components
     for (auto &src : sources)
     {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(src.rec))
-        continue;
-      #endif
+      if (src.is_time_dependent() or not resources.owns(src.rec)) continue;
 
       // see the CPU version, only tensoring when there's time-independent component
-      if (src.is_time_dependent())
-        continue;
-
       tensor_consts(src);
     }
 
     // update the constant components
     for (auto &bc : bcs)
     {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(terms[bc.term_index].rec))
-        continue;
-      #endif
+      if (not resources.owns(terms[bc.term_index].rec)) continue;
 
       if (bc.is_time_dependent())
         continue;
@@ -436,11 +396,7 @@ void term_manager<P>::apply_sources_gpu(
 
   for (int is : isrng) {
     auto const &src = sources[is];
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(src.rec))
-      continue;
-    #endif
+    if (not resources.owns(src.rec)) continue;
 
     switch (src.tmode) {
       case source_entry<P>::time_mode::constant:
@@ -477,11 +433,7 @@ void term_manager<P>::apply_sources_gpu(
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
-
-    #ifdef ASGARD_USE_MPI
-    if (not resources.owns(terms[bc.term_index].rec))
-      continue;
-    #endif
+    if (not resources.owns(terms[bc.term_index].rec)) continue;
 
     switch (bc.tmode) {
       case boundary_entry<P>::time_mode::constant:
@@ -556,21 +508,13 @@ void term_manager<P>::apply_sources_gpu(
   // interpolation sources
   if (group == group_id::all()) {
     for (auto const &src : sources_md) {
-      #ifdef ASGARD_USE_MPI
-      if (not src or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src)
-        continue;
-      #endif
+      if (not src or not resources.owns(src.rec)) continue;
+
       interp_source(src);
     }
   } else {
-    #ifdef ASGARD_USE_MPI
-    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()]) {
-    #else
-    if (sources_md[group()]) {
-    #endif
+    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()])
+    {
       interp_source(sources_md[group()]);
     }
   }
