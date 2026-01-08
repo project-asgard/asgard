@@ -608,20 +608,14 @@ void moment_manager<P>::load_interp(
   size_t const num_entries = workspace.size();
   if (group == group_id::all()) {
     for (auto mid : interp_moments_) {
-      if (mid == moment_id::unset()) continue;
-      make_nodal(mid, interp, work, workspace);
+      if (mid != moment_id::unset())
+        make_nodal(mid, interp, work, workspace);
     }
-    // for (int i = 0; i < mlist.size(); i++)
-    //   if (mlist[moment_id{i}].action == moment::interpolatory)
-    //     make_nodal(moment_id{i}, interp, work, workspace);
   } else {
     for (auto mid = first_in(group, interp_moments_);
-         not (*mid == moment_id::unset()); mid++) {
+         *mid != moment_id::unset(); mid++) {
       make_nodal(*mid, interp, work, workspace);
     }
-    // for (auto id : groups_[group()])
-    //   if (mlist[id].action == moment::interpolatory)
-    //     make_nodal(id, interp, work, workspace);
   }
   workspace.resize(num_entries);
 }

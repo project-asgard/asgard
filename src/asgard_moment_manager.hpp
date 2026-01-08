@@ -199,7 +199,7 @@ protected:
   static auto first_in(group_id group, vector_like const &vec) {
     int gid = 0;
     auto mid = vec.begin();
-    while (not (group == group_id{gid})) {
+    while (group != group_id{gid}) {
       if (*mid == moment_id::unset()) gid++;
       mid++;
     }

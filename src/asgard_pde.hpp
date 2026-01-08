@@ -1448,6 +1448,8 @@ struct group_id {
   constexpr int operator () () const { return gid; }
   //! compare the two group ids
   bool operator == (group_id const &other) const { return (other.gid == gid); }
+  //! compare the two group ids
+  bool operator != (group_id const &other) const { return not (*this == other); }
   //! check if the id is between -1 and the max bound, used for sanity checking
   bool is_valid(size_t index_end) const {
     return (-1 <= gid and gid < static_cast<int>(index_end));
