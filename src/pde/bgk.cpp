@@ -527,9 +527,9 @@ void test_energy(int const dims, std::string const &opt_str) {
   prog_opts const options = make_opts(opt_str);
 
   auto pde = make_bgk<P>(dims, options);
-  moment_id const m0 = pde.register_moment({0, moment::inactive});
-  // moment_id const m1 = pde.register_moment({1, moment::inactive});
-  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  moment_id const m0 = pde.register_moment({0});
+  // moment_id const m1 = pde.register_moment({1});
+  moment_id const m2 = pde.register_moment({2});
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   double mass0   = 0; // initial total mass

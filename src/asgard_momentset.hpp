@@ -10,34 +10,20 @@ namespace asgard
  */
 struct moment
 {
-  /*!
-   * \brief Holds the different ways the moment can be used
-   *
-   * The internals of the moment_manager and term_manager will perform
-   * the appropriate actions.
-   */
-  enum moment_type {
-    //! indicate a regular moment, probably needed for 1d operators
-    regular,
-    //! interpolatory, requires the expansion of the nodes
-    interpolatory,
-    //! do nothing, for information and plotting purposes only
-    inactive,
-  };
   //! produces zero moment with the specified number of velocity dimensions
-  static moment zero(int num_velocity, moment_type act = regular) {
-    moment m(0, act);
+  static moment zero(int num_velocity) {
+    moment m(0);
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
   //! creating a placeholder invalid moment
   moment() : pows{-1, -1, -1} {}
   //! create a 1D moment with the given power
-  moment(int pv1, moment_type act = regular) : pows{pv1, -1, -1}, action(act) {}
+  moment(int pv1) : pows{pv1, -1, -1} {}
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2, moment_type act = regular) : pows{pv1, pv2, -1}, action(act) {}
+  moment(int pv1, int pv2) : pows{pv1, pv2, -1} {}
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3, moment_type act = regular) : pows{pv1, pv2, pv3}, action(act) {}
+  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
   //! number of valid powers
   int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
@@ -76,8 +62,6 @@ struct moment
 
   //! holds the powers
   std::array<int, max_mom_dims> pows;
-  //! action to perform on the moment
-  moment_type action = regular;
 };
 
 //! strong type for the moment ID
@@ -129,13 +113,8 @@ public:
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
   moment_id get_add_id(moment const &mom) {
     for (int i = 0; i < static_cast<int>(moms_.size()); i++)
-      if (moms_[i] == mom) {
-        if (moms_[i].action == moment::inactive and mom.action != moment::inactive)
-          moms_[i].action = mom.action;
-        if (moms_[i].action == moment::regular and mom.action != moment::interpolatory)
-          moms_[i].action = mom.interpolatory;
+      if (moms_[i] == mom)
         return moment_id{i};
-      }
     moms_.push_back(mom);
     return moment_id{static_cast<int>(moms_.size() - 1)};
   }
@@ -150,9 +129,6 @@ public:
   moment const &operator[] (moment_id mid) const { return moms_[mid()]; }
   //! return the moment with the given index
   moment const &operator[] (int i) const { return moms_[i]; }
-
-  //! set the action for the new moment
-  void set_action(moment_id mid, moment::moment_type action) { moms_[mid()].action = action; }
 
   //! returns true if all moments have the given dimension
   bool have_all_dimension(int const dims) const;

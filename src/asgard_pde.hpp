@@ -663,9 +663,7 @@ public:
       depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
       smom_(mover.mom)
-  {
-    smom_.action = moment::regular;
-  }
+  {}
   //! make a special term using the collision theta term
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
@@ -1657,9 +1655,6 @@ public:
             "cannot simultaneously set a moment and non-moment source for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
-
-    for (auto id : smd.mids_)
-      mlist.set_action(id, moment::moment_type::interpolatory);
 
     sources_md_[idx] = std::move(smd);
   }

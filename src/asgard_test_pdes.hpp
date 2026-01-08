@@ -197,9 +197,9 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
 
     pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
 
-    moment_id const m0 = pde.register_moment({0, moment::inactive});
-    moment_id const m1 = pde.register_moment({1, moment::inactive});
-    moment_id const m2 = pde.register_moment({2, moment::inactive});
+    moment_id const m0 = pde.register_moment({0});
+    moment_id const m1 = pde.register_moment({1});
+    moment_id const m2 = pde.register_moment({2});
 
     return pde;
   }

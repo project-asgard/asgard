@@ -515,13 +515,6 @@ void moment_manager<P>::cache_moments(
 {
   if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
-    // for (int i : iindexof(mlist.size())) {
-    //   if (mlist[moment_id{i}].action != moment::inactive) {
-    //     mcompute(grid, moment_id{i}, state, raw_vals.get(moment_id{i}));
-    //     full_level.get(moment_id{i}).resize(0); // will be updated upon request
-    //     interps.get(moment_id{i}).resize(0);
-    //   }
-    // }
     for (auto mid : raw_moments_) {
       if (mid == moment_id::unset()) continue;
       mcompute(grid, mid, state, raw_vals.get(mid));
@@ -529,18 +522,11 @@ void moment_manager<P>::cache_moments(
     }
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
-    for (auto mid = first_in(group, interp_moments_);
+    for (auto mid = first_in(group, raw_moments_);
          not (*mid == moment_id::unset()); mid++) {
       mcompute(grid, *mid, state, raw_vals.get(*mid));
       full_level.get(*mid).resize(0);
     }
-    // for (auto const &id : groups_[group()]) {
-    //   if (mlist[id].action != moment::inactive) {
-    //     mcompute(grid, id, state, raw_vals.get(id));
-    //     full_level.get(id).resize(0);
-    //     interps.get(id).resize(0);
-    //   }
-    // }
   }
 }
 

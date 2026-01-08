@@ -389,7 +389,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_vplb<P>(vdims, options);
-  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  moment_id const m2 = pde.register_moment({2});
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   double E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
