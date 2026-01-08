@@ -211,6 +211,8 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
     if (interp) {
       cpu_it1[g].resize(num_entries);
       cpu_it2[g].resize(num_entries);
+    }
+    if (interp or moms) {
       gpu_it1[g].resize(num_entries);
       gpu_it2[g].resize(num_entries);
     }

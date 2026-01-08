@@ -575,6 +575,36 @@ public:
   //! deletes the current list of auxiliary fields
   void clear_aux_fields() { aux_fields.clear(); }
 
+  //! recomputes the moments with the current state, if groupid is negative all groups will be computed
+  void compute_moments(group_id gid = group_id::all()) const {
+    compute_moments(gid, state);
+  }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments(std::vector<precision> const &f) const {
+    compute_moments(group_id::all(), f);
+  }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments(group_id gid, std::vector<precision> const &f) const {
+    rassert(terms.moms, "no moments set for this PDE");
+    compute_moments_(gid, f);
+  }
+  #ifdef ASGARD_USE_GPU
+  //! recomputes the moments with the current state, if groupid is negative all groups will be computed
+  void compute_moments_gpu(group_id gid = group_id::all()) const {
+    gpu::vector<precision> gpu_state = state;
+    compute_moments_gpu(gid, gpu_state.data());
+  }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments_gpu(precision const f[]) const {
+    compute_moments_gpu(group_id::all(), f);
+  }
+  //! recomputes the moments given the state of interest and this term group
+  void compute_moments_gpu(group_id gid, precision const f[]) const {
+    rassert(terms.moms, "no moments set for this PDE");
+    compute_moments_gpu_(gid, f);
+  }
+  #endif
+
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! returns a ref to the sparse grid
   sparse_grid const &get_grid() const { return grid; }
@@ -600,19 +630,6 @@ public:
   //! return the connection patterns
   connection_patterns const &get_conn() const { return conn; }
 
-  //! recomputes the moments with the current state, if groupid is negative all groups will be computed
-  void compute_moments(group_id gid = group_id::all()) const {
-    compute_moments(gid, state);
-  }
-  //! recomputes the moments given the state of interest and this term group
-  void compute_moments(std::vector<precision> const &f) const {
-    compute_moments(group_id::all(), f);
-  }
-  //! recomputes the moments given the state of interest and this term group
-  void compute_moments(group_id gid, std::vector<precision> const &f) const {
-    rassert(terms.moms, "no moments set for this PDE");
-    compute_moments_(gid, f);
-  }
   //! recomputes the Poisson term for the given group
   void compute_poisson(group_id gid = group_id::all()) const {
     if (not poisson or not terms.has_poisson(gid))
@@ -702,6 +719,10 @@ protected:
   void ode_rhs_sources(group_id gid, precision time, precision alpha,
                        std::vector<precision> &src) const;
   #ifdef ASGARD_USE_GPU
+  //! recompute the moments, assuming moments are set, i.e., has_moments() is true
+  void compute_moments_gpu_(group_id gid, precision const f[]) const;
+  //! recompute the moments locally, assuming moments are set, i.e., has_moments() is true
+  void compute_moments_local_gpu(group_id gid, precision const f[]) const;
   //! same as ode_rhs_base() but the arrays are pre-allocated and on the GPU device 0
   void ode_rhs_base_gpu(group_id gid, precision time, precision const current[],
                         precision R[]) const;

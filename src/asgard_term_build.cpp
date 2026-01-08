@@ -474,41 +474,41 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       remove_repeated(skip_interp[gid]);
     }
 
-    std::cout << " gpu-moms\n";
-    for (auto const &dev : gpu_moms) {
-      std::cout << " -- dev --\n";
-      for (auto const &grp : dev) {
-        for (auto m : grp) {
-          std::cout << m() << "    ";
-        }
-        std::cout << '\n';
-      }
-      std::cout << '\n';
-    }
-
-    std::cout << " cpu_raw\n";
-    for (auto const &grp : cpu_raw) {
-      for (auto m : grp) {
-        std::cout << m() << "    ";
-      }
-      std::cout << '\n';
-    }
-    std::cout << " cpu_interp\n";
-    for (auto const &grp : cpu_interp) {
-      for (auto m : grp) {
-        std::cout << m() << "    ";
-      }
-      std::cout << '\n';
-    }
-    std::cout << " skip_interp\n";
-    for (auto const &grp : skip_interp) {
-      for (auto m : grp) {
-        std::cout << m() << "    ";
-      }
-      std::cout << '\n';
-    }
-
-    std::cout << " setting dist\n";
+    // std::cout << " gpu-moms\n";
+    // for (auto const &dev : gpu_moms) {
+    //   std::cout << " -- dev --\n";
+    //   for (auto const &grp : dev) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //   std::cout << '\n';
+    // }
+    //
+    // std::cout << " cpu_raw\n";
+    // for (auto const &grp : cpu_raw) {
+    //   for (auto m : grp) {
+    //     std::cout << m() << "    ";
+    //   }
+    //   std::cout << '\n';
+    // }
+    // std::cout << " cpu_interp\n";
+    // for (auto const &grp : cpu_interp) {
+    //   for (auto m : grp) {
+    //     std::cout << m() << "    ";
+    //   }
+    //   std::cout << '\n';
+    // }
+    // std::cout << " skip_interp\n";
+    // for (auto const &grp : skip_interp) {
+    //   for (auto m : grp) {
+    //     std::cout << m() << "    ";
+    //   }
+    //   std::cout << '\n';
+    // }
+    //
+    // std::cout << " setting dist\n";
     moms.set_moment_distribution(gpu_moms, cpu_raw, cpu_interp, skip_interp);
     #endif
 

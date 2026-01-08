@@ -682,6 +682,40 @@ void discretization_manager<precision>::ode_rhs_sources(
 
 #ifdef ASGARD_USE_GPU
 template<typename precision>
+void discretization_manager<precision>::compute_moments_gpu_(group_id gid, precision const f[]) const {
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader()) {
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(f);
+      compute_moments_local_gpu(gid, f);
+    } else {
+      terms.gpumpi_work.resize(num_dof());
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(terms.gpumpi_work.data());
+      compute_moments_local_gpu(gid, terms.gpumpi_work.data());
+    }
+  } else {
+  #endif
+    compute_moments_local_gpu(gid, f);
+  #ifdef ASGARD_USE_MPI
+  }
+  #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::compute_moments_local_gpu(
+    group_id gid, precision const f[]) const
+{
+  {
+    // const-cast is safe here, since wf is only used as "const" in the call
+    gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
+    terms.moms.compute_moments(gid, grid, terms.interp, terms.kwork,
+                               terms.gpu_it1, terms.gpu_it2, wf.vec);
+  }
+  compute_poisson(gid);
+  terms.rebuild_moment_terms(gid, grid, conn, hier);
+}
+
+template<typename precision>
 void discretization_manager<precision>::ode_rhs_base_gpu(
     group_id group, precision time, precision const current[], precision R[]) const
 {
@@ -725,12 +759,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
       #endif
     }();
 
-  // locally update all moments
-  if (terms.moms) {
-    moments_workspace.resize(num_entries);
-    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments_local(group, moments_workspace);
-  }
+  if (terms.moms) compute_moments_local_gpu(group, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -803,12 +832,8 @@ void discretization_manager<precision>::ode_euler_base_gpu(
       #endif
     }();
 
-  // locally update all moments
-  if (terms.moms) {
-    moments_workspace.resize(num_entries);
-    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments_local(group, moments_workspace);
-  }
+  if (terms.moms) compute_moments_local_gpu(group, in);
+
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(group, grid, conn);

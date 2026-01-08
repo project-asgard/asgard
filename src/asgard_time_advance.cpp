@@ -677,11 +677,7 @@ void imex_stepper<P>::implicit_solve(
 {
   int64_t const num_entries = disc.num_dof();
   if (disc.has_moments())
-  {
-    std::vector<P> cpu_current;
-    current.copy_to_host(cpu_current);
-    disc.compute_moments(group_id{imex_implicit}, cpu_current);
-  }
+    disc.compute_moments_gpu(group_id{imex_implicit}, current.data());
 
   solver.update_grid(group_id{imex_implicit}, stage, disc.get_grid(), disc.get_conn(),
                      disc.get_terms(), dt, precon);

@@ -342,20 +342,24 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
   dim3 const launch_grid(pos_block, num_teams);
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
+  int const num_rij = static_cast<int>(rij.size() / 2);
+  // std::cout << pdof << "    " << pos_block << "    " << full_block << "    " << vdims << "    "
+  //           << rij.size() <<  "    " << state.size() << "    " << vals.size() << '\n';
+
   switch (vdims) {
   case 1:
     kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
-        pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
+        pdof, pos_block, full_block, num_rij, rij.data(),
         integ[0], nullptr, nullptr, state.data(), vals.data());
     break;
   case 2:
-    kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
-        pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
+    kernel_moment_l0<P, 2><<<launch_blocks, launch_grid>>>(
+        pdof, pos_block, full_block, num_rij, rij.data(),
         integ[0], integ[1], nullptr, state.data(), vals.data());
     break;
   case 3:
-    kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
-        pdof, pos_block, full_block, static_cast<int>(rij.size()), rij.data(),
+    kernel_moment_l0<P, 3><<<launch_blocks, launch_grid>>>(
+        pdof, pos_block, full_block, num_rij, rij.data(),
         integ[0], integ[1], integ[2], state.data(), vals.data());
     break;
   default:
@@ -383,22 +387,24 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
   dim3 const launch_grid(pos_block, num_teams);
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
+  int const num_rij = static_cast<int>(rij.size() / 2);
+
   switch (pdims) {
   case 1:
     switch (vdims) {
     case 1:
       kernel_moment<P, 1, 1><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 1, 2><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 1, 3><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
@@ -409,17 +415,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     switch (vdims) {
     case 1:
       kernel_moment<P, 2, 1><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 2, 2><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 2, 3><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
@@ -430,17 +436,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     switch (vdims) {
     case 1:
       kernel_moment<P, 3, 1><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], nullptr, nullptr, state.data(), vals.data());
       break;
     case 2:
       kernel_moment<P, 3, 2><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], nullptr, state.data(), vals.data());
       break;
     case 3:
       kernel_moment<P, 3, 3><<<launch_blocks, launch_grid>>>(
-          pdof, pos_block, full_block, zeros, indexes, static_cast<int>(rij.size()), rij.data(),
+          pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
           integ[0], integ[1], integ[2], state.data(), vals.data());
       break;
     default:
@@ -486,17 +492,19 @@ void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &r
   constexpr int max_threads = 1024;
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
+  int const num_rij = static_cast<int>(rij.size() / 2);
+
   int const team_size = pos_block * vel_block;
   if (team_size > max_threads) { // multiple cycles
     expect(pdof == 4 and num_pos == 3 and num_vel == 3);
     dim3 const launch_grid(max_threads, 1);
     kernel_moment_expand<P, 4, max_threads><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, static_cast<int>(rij.size()), rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
   } else {
     const int num_teams = max_threads / team_size;
     dim3 const launch_grid(team_size, num_teams);
     kernel_moment_expand<P><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, static_cast<int>(rij.size()), rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
   }
 }
 

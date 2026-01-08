@@ -300,6 +300,7 @@ void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
   int const num_gpus = compute->num_gpus();
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++) {
+    compute->set_device(gpu::device{g});
     reduce_ij[g]         = rij;
     reduce_ij_allzero[g] = rij_zero;
   }
@@ -699,13 +700,6 @@ void moment_manager<P>::set_moment_distribution(
     }
   }
 
-  std::cout << " gpu-moments\n";
-  for (auto const &dev : gpu_moments) {
-    for (auto m : dev)
-      std::cout << m.mid() << "    ";
-    std::cout << '\n';
-  }
-
   // find the first moment matching the given id and group
   auto find_mom = [&](moment_id mid, group_id group) -> mom_on_gpu &
     {
@@ -808,12 +802,13 @@ void moment_manager<P>::compute_moments(
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++)
   {
+    compute->set_device(gpu::device{g});
     expect(work1[g].size() >= num_entries);
     // using work[g] as workspace without resizing
     gpu::wrap_array<P> w1(work1[g].data(), num_entries);
     // find the begin/end iterators to the moments in the group
     auto im = gpu_moments[g].begin();
-    auto iend = gpu_moments[g].end();
+    auto iend = gpu_moments[g].end() - 1; // one less, since last entry is unset
     if (group != group_id::all()) { // pick the subgroup
       int gid = 0;
       while (group != group_id{gid}) {
@@ -848,13 +843,24 @@ void moment_manager<P>::compute_moments(
         moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
                       lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1.vec);
       }
+
+      // tools::dump(w1.vec, "gpu moment raw");
+
+      compute->device_synchronize();
+      cuda_check_error( cudaPeekAtLastError() );
       // at this point, the moment defined on the reduced grid is stored in w.vec
 
-      if (im->raw_on_cpu()) w1.vec.copy_to_host(raw_vals[im->mid]);
+      if (im->raw_on_cpu()) {
+        w1.vec.copy_to_host(raw_vals[im->mid]);
+        full_level.get(im->mid).resize(0);
+      }
 
       if (im->skip_interp()) continue;
 
+      // std::cout << " computing interps for " << im->mid() << '\n';
+
       // now we have to compute the interpolation
+      expect(work2[g].size() >= num_entries);
       gpu::wrap_array<P> w2(work2[g].data(), num_entries);
 
       interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
