@@ -769,6 +769,9 @@ void moment_manager<P>::compute_moments(
   // when doing multiple GPUs, spread the state before computing moments
   // which will also allow to avoid the spread when doing term-apply
 
+  tools::time_event performance_((group == group_id::all()) ?
+      "compute moments gpu" : "compute moments (" + std::to_string(group()) + ") gpu");
+
   if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
     switch (pos_grid.num_dims()) {
     case 1:
@@ -819,7 +822,7 @@ void moment_manager<P>::compute_moments(
       while (not iend->is_unset()) ++iend;
     }
     // perform work for all moments from im to iend
-    for (; im < iend; im++) {
+    for (; not im->is_unset(); im++) {
 
       moment const mom = mlist[im->mid]; // using this to get the necessary powers
 
@@ -846,8 +849,8 @@ void moment_manager<P>::compute_moments(
 
       // tools::dump(w1.vec, "gpu moment raw");
 
-      compute->device_synchronize();
-      cuda_check_error( cudaPeekAtLastError() );
+      // compute->device_synchronize();
+      // cuda_check_error( cudaPeekAtLastError() );
       // at this point, the moment defined on the reduced grid is stored in w.vec
 
       if (im->raw_on_cpu()) {

@@ -253,9 +253,9 @@ __global__ void kernel_moment(int pdof, int pos_block, int full_block,
 {
   static_assert(1 <= vdims and vdims <= 3);
 
-  bool const zero_l0 = (zeros & 1u != 0);
-  bool const zero_l1 = (zeros & 2u != 0);
-  bool const zero_l2 = (zeros & 4u != 0);
+  bool const zero_l0 = ((zeros & 1u) != 0);
+  bool const zero_l1 = ((zeros & 2u) != 0);
+  bool const zero_l2 = ((zeros & 4u) != 0);
 
   int blk = threadIdx.y + blockIdx.x * blockDim.y;
   while (blk < num_rij)
