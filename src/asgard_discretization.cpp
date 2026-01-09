@@ -1,5 +1,9 @@
 #include "asgard_discretization.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_algorithms.hpp"
+#endif
+
 namespace asgard
 {
 template<typename precision>

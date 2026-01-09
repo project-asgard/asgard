@@ -673,6 +673,9 @@ public:
   //! no-op for the low-memory mode
   void use_gpu_default_xy() const {}
   #endif
+  #else
+  template<bool = false>
+  void gpu_sync() {}
   #endif
 
   //! computes approximate memory usage by the object
