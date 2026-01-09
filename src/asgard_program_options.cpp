@@ -708,7 +708,16 @@ void prog_opts::print_version_help(std::ostream &os)
   os << "GPU Acceleration         Disabled\n";
 #endif
 #ifdef ASGARD_USE_MPI
-  os << "MPI distributed terms    Enabled\n";
+  #ifdef ASGARD_USE_GPU
+    os << "MPI distributed terms    Enabled ";
+    #ifdef ASGARD_GPUMPI_DIRECT
+      os << "(GPU Direct MPI)\n";
+    #else
+      os << "(CPU-only MPI)\n";
+    #endif
+  #else
+    os << "MPI distributed terms    Enabled\n";
+  #endif
 #else
   os << "MPI distributed terms    Disabled\n";
 #endif

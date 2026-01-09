@@ -396,8 +396,8 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
         P constexpr mins = 0.8;
         P constexpr maxs = 1.0;
 
-        P constexpr minc = P{0.125} / ((2 * PI * mins) * std::sqrt(2 * PI * mins));
-        P constexpr maxc = P{1} / ((2 * PI) * std::sqrt(2 * PI));
+        P const minc = P{0.125} / ((2 * PI * mins) * std::sqrt(2 * PI * mins));
+        P const maxc = P{1} / ((2 * PI) * std::sqrt(2 * PI));
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
           P const x = nodes[i][0];
