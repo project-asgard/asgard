@@ -1,5 +1,9 @@
 #include "asgard_pde_functions.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_pde_gpu.hpp"
+#endif
+
 namespace asgard
 {
 
@@ -46,6 +50,19 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
       moment_id const m1 = this->register_moment(moment{1});
       moment_id const m2 = this->register_moment(moment{2});
 
+      #ifdef ASGARD_USE_GPU
+      auto m1over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                                    P const f[], P vals[]) -> void
+        {
+          gpu::moment_ratio(nu, moments[m1], moments[m0], f, vals);
+        };
+
+      auto theta = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                                  P const f[], P vals[]) -> void
+        {
+          gpu::lbc_vel1(nu, moments[m0], moments[m1], moments[m2], f, vals);
+        };
+      #else
       auto m1over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
                                     std::vector<P> const &f, std::vector<P> &vals) -> void
         {
@@ -68,6 +85,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = nu * (mom2[i] / mom0[i] - (mom1[i] * mom1[i]) / (mom0[i] * mom0[i])) * f[i];
         };
+      #endif
 
       if (num_pos == 2) {
         *this += term_md<P>({I, I, divv_nuv});

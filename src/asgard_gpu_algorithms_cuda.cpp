@@ -4,9 +4,7 @@ namespace asgard::gpu
 {
 
 inline int round_up(int64_t num, int max_threads) {
-  int r = num / max_threads;
-  if (r * max_threads < num) ++r;
-  return r;
+  return (num + max_threads - 1) / max_threads;
 }
 
 template<typename P, int num_threads>
