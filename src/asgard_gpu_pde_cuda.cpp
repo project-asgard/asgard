@@ -99,9 +99,9 @@ void lbc_vel3(P nu, vector<P> const &mom0, vector<P> const &mom100, vector<P> co
        mom200.data(), mom020.data(), mom002.data(), f, vals);
 }
 
-template<typename P, int num_threads>
+template<typename P, int num_threads, int num_pos>
 __global__ void kernel_bgk_vel1(
-    int64_t num, P nu, int num_pos, P const nodes[],
+    int64_t num, P nu, P const nodes[],
     P const mom0[], P const mom1[], P const mom2[], P vals[])
 {
    P constexpr PI_ = 3.141592653589793;
@@ -129,13 +129,27 @@ void bgk_vel1(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
   constexpr int max_threads = 1024;
   int const num_blocks = (mom0.size() + max_threads - 1) / max_threads;
 
-  kernel_bgk_vel1<P, max_threads><<<num_blocks, max_threads>>>
-      (mom0.size(), nu, num_pos, nodes, mom0.data(), mom1.data(), mom2.data(), vals);
+  switch (num_pos) {
+  case 1:
+    kernel_bgk_vel1<P, max_threads, 1><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom1.data(), mom2.data(), vals);
+    break;
+  case 2:
+    kernel_bgk_vel1<P, max_threads, 2><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom1.data(), mom2.data(), vals);
+    break;
+  case 3:
+    kernel_bgk_vel1<P, max_threads, 3><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom1.data(), mom2.data(), vals);
+    break;
+  default: // unreachable
+    break;
+  }
 }
 
-template<typename P, int num_threads>
+template<typename P, int num_threads, int num_pos>
 __global__ void kernel_bgk_vel2(
-    int64_t num, P nu, int num_pos, P const nodes[], P const mom0[],
+    int64_t num, P nu, P const nodes[], P const mom0[],
     P const mom10[], P const mom01[], P const mom20[], P const mom02[], P vals[])
 {
    P constexpr PI_ = 3.141592653589793;
@@ -166,14 +180,30 @@ void bgk_vel2(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
   constexpr int max_threads = 1024;
   int const num_blocks = (mom0.size() + max_threads - 1) / max_threads;
 
-  kernel_bgk_vel2<P, max_threads><<<num_blocks, max_threads>>>
-      (mom0.size(), nu, num_pos, nodes, mom0.data(), mom10.data(), mom01.data(),
-       mom20.data(), mom02.data(), vals);
+  switch (num_pos) {
+  case 1:
+    kernel_bgk_vel2<P, max_threads, 1><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom10.data(), mom01.data(),
+         mom20.data(), mom02.data(), vals);
+    break;
+  case 2:
+    kernel_bgk_vel2<P, max_threads, 2><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom10.data(), mom01.data(),
+         mom20.data(), mom02.data(), vals);
+    break;
+  case 3:
+    kernel_bgk_vel2<P, max_threads, 3><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom10.data(), mom01.data(),
+         mom20.data(), mom02.data(), vals);
+    break;
+  default: // unreachable
+    break;
+  }
 }
 
-template<typename P, int num_threads>
+template<typename P, int num_threads, int num_pos>
 __global__ void kernel_bgk_vel3(
-    int64_t num, P nu, int num_pos, P const nodes[], P const mom0[],
+    int64_t num, P nu, P const nodes[], P const mom0[],
     P const mom100[], P const mom010[], P const mom001[],
     P const mom200[], P const mom020[], P const mom002[], P vals[])
 {
@@ -196,17 +226,6 @@ __global__ void kernel_bgk_vel3(
 
     vals[i] = exp(- P{0.5} * d / t) * nu * n / (pit * std::sqrt(pit));
 
-    // P const n = mom0[i];
-    // P const u0 = mom10[i] / n;
-    // P const u1 = mom01[i] / n;
-    // P const t = 0.5 * ((mom20[i] + mom02[i]) / n - u0 * u0 - u1 * u1);
-    //
-    // P const vu0 = nodes[i * (num_pos + 2) + num_pos] - u0;
-    // P const vu1 = nodes[i * (num_pos + 2) + num_pos + 1] - u1;
-    // P const d = vu0 * vu0 + vu1 * vu1;
-    //
-    // vals[i] = exp(- P{0.5} * d / t) * nu * n / (2 * PI_ * t);
-
     i += num_threads * gridDim.x;
   }
 }
@@ -220,9 +239,25 @@ void bgk_vel3(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
   constexpr int max_threads = 1024;
   int const num_blocks = (mom0.size() + max_threads - 1) / max_threads;
 
-  kernel_bgk_vel3<P, max_threads><<<num_blocks, max_threads>>>
-      (mom0.size(), nu, num_pos, nodes, mom0.data(), mom100.data(), mom010.data(),
-       mom001.data(), mom200.data(), mom020.data(), mom002.data(), vals);
+  switch (num_pos) {
+  case 1:
+    kernel_bgk_vel3<P, max_threads, 1><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom100.data(), mom010.data(),
+         mom001.data(), mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  case 2:
+    kernel_bgk_vel3<P, max_threads, 2><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom100.data(), mom010.data(),
+         mom001.data(), mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  case 3:
+    kernel_bgk_vel3<P, max_threads, 3><<<num_blocks, max_threads>>>
+        (mom0.size(), nu, nodes, mom0.data(), mom100.data(), mom010.data(),
+         mom001.data(), mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  default: // unreachable
+    break;
+  };
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

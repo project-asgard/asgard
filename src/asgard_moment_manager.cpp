@@ -1,6 +1,10 @@
 #include "asgard_moment_manager.hpp"
 #include "asgard_coefficients_mats.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_tensors.hpp"
+#endif
+
 namespace asgard
 {
 
