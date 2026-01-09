@@ -45,7 +45,7 @@ void test_bookkeeping() {
   {
     current_test<TestType> name_("moment source");
 
-    tassert(not moment_source<TestType>(nullptr, {})); // empty moment source
+    tassert(not moment_source<TestType>{}); // empty moment source
 
     moment_source<TestType> mom{momf, {moment_id{0}, }};
     tassert(mom);

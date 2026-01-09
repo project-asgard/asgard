@@ -350,6 +350,12 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     moment_id im1 = this->register_moment(moment(1));
     moment_id im2 = this->register_moment(moment(2));
 
+    #ifdef ASGARD_USE_GPU
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    {
+      gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
+    };
+    #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
                     momentset<P> const &moments, std::vector<P> &vals)
     {
@@ -371,6 +377,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d * d / t);
       }
     };
+    #endif
 
     this->set_source(moment_source<P>(fbgk, {im0, im1, im2}));
   }
@@ -384,6 +391,13 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
 
     std::vector<moment_id> const mids = {im0, im10, im01, im20, im02};
 
+    #ifdef ASGARD_USE_GPU
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    {
+      gpu::bgk_vel2(nu, num_pos, nodes, moments[im0], moments[im10], moments[im01],
+                    moments[im20], moments[im02], vals);
+    };
+    #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
                     momentset<P> const &moments, std::vector<P> &vals)
     {
@@ -408,6 +422,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d / t);
       }
     };
+    #endif
 
     this->set_source(moment_source<P>(fbgk, mids));
   }
@@ -423,6 +438,13 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
 
     std::vector<moment_id> const mids = {im0, im100, im010, im001, im200, im020, im002};
 
+    #ifdef ASGARD_USE_GPU
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    {
+      gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
+                    moments[im001], moments[im200], moments[im020], moments[im002], vals);
+    };
+    #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
                     momentset<P> const &moments, std::vector<P> &vals)
     {
@@ -452,6 +474,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d / t);
       }
     };
+    #endif
 
     this->set_source(moment_source<P>(fbgk, mids));
   }

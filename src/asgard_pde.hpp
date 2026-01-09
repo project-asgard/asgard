@@ -118,6 +118,15 @@ using md_gpu_func = std::function<void(int64_t const, P, P const[], P[])>;
 template<typename P>
 using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
                                        std::vector<P> &)>;
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function with moment dependence on the GPU
+ */
+template<typename P>
+using md_gpu_mom_func = std::function<void(int64_t, P t, P const[], momentset_gpu<P> const &moments,
+                                           P vals[])>;
+
 /*!
  * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function that accepts an additional field parameter
@@ -163,23 +172,42 @@ using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
  */
 template<typename P = default_precision>
 struct moment_source {
+  //! create an empty moment source
+  moment_source() = default;
   //! create a new moment source
   moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
       : func_(std::move(func)), mids_(std::move(mids))
   {
-    rassert(not (!!func_ and mids_.empty()),
+    rassert(not (!!std::get<md_mom_func<P>>(func_) and mids_.empty()),
+            "providing a moment source must include a non-empty vector of moment_id");
+  }
+  //! create a new moment source
+  moment_source(md_gpu_mom_func<P> func, std::vector<moment_id> mids)
+      : func_(std::move(func)), mids_(std::move(mids))
+  {
+    rassert(not (!!std::get<md_gpu_mom_func<P>>(func_) and mids_.empty()),
             "providing a moment source must include a non-empty vector of moment_id");
   }
   //! call the loaded function
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    func_(t, x, moments, vals);
+    expect(std::holds_alternative<md_mom_func<P>>(func_));
+    std::get<md_mom_func<P>>(func_)(t, x, moments, vals);
   }
+  //! call the loaded function
+  void operator() (int64_t num, P t, P const x[], momentset_gpu<P> const &moments,
+                   P vals[]) const
+  {
+    expect(std::holds_alternative<md_gpu_mom_func<P>>(func_));
+    std::get<md_gpu_mom_func<P>>(func_)(num, t, x, moments, vals);
+  }
+  //! returns true if the function is set to use the gpu
+  bool uses_gpu() const { return std::holds_alternative<md_gpu_mom_func<P>>(func_); }
   //! check if a function has been set
-  operator bool () const { return !!func_; }
+  operator bool () const { return not std::holds_alternative<std::monostate>(func_); }
   //! the callable function
-  md_mom_func<P> func_;
+  std::variant<std::monostate, md_mom_func<P>, md_gpu_mom_func<P>> func_ = std::monostate{};
   //! the moments used by this function
   std::vector<moment_id> mids_;
 };
@@ -1682,6 +1710,7 @@ public:
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(moment_source<P> smd) {
+    rassert(smd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),

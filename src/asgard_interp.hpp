@@ -504,7 +504,7 @@ public:
   template<typename tmd_type>
   void operator ()
       (gpu::device dev, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments, P time,
+       connection_patterns const &conn, momentset_gpu<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const

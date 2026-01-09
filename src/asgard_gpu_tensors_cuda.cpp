@@ -343,8 +343,6 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
 
   int const num_rij = static_cast<int>(rij.size() / 2);
-  // std::cout << pdof << "    " << pos_block << "    " << full_block << "    " << vdims << "    "
-  //           << rij.size() <<  "    " << state.size() << "    " << vals.size() << '\n';
 
   switch (vdims) {
   case 1:

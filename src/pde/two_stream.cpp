@@ -251,7 +251,7 @@ void test_energy(std::string const &opt_str) {
 
   for (int64_t i = 0; i < n; i++)
   {
-    disc.advance_time(1);
+    tassert( disc.advance_time(1) );
 
     disc.sync_mpi_state();
 
