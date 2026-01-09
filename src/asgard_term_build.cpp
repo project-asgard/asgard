@@ -392,7 +392,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         vec.erase(last, vec.end());
       };
 
-
     bool has_poisson = false; // are there any Poisson deps
     bool has_sep_mom = false; // are there any separable moments deps
 
@@ -426,13 +425,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         auto const &tentry = terms[tid];
         if (not resources.owns(tentry.rec)) continue;
 
-        //has_poisson = has_poisson or tentry.has_poisson;
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
             auto const &mids = tentry.tmd.dim(d).mids_;
             insert(mids, gpu_moms[tentry.rec.device][gid]);
             insert(mids, cpu_raw[gid]);
-            //has_sep_mom = has_sep_mom or (not mids.empty());
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tentry.tmd.mids_;
@@ -474,41 +471,41 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       remove_repeated(skip_interp[gid]);
     }
 
-    if (mpi::is_world_rank(2)) {
-      std::cout << " gpu-moms\n";
-      for (auto const &dev : gpu_moms) {
-        std::cout << " -- dev --\n";
-        for (auto const &grp : dev) {
-          for (auto m : grp) {
-            std::cout << m() << "    ";
-          }
-          std::cout << '\n';
-        }
-        std::cout << '\n';
-      }
-
-      std::cout << " cpu_raw\n";
-      for (auto const &grp : cpu_raw) {
-        for (auto m : grp) {
-          std::cout << m() << "    ";
-        }
-        std::cout << '\n';
-      }
-      std::cout << " cpu_interp\n";
-      for (auto const &grp : cpu_interp) {
-        for (auto m : grp) {
-          std::cout << m() << "    ";
-        }
-        std::cout << '\n';
-      }
-      std::cout << " skip_interp\n";
-      for (auto const &grp : skip_interp) {
-        for (auto m : grp) {
-          std::cout << m() << "    ";
-        }
-        std::cout << '\n';
-      }
-    }
+    // if (mpi::is_world_rank(1)) {
+    //   std::cout << " gpu-moms - num-groups: " << cpu_raw.size() << '\n';
+    //   for (auto const &dev : gpu_moms) {
+    //     std::cout << " -- dev --\n";
+    //     for (auto const &grp : dev) {
+    //       for (auto m : grp) {
+    //         std::cout << m() << "    ";
+    //       }
+    //       std::cout << '\n';
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //
+    //   std::cout << " cpu_raw\n";
+    //   for (auto const &grp : cpu_raw) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //   std::cout << " cpu_interp\n";
+    //   for (auto const &grp : cpu_interp) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //   std::cout << " skip_interp\n";
+    //   for (auto const &grp : skip_interp) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    // }
     moms.set_moment_distribution(gpu_moms, cpu_raw, cpu_interp, skip_interp);
     #endif
 

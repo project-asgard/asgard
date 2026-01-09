@@ -805,6 +805,8 @@ void moment_manager<P>::compute_moments(
   #pragma omp parallel for schedule(static, 1)
   for (int g = 0; g < num_gpus; g++)
   {
+    if (gpu_moments[g].empty()) continue;
+
     compute->set_device(gpu::device{g});
     expect(work1[g].size() >= num_entries);
     // using work[g] as workspace without resizing
@@ -847,10 +849,6 @@ void moment_manager<P>::compute_moments(
                       lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1.vec);
       }
 
-      // tools::dump(w1.vec, "gpu moment raw");
-
-      // compute->device_synchronize();
-      // cuda_check_error( cudaPeekAtLastError() );
       // at this point, the moment defined on the reduced grid is stored in w.vec
 
       if (im->raw_on_cpu()) {
@@ -859,8 +857,6 @@ void moment_manager<P>::compute_moments(
       }
 
       if (im->skip_interp()) continue;
-
-      // std::cout << " computing interps for " << im->mid() << '\n';
 
       // now we have to compute the interpolation
       expect(work2[g].size() >= num_entries);
