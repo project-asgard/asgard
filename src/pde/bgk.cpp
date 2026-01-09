@@ -191,11 +191,9 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   // the right-hand-side of the equation is set for the implicit group
   int const implicit_id = pde.new_term_group();
 
-  { // setting the nu * f term
-    std::vector<asgard::term_1d<P>> nuI(2 * dims, asgard::term_identity{});
-    nuI[0] = asgard::term_volume<P>{nu};
-    pde += asgard::term_md<P>(nuI);
-  }
+  // setting the nu * f term
+  std::vector<asgard::term_1d<P>> nuI(2 * dims, asgard::term_identity{});
+  nuI[0] = asgard::term_volume<P>{nu};
 
   if (dims == 1) {
     asgard::moment_id im0 = pde.register_moment(asgard::moment(0));
@@ -229,7 +227,18 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
       }
     };
 
+    #ifdef ASGARD_USE_GPU
+    // If GPU capabilities are enabled in ASGarD, then it is preferable to use
+    // the builtin BGK operator, which will invoke GPU kernels.
+    // Using the CPU callable function fbgk is allowed, but it will result in
+    // data back-forth between the CPU/GPU and will result in slower performance.
+    pde += asgard::operators::simple_bgk_collisions{nu};
+    #else
+    // If GPU capabilities are not enabled, the builtin BGK operator is identical
+    // to the one implemented in this example.
+    pde += asgard::term_md<P>(nuI);
     pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
+    #endif
 
     auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
@@ -275,33 +284,19 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
       }
     };
 
+    #ifdef ASGARD_USE_GPU
+    // see the 1x1v case
+    pde += asgard::operators::simple_bgk_collisions{nu};
+    #else
+    pde += asgard::term_md<P>(nuI);
     pde.set_source(asgard::moment_source<P>(fbgk, mids));
+    #endif
 
-    auto abgk = [=](P, asgard::vector2d<P> const &nodes,
+    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
-      // fbgk(time, nodes, moments, vals);
-      std::vector<P> const &m0 = moments[im0];
-      std::vector<P> const &m10 = moments[im10];
-      std::vector<P> const &m01 = moments[im01];
-      std::vector<P> const &m20 = moments[im20];
-      std::vector<P> const &m02 = moments[im02];
-
-      int64_t const num_nodes = nodes.num_strips();
-      #pragma omp parallel for
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const n = m0[i];
-        P const u0 = m10[i] / m0[i];
-        P const u1 = m01[i] / m0[i];
-        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
-
-        vals[i] = n / (2 * PI * t);
-        P const vu0 = nodes[i][2] - u0;
-        P const vu1 = nodes[i][3] - u1;
-        P const d = vu0 * vu0 + vu1 * vu1;
-        vals[i] *= std::exp(- P{0.5} * d / t);
-      }
+      fbgk(time, nodes, moments, vals);
     };
 
     pde.set_adapt_weight(abgk, mids);
@@ -311,7 +306,6 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     // the simple for of the BGK operator (shows above) is built into the ASGarD library
     // it can be used for any combination of position/velocity dimensions 1 - 3
     pde += asgard::operators::simple_bgk_collisions{nu};
-
   }
 
   // set the implicit and explicit operator groups
@@ -338,33 +332,92 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
   } else if (dims == 2) {
 
-    std::cout << "WARNING: this is very incomplete\n";
+    // this is still work in progress
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
-        P constexpr s = 0.8;
-        P const c_in  = P{1} / (2 * PI);
-        P const c_out = P{0.125} / (2 * PI * s);
+        // how many standard deviations for the ball radius
+        // higher std_dev means sharper transition
+        P constexpr std_dev     = 2;
+        P constexpr ball_radius = 0.4;
+        P constexpr sigma = ball_radius / std_dev;
+
+        P constexpr mins = 0.8;
+        P constexpr maxs = 1.0;
+
+        P constexpr minc = P{0.125} / (2 * PI * mins);
+        P constexpr maxc = P{1} / (2 * PI);
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
           P const x = nodes[i][0];
           P const y = nodes[i][1];
           P const v0 = nodes[i][2];
           P const v1 = nodes[i][3];
-          if (x * x + y * y < 0.16) {
-            vals[i] = c_in * exp(- 0.5 * v0 * v0) * exp(- 0.5 * v1 * v1);
-          } else {
-            vals[i] = c_out * exp(- 0.5 * v0 * v0 / s) * exp(- 0.5 * v1 * v1 / s);
-          }
+
+          // sm is a smooth kernel that goes from 1 to 0
+          P const sm = std::exp(- P{0.5} * (x * x + y * y) / sigma);
+
+          P const c = minc + (maxc - minc) * sm;
+          P const s = mins + (maxs - mins) * sm;
+
+          vals[i] = c * exp(- P{0.5} * v0 * v0 / s) * exp(- P{0.5} * v1 * v1 / s);
         }
+        // P constexpr s = 0.8;
+        // P const c_in  = P{1} / (2 * PI);
+        // P const c_out = P{0.125} / (2 * PI * s);
+        //
+        // for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        //   P const x = nodes[i][0];
+        //   P const y = nodes[i][1];
+        //   P const v0 = nodes[i][2];
+        //   P const v1 = nodes[i][3];
+        //   if (x * x + y * y < 0.16) {
+        //     vals[i] = c_in * exp(- 0.5 * v0 * v0) * exp(- 0.5 * v1 * v1);
+        //   } else {
+        //     vals[i] = c_out * exp(- 0.5 * v0 * v0 / s) * exp(- 0.5 * v1 * v1 / s);
+        //   }
+        // }
       };
 
     pde.set_initial(icmd);
 
   } else /* if (dims == 3) */ {
 
-    rassert(dims != 3, "initial condition for 6D not ready yet");
+    std::cout << "WARNING: this is very incomplete\n";
+    auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
+          -> void {
 
+        // how many standard deviations for the ball radius
+        // higher std_dev means sharper transition
+        P constexpr std_dev     = 4;
+        P constexpr ball_radius = 0.4;
+        P constexpr sigma = ball_radius / std_dev;
+
+        P constexpr mins = 0.8;
+        P constexpr maxs = 1.0;
+
+        P const minc = P{0.125} / ((2 * PI * mins) * std::sqrt(2 * PI * mins));
+        P const maxc = P{1} / ((2 * PI) * std::sqrt(2 * PI));
+
+        for (int64_t i = 0; i < nodes.num_strips(); i++) {
+          P const x = nodes[i][0];
+          P const y = nodes[i][1];
+          P const v0 = nodes[i][3];
+          P const v1 = nodes[i][4];
+          P const v2 = nodes[i][5];
+
+          // sm is a smooth kernel that goes from 1 to 0
+          P const sm = std::exp(- P{0.5} * (x * x + y * y) / sigma);
+
+          P const c = minc + (maxc - minc) * sm;
+          P const s = mins + (maxs - mins) * sm;
+
+          vals[i] = c * exp(- P{0.5} * v0 * v0 / s) * exp(- P{0.5} * v1 * v1 / s)
+                   * exp(- P{0.5} * v2 * v2 / s);
+        }
+      };
+
+    pde.set_initial(icmd);
   }
 
   return pde;
@@ -496,6 +549,7 @@ int main(int argc, char** argv)
     disc.add_aux_field({"final perturbation", compute_perturbation(disc)});
 
   } else {
+
     disc.advance_time(); // integrate until num-steps or stop-time
   }
 
@@ -527,9 +581,10 @@ void test_energy(int const dims, std::string const &opt_str) {
   prog_opts const options = make_opts(opt_str);
 
   auto pde = make_bgk<P>(dims, options);
-  moment_id const m0 = pde.register_moment({0, moment::inactive});
-  // moment_id const m1 = pde.register_moment({1, moment::inactive});
-  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  moment_id const m0 = (dims == 1) ? pde.register_moment({0}) : pde.register_moment({0, 0});
+
+  moment_id const m2 = (dims == 1) ? pde.register_moment({2}) : moment_id::unset();
+
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   double mass0   = 0; // initial total mass
@@ -539,30 +594,28 @@ void test_energy(int const dims, std::string const &opt_str) {
 
   P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
 
-  moment_manager<P> const &moms = disc.get_moment_manager();
-
-  std::cout.precision(8);
-  std::cout << std::scientific;
-
   for (int64_t i = 0; i < n; i++)
   {
-    disc.advance_time(1);
+    tassert( disc.advance_time(1) );
 
-    disc.compute_moments();
-
-    double const mass = moms.get_cached_raws()[m0][0];
+    double const mass = disc.get_moment(m0)[0];
     if (i == 0)
       mass0 = mass;
 
     tassert(std::abs(mass - mass0) < tol);
 
-    double const energy = moms.get_cached_raws()[m2][0];
-    if (i == 0)
-      energy0 = energy;
+    if (dims == 1) {
+      double const energy = disc.get_moment(m2)[0];
+      if (i == 0)
+        energy0 = energy;
 
-    tassert(std::abs(energy - energy0) < tol);
+      tassert(std::abs(energy - energy0) < tol);
 
-    // std::cout << " delta-mass: " << std::abs(mass - mass0) << "    " << std::abs(energy - energy0) << '\n';
+      // std::cout << " delta-mass: " << std::abs(mass - mass0)
+      //           << "    " << std::abs(energy - energy0) << '\n';
+    }
+
+    // std::cout << " delta-mass: " << std::abs(mass - mass0) << '\n';
   }
 }
 
@@ -576,6 +629,8 @@ void self_test() {
 
   test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
   test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
+
+  test_energy<double>(2, "-m 8 -a 1.E-4 -s imex2 -n 5");
 
 #endif
 

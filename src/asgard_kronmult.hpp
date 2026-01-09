@@ -2,10 +2,6 @@
 
 #include "asgard_block_matrix.hpp"
 
-#ifdef ASGARD_USE_GPU
-#include "asgard_gpu_algorithms.hpp"
-#endif
-
 namespace asgard::kronmult
 {
 /*!

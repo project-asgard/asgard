@@ -405,7 +405,6 @@ set(asgard_components
     compute_cpu
     discretization
     domain
-    gpu_algorithms
     grid_1d
     indexset
     interp
@@ -487,10 +486,14 @@ if (ASGARD_USE_CUDA)
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_cuda.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_cuda.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_cuda.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp>
                    )
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_cuda.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
@@ -502,10 +505,14 @@ if (ASGARD_USE_ROCM)
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_compute_rocm.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_rocm.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_rocm.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
                    )
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_rocm.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_rocm.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
                                  PROPERTIES LANGUAGE HIP)
 

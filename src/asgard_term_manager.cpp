@@ -95,12 +95,10 @@ void term_manager<P>::apply_tmpl(
   {
     auto it = terms.begin() + icurrent;
 
-    #ifdef ASGARD_USE_MPI
     if (not resources.owns(it->rec)) {
       icurrent += it->num_chain;
       continue;
     }
-    #endif
 
     if (it->num_chain == 1) {
       kterm(*it, alpha, px, b, py);
@@ -139,10 +137,8 @@ template<typename P>
 int64_t term_manager<P>::flop_count(
     group_id gid, sparse_grid const &grid, connection_patterns const &conns) const
 {
-  #ifdef ASGARD_USE_MPI
   if (not resources.is_leader())
     return -1;
-  #endif
 
   expect(gid.is_valid(term_groups.size()));
 
@@ -215,6 +211,8 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
     if (interp) {
       cpu_it1[g].resize(num_entries);
       cpu_it2[g].resize(num_entries);
+    }
+    if (interp or moms) {
       gpu_it1[g].resize(num_entries);
       gpu_it2[g].resize(num_entries);
     }
@@ -261,8 +259,9 @@ void term_manager<P>::apply_tmpl_gpu(
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory()) {
-        interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, in,
-               ifield, gpu_ifield, al, tme.tmd, be, out, kwork,
+        interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(),
+               moms.get_cached_interps(dev),
+               0, in, ifield, gpu_ifield, al, tme.tmd, be, out, kwork,
                cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
       } else {
         block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
@@ -348,17 +347,10 @@ void term_manager<P>::apply_tmpl_gpu(
       auto it = terms.begin() + icurrent;
 
       // skip the terms associated with other MPI ranks or devices
-      #ifdef ASGARD_USE_MPI
       if (not resources.owns(it->rec) or it->rec.device != g) {
         icurrent += it->num_chain;
         continue;
       }
-      #else
-      if (it->rec.device != g) {
-        icurrent += it->num_chain;
-        continue;
-      }
-      #endif
 
       if (it->num_chain == 1) {
         kterm(gpu::device{g}, *it, alpha, xpntr, b, ypntr);
@@ -438,12 +430,10 @@ void term_manager<P>::make_jacobi(
   {
     auto it = terms.begin() + icurrent;
 
-    #ifdef ASGARD_USE_MPI
     if (not resources.owns(it->rec)) {
       icurrent += it->num_chain;
       continue;
     }
-    #endif
 
     if (it->num_chain == 1) {
       kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);

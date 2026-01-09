@@ -395,7 +395,7 @@ void dolongtest(double tol, int num_dims, std::string const &opts, int num_dof =
   discretization_manager<P> disc(make_continuity_pde<P>(num_dims, options),
                                  verbosity_level::quiet);
 
-  disc.advance_time();
+  tassert( disc.advance_time() );
 
   double const err = get_error_l2(disc);
 
@@ -436,7 +436,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
 
   while (disc.remaining_steps() > 0)
   {
-    disc.advance_time(1);
+    tassert( disc.advance_time(1) );
 
     double const time = disc.time();
 #pragma omp parallel for

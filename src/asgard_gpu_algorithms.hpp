@@ -49,12 +49,6 @@ template<typename P>
 void sum5(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no_deduce<P> a2, gpu::vector<P> const &x2,
           no_deduce<P> a3, gpu::vector<P> const &x3, no_deduce<P> a4, gpu::vector<P> const &x4, gpu::vector<P> &y);
 
-//! tensors the vectors into the output according to the multi-indexes
-template<typename P>
-void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
-                     P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[],
-                     P x[]);
-
 //! returns the number of inf/nan entries in a vector
 template<typename P>
 int num_non_finite(int64_t num, P const x[]);

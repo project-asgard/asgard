@@ -444,6 +444,7 @@ template void compute_last_bicgstab<float>(float, float, gpu::vector<float> cons
                                            gpu::vector<float> const &, gpu::vector<float> &);
 template void xpby(gpu::vector<float> const &x, float beta, float y[]);
 template void axpby(int64_t, float, float const[], float, float[]);
+template void axpbygz(int64_t, float, float const[], float, float const[], float, float[]);
 template void set_scal(int64_t, float, float[]);
 
 template void sum2(gpu::vector<float> const &, float, gpu::vector<float> const &, gpu::vector<float> &);

@@ -59,16 +59,18 @@ public:
   }
   //! returns the mpi rank
   int rank() const { return rank_; }
-#else
-  static constexpr int num_ranks() { return 1; }
-  static constexpr int rank() { return 0; }
-#endif
-
   //! rank 0 is the leader for the mpi communicator
   bool is_leader() const { return (rank_ == root); }
   //! check if the resource is owned by this set, checks the group/rank
   bool owns(resource const &rec) const { return (rank_ == rec.group); }
+#else
+  static constexpr int num_ranks() { return 1; }
+  static constexpr int rank() { return 0; }
+  static constexpr bool is_leader() { return true; }
+  static constexpr bool owns(resource const &) { return true; }
+#endif
 
+// algorithm section, bcast and reduce_add
 #ifdef ASGARD_USE_MPI
   //! broadcasts the data to all sets in the communicator, can send or receive
   template<typename T, resource_comm cm = resource_comm::regular>
@@ -274,7 +276,6 @@ private:
     else
       return comm;
   }
-  #endif
 
   // expressive way to address the mpi-comm root
   static int constexpr root = 0;
@@ -284,7 +285,6 @@ private:
 
   // external resources, e.g., MPI rank and communicator
   int rank_ = 0;
-  #ifdef ASGARD_USE_MPI
   int num_ranks_ = 1;
   MPI_Comm comm;
   mutable std::vector<std::byte> work;

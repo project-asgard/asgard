@@ -3,6 +3,10 @@
 #include "asgard_blas.hpp"
 #include "asgard_small_mats.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_algorithms.hpp"
+#endif
+
 namespace asgard::solvers
 {
 
@@ -786,6 +790,46 @@ ASGARD_OMP_PARFOR_SIMD
   for (size_t i = 0; i < x.size(); i++)
     y[i] = x[i] + beta * y[i];
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void solver_manager<P>::iterate_solve(
+    solvers::operatoin_apply_precon<P> prec, solvers::operatoin_apply_lhs<P> apply_lhs,
+    gpu::vector<P> const &rhs, gpu::vector<P> &x) const
+{
+  if (method() == solver_method::bicgstab) {
+    if (prec) {
+      solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
+
+      bicg.prec_y_gpu.resize(rhs.size());
+
+      bicg.prec_rhs_gpu = rhs;
+      prec(bicg.prec_rhs_gpu.data());
+
+      num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
+          -> void {
+            if (beta == 0) {
+              apply_lhs(alpha, xx, 0, y);
+              prec(y);
+            } else {
+              apply_lhs(alpha, xx, 0, bicg.prec_y_gpu.data());
+              prec(bicg.prec_y_gpu.data());
+              gpu::xpby(bicg.prec_y_gpu, beta, y);
+            }
+          }, bicg.prec_rhs_gpu, x);
+    } else {
+      num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
+    }
+  } else { // if (opt == solve_opts::gmres)
+    if (prec) {
+      num_apply += std::get<solvers::gmres<P>>(var).solve(prec, apply_lhs, rhs, x);
+    } else {
+      num_apply += std::get<solvers::gmres<P>>(var).solve(
+        [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
+    }
+  }
+}
+#endif
 
 template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const

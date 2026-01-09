@@ -6,45 +6,24 @@ namespace asgard
 {
 
 /*!
- * \brief Maximum number of dimensions for the moments
- *
- * Do not change unless you really know what you're doing.
- */
-inline constexpr int max_mom_dims = 3;
-
-/*!
  * \brief Holds the coefficients for the moments
  */
 struct moment
 {
-  /*!
-   * \brief Holds the different ways the moment can be used
-   *
-   * The internals of the moment_manager and term_manager will perform
-   * the appropriate actions.
-   */
-  enum moment_type {
-    //! indicate a regular moment, probably needed for 1d operators
-    regular,
-    //! interpolatory, requires the expansion of the nodes
-    interpolatory,
-    //! do nothing, for information and plotting purposes only
-    inactive,
-  };
   //! produces zero moment with the specified number of velocity dimensions
-  static moment zero(int num_velocity, moment_type act = regular) {
-    moment m(0, act);
+  static moment zero(int num_velocity) {
+    moment m(0);
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
   //! creating a placeholder invalid moment
   moment() : pows{-1, -1, -1} {}
   //! create a 1D moment with the given power
-  moment(int pv1, moment_type act = regular) : pows{pv1, -1, -1}, action(act) {}
+  moment(int pv1) : pows{pv1, -1, -1} {}
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2, moment_type act = regular) : pows{pv1, pv2, -1}, action(act) {}
+  moment(int pv1, int pv2) : pows{pv1, pv2, -1} {}
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3, moment_type act = regular) : pows{pv1, pv2, pv3}, action(act) {}
+  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
   //! number of valid powers
   int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
@@ -83,8 +62,6 @@ struct moment
 
   //! holds the powers
   std::array<int, max_mom_dims> pows;
-  //! action to perform on the moment
-  moment_type action = regular;
 };
 
 //! strong type for the moment ID
@@ -93,24 +70,26 @@ public:
   //! default placeholder id
   moment_id() = default;
   //! explicit constructor for the new id
-  explicit moment_id(int num) : id_(num) {}
+  explicit constexpr moment_id(int num) : id_(num) {}
   //! get the id
-  int get() const { return id_; }
+  constexpr int get() const { return id_; }
   //! another getter
-  int operator () () const { return id_; }
+  constexpr int operator () () const { return id_; }
 
   //! check whether two ids are the same
-  bool operator == (moment_id const &other) const {
+  constexpr bool operator == (moment_id const &other) const {
     return id_ == other.id_;
   }
   //! check whether two ids are different
-  bool operator != (moment_id const &other) const {
+  constexpr bool operator != (moment_id const &other) const {
     return not (*this == other);
   }
+  //! unset moment
+  static constexpr moment_id unset() { return moment_id{-1}; }
 
 private:
   //! stored value for the ID
-  int id_ = -1;
+  int id_ = unset()();
 };
 
 /*!
@@ -134,13 +113,8 @@ public:
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
   moment_id get_add_id(moment const &mom) {
     for (int i = 0; i < static_cast<int>(moms_.size()); i++)
-      if (moms_[i] == mom) {
-        if (moms_[i].action == moment::inactive and mom.action != moment::inactive)
-          moms_[i].action = mom.action;
-        if (moms_[i].action == moment::regular and mom.action != moment::interpolatory)
-          moms_[i].action = mom.interpolatory;
+      if (moms_[i] == mom)
         return moment_id{i};
-      }
     moms_.push_back(mom);
     return moment_id{static_cast<int>(moms_.size() - 1)};
   }
@@ -155,9 +129,6 @@ public:
   moment const &operator[] (moment_id mid) const { return moms_[mid()]; }
   //! return the moment with the given index
   moment const &operator[] (int i) const { return moms_[i]; }
-
-  //! set the action for the new moment
-  void set_action(moment_id mid, moment::moment_type action) { moms_[mid()].action = action; }
 
   //! returns true if all moments have the given dimension
   bool have_all_dimension(int const dims) const;
@@ -212,5 +183,48 @@ public:
 private:
   std::vector<std::vector<P>> moms_;
 };
+
+#ifdef ASGARD_USE_GPU
+/*!
+ * \brief Holds the computed moments on the GPU
+ *
+ * Stores the data for each moment after it has been computed,
+ * can hold either the hierarchical coefficients or the interpolation values.
+ */
+template<typename P>
+class momentset_gpu {
+public:
+  //! create an empty moment list
+  momentset_gpu() = default;
+  //! create the new set with the given number of moments
+  momentset_gpu(int num_moments) : moms_(num_moments) {}
+
+  //! returns the number of stored moments
+  size_t size() const { return moms_.size(); }
+
+  //! return the provided moment, const variant
+  gpu::vector<P> const &operator[] (moment_id mid) const { return moms_[mid()]; }
+  //! return the provided moment
+  gpu::vector<P> &operator[] (moment_id mid) { return moms_[mid()]; }
+  //! return the provided moment, never const
+  gpu::vector<P> &get(moment_id mid) { return moms_[mid()]; }
+  //! return the raw-array for the provided moment
+  P const *data(moment_id mid) const { return moms_[mid()].data(); }
+
+  //! computes approximate memory usage by the object
+  size_t used_bytes() const {
+    size_t t = 0;
+    for (auto const &v : moms_) t += v.size();
+    return t * sizeof(P);
+  }
+
+private:
+  std::vector<gpu::vector<P>> moms_;
+};
+#else
+// placeholder type, cannot be used without enabled GPU
+template<typename P>
+class momentset_gpu {};
+#endif
 
 }

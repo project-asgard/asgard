@@ -101,7 +101,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   terms.resize(num_terms);
 
-  {
+  { // copy the terms from the pde_scheme
+    // label chain-links and mark if interp or extra workspace is needed
     bool has_interp = pde.has_interp_funcs;
 
     auto ir = terms.begin();
@@ -138,14 +139,14 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   int num_bc = 0;
 
-  // check if we need to keep the intermediate terms from matrix builds
+  // link terms to boundary-condition terms
   for (auto &tt : terms) {
     int const n = static_cast<int>(tt.tmd.bc_flux_.size());
     tt.bc = indexrange(num_bc, num_bc + n);
     num_bc += n;
   }
 
-  // form groups for the boundary conditions
+  // form groups for the sources
   if (not term_groups.empty()) {
     int j = 0, bc_begin = 0, bc_end = 0; // index for the boundary conditions
     for (int groupid : iindexof(term_groups)) {
@@ -156,6 +157,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
+  // copy the boundary fluxes, set the proper chain levels and mark as sep/const
   bcs.reserve(num_bc);
   for (int tid : iindexof(terms)) {
     term_entry<P> &tt = terms[tid];
@@ -175,6 +177,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       } else {
         if (bcs.back().flux.func_.ftime()) {
           if (bcs.back().flux.func_.cdomain(dimension_id{fdim}) == 0) {
+            // using dependent term in the flux-dimension, cannot depend on space
+            // therefore it must depend on time
             bcs_have_time_dep = true;
             bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
             for (int d : iindexof(num_dims)) {
@@ -200,73 +204,76 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     xright[d] = pde.domain().xright(d);
   }
 
+  // set the mass, needed for the sources below
   build_mass_matrices(hier, conn); // large, up to max-level
   rebuild_mass_matrices(grid); // small, up to the current level
 
-  std::vector<separable_func<P>> &sep = pde.sources_sep_;
+  {// copy the separable sources, prepare the constant components
+    std::vector<separable_func<P>> &sep = pde.sources_sep_;
 
-  int num_sources = 0;
-  for (auto const &s : sep) {
-    int const dims = s.num_dims();
-    rassert(dims == 0 or dims == num_dims, "incorrect dimension set for source");
-    if (dims > 0) ++num_sources;
-  }
+    int num_sources = 0;
+    for (auto const &s : sep) {
+      int const dims = s.num_dims();
+      rassert(dims == 0 or dims == num_dims, "incorrect dimension set for source");
+      if (dims > 0) ++num_sources;
+    }
 
-  sources_md.resize(pde.sources_md_.size());
-  for (size_t i = 0; i < pde.sources_md_.size(); i++)
-    sources_md[i].func = std::move(pde.sources_md_[i]);
+    sources_md.resize(pde.sources_md_.size());
+    for (size_t i = 0; i < pde.sources_md_.size(); i++)
+      sources_md[i].func = std::move(pde.sources_md_[i]);
 
-  sources.reserve(num_sources);
+    sources.reserve(num_sources);
 
-  for (auto &s : sep) {
-    if (s.num_dims() == 0)
-      continue;
+    for (auto &s : sep) {
+      if (s.num_dims() == 0)
+        continue;
 
-    if (s.ignores_time() or s.ftime()) {
-      // using constant entry
-      if (s.ignores_time()) {
-        sources.emplace_back(source_entry<P>::time_mode::constant);
-        sources.back().func = std::monostate{}; // no need for a func
-      } else {
-        sources.emplace_back(source_entry<P>::time_mode::separable);
-        sources.back().func = s.ftime();
-      }
-
-      for (int d : iindexof(num_dims)) {
-        if (s.is_const(dimension_id{d})) {
-          sources.back().consts[d]
-              = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
+      if (s.ignores_time() or s.ftime()) {
+        // using constant entry
+        if (s.ignores_time()) {
+          sources.emplace_back(source_entry<P>::time_mode::constant);
+          sources.back().func = std::monostate{}; // no need for a func
         } else {
-          sources.back().consts[d] = hier.get_project1d_f(
-              [&](std::vector<P> const &x, std::vector<P> &y)->
-                void {
-                  s.fdomain(dimension_id{d}, x, 0, y);
-                },
-              mass[d], d, max_level);
+          sources.emplace_back(source_entry<P>::time_mode::separable);
+          sources.back().func = s.ftime();
         }
-        #ifdef ASGARD_USE_GPU
-        // TODO: mult-GPU logic
-        sources.back().gpu_consts[d] = sources.back().consts[d];
-        #endif
-      }
 
-    } else {
-      // non-separable in time
-      sources_have_time_dep = true;
-      sources.emplace_back(source_entry<P>::time_mode::time_dependent);
-      sources.back().func = std::move(s);
+        for (int d : iindexof(num_dims)) {
+          if (s.is_const(dimension_id{d})) {
+            sources.back().consts[d]
+                = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
+          } else {
+            sources.back().consts[d] = hier.get_project1d_f(
+                [&](std::vector<P> const &x, std::vector<P> &y)->
+                  void {
+                    s.fdomain(dimension_id{d}, x, 0, y);
+                  },
+                mass[d], d, max_level);
+          }
+          #ifdef ASGARD_USE_GPU
+          // TODO: mult-GPU logic
+          sources.back().gpu_consts[d] = sources.back().consts[d];
+          #endif
+        }
+
+      } else {
+        // non-separable in time
+        sources_have_time_dep = true;
+        sources.emplace_back(source_entry<P>::time_mode::time_dependent);
+        sources.back().func = std::move(s);
+      }
     }
   }
 
   prapare_kron_workspace(grid); // setup kronmult workspace
 
+  // reshuffle the terms and sources across MPI ranks and GPU devices
   has_terms_ = not terms.empty();
   assign_compute_resources();
 
   // prepare the workspaces for the sources
   // consider only sources that are associated with this MPI rank and not time-dependant
   // the time sources cannot use workspace to accelerate computations
-  #ifdef ASGARD_USE_MPI
   auto is_active_src = [&, this](source_entry<P> const &src) -> bool
     {
       if (not resources.owns(src.rec))
@@ -279,16 +286,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         return false;
       return (not bc.is_time_dependent());
     };
-  #else
-  auto is_active_src = [&](source_entry<P> const &src) -> bool
-    {
-      return (not src.is_time_dependent());
-    };
-  auto is_active_bc = [&](boundary_entry<P> const &bc) -> bool
-    {
-      return (not bc.is_time_dependent());
-    };
-  #endif
 
   for (auto const &src : sources)
     if (is_active_src(src)) num_lumped++;
@@ -318,7 +315,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   sweights.reserve(num_lumped); // one weight per lumped source
 
   // second pass on the problem of assigning workspaces and preparing objects
-  // e.g., the needed resources change if this MPI rank has no terms with need
+  // e.g., the requirements change if this MPI rank has no terms
   {
     // set interpolatory properties
     for (int i : indexof(terms)) {
@@ -375,120 +372,233 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     if (has_field_interp)
       ifield.resize(1);
 
-    // handle the moment dependence
-    std::vector<moment_id> regular_moments;
-    std::vector<moment_id> interp_moments;
-    regular_moments.reserve(250); // should be more than enough, not a big deal otherwise
-    bool has_poisson = false;
-    bool has_sep_mom = false;
-    for (auto const &tentry : terms) {
-      #ifdef ASGARD_USE_MPI
-      if (not resources.owns(tentry.rec))
-        continue;
-      #endif
-      has_poisson = has_poisson or tentry.has_poisson;
-      if (tentry.is_separable()) { // only separable terms can have 1D moment deps
-        for (int d : iindexof(num_dims)) {
-          auto const &mids = tentry.tmd.dim(d).mids_;
-          if (not mids.empty()) {
-            has_sep_mom = true;
-            regular_moments.insert(regular_moments.end(), mids.begin(), mids.end());
+    // handle the moment dependencies, identify regular and interp moments for each group
+    // respect the MPI and GPU distributions
+    auto insert = [](std::vector<moment_id> const &s, std::vector<moment_id> &dest)
+      {
+        if (s.empty()) return;
+        dest.insert(dest.end(), s.begin(), s.end());
+      };
+
+    auto compar_id = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
+
+    auto remove_repeated = [&](std::vector<moment_id> &vec)
+      {
+        if (vec.empty()) return;
+
+        std::sort(vec.begin(), vec.end(), compar_id);
+        // std::unique shuffles the vector, so the entries that need to removed appear after unique
+        auto last = std::unique(vec.begin(), vec.end());
+        vec.erase(last, vec.end());
+      };
+
+    bool has_poisson = false; // are there any Poisson deps
+    bool has_sep_mom = false; // are there any separable moments deps
+
+    // indexes for the term and source groups, if no groups then using only 1 index
+    auto igroups = (term_groups.empty()) ? indexrange(1) : indexrange(term_groups);
+    expect(term_groups.size() == source_groups.size());
+
+    #ifdef ASGARD_USE_GPU
+    // have to clean the logic of skip-interp
+    // gpu-moms should keep all moments, term1d moments -> cpu_raw
+    // cpu_interp -> when we have interp from the CPU
+    // all-interp -> CPU or GPU interp, if not there then it will be in skip-interp
+    std::array<std::vector<std::vector<moment_id>>, max_num_gpus> gpu_moms;
+    std::vector<std::vector<moment_id>> cpu_raw(std::max(term_groups.size(), size_t{1}));
+    std::vector<std::vector<moment_id>> cpu_interp(cpu_raw.size());
+    std::vector<std::vector<moment_id>> all_interp(cpu_raw.size());
+    std::vector<std::vector<moment_id>> skip_interp(cpu_raw.size());
+    for (auto &r : cpu_raw) r.reserve(250);
+    for (auto &r : cpu_interp) r.reserve(250);
+    for (auto &r : all_interp) r.reserve(250);
+    for (auto &r : skip_interp) r.reserve(250);
+
+    for (auto &gm : gpu_moms) {
+      gm.resize(std::max(term_groups.size(), size_t{1}));
+      for (auto &r : gm) r.reserve(250);
+    }
+
+    for (int gid : igroups) {
+      auto this_group = (term_groups.empty()) ? indexrange(terms) : indexrange(term_groups[gid]);
+      for (int tid : this_group) {
+        auto const &tentry = terms[tid];
+        if (not resources.owns(tentry.rec)) continue;
+
+        if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+          for (int d : iindexof(num_dims)) {
+            auto const &mids = tentry.tmd.dim(d).mids_;
+            insert(mids, gpu_moms[tentry.rec.device][gid]);
+            insert(mids, cpu_raw[gid]);
           }
+        } else if (tentry.interplan.uses_moments()) {
+          auto const &mids = tentry.tmd.mids_;
+          insert(mids, gpu_moms[tentry.rec.device][gid]);
+          insert(mids, all_interp[gid]);
+          if (not tentry.interplan.uses_gpu_func())
+            insert(mids, cpu_interp[gid]);
         }
-      } else if (tentry.interplan.uses_moments()) {
-        auto const &mids = tentry.tmd.mids_;
-        interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
       }
     }
-    for (auto const &src : sources_md) {
-      #ifdef ASGARD_USE_MPI
-      if (not src.is_moment() or not resources.owns(src.rec))
-        continue;
-      #else
-      if (not src.is_moment())
-        continue;
-      #endif
+    for (int gid : igroups) {
+      auto const &src = sources_md[gid];
+      if (not src.is_moment() or not resources.owns(src.rec)) continue;
+
       auto const &mids = src.get_mom_md().mids_;
-      interp_moments.insert(interp_moments.end(), mids.begin(), mids.end());
+      insert(mids, gpu_moms[src.rec.device][gid]);
+      insert(mids, all_interp[gid]);
+      if (not src.uses_gpu())
+        insert(mids, cpu_interp[gid]);
     }
-    {
-      // moments that were pushed to other MPI ranks should be "downgraded"
-      // potentially to being inactive
-      auto comp_id  = [](moment_id id1, moment_id id2) -> bool { return (id1() < id2()); };
-      auto match_id = [](moment_id id1, moment_id id2) -> bool { return (id1() == id2()); };
 
-      std::sort(interp_moments.begin(), interp_moments.end(), comp_id);
-      std::sort(regular_moments.begin(), regular_moments.end(), comp_id);
+    for (auto &gm : gpu_moms) for (auto &vec : gm) remove_repeated(vec);
+    for (auto &vec : cpu_raw) remove_repeated(vec);
+    for (auto &vec : cpu_interp) remove_repeated(vec);
+    for (auto &vec : all_interp) remove_repeated(vec);
 
-      auto last = std::unique(regular_moments.begin(), regular_moments.end(), match_id);
-      regular_moments.erase(last, regular_moments.end());
+    auto missing = [&](std::vector<moment_id> const &vec, moment_id mid)
+        -> bool {
+        return not std::binary_search(vec.begin(), vec.end(), mid, compar_id);
+      };
 
-      last = std::unique(interp_moments.begin(), interp_moments.end(), match_id);
-      interp_moments.erase(last, interp_moments.end());
-
-      for (int i : iindexof(moms.num_moments())) {
-        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::interpolatory) {
-          if (not std::binary_search(interp_moments.begin(), interp_moments.end(),
-                                     moment_id{i}, comp_id))
-            moms.set_action(moment_id{i}, moment::moment_type::regular);
+    for (int gid : igroups) {
+      for (auto const &gm : gpu_moms) {
+        for (moment_id mid : gm[gid]) {
+          if (missing(all_interp[gid], mid)) // not being interpolated
+            skip_interp[gid].push_back(mid);
         }
-        if (moms.get_by_id(moment_id{i}).action == moment::moment_type::regular) {
-          if (not std::binary_search(regular_moments.begin(), regular_moments.end(),
-                                     moment_id{i}, comp_id))
-            moms.set_action(moment_id{i}, moment::moment_type::inactive);
+      }
+      remove_repeated(skip_interp[gid]);
+    }
+
+    // if (mpi::is_world_rank(1)) {
+    //   std::cout << " gpu-moms - num-groups: " << cpu_raw.size() << '\n';
+    //   for (auto const &dev : gpu_moms) {
+    //     std::cout << " -- dev --\n";
+    //     for (auto const &grp : dev) {
+    //       for (auto m : grp) {
+    //         std::cout << m() << "    ";
+    //       }
+    //       std::cout << '\n';
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //
+    //   std::cout << " cpu_raw\n";
+    //   for (auto const &grp : cpu_raw) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //   std::cout << " cpu_interp\n";
+    //   for (auto const &grp : cpu_interp) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    //   std::cout << " skip_interp\n";
+    //   for (auto const &grp : skip_interp) {
+    //     for (auto m : grp) {
+    //       std::cout << m() << "    ";
+    //     }
+    //     std::cout << '\n';
+    //   }
+    // }
+    moms.set_moment_distribution(gpu_moms, cpu_raw, cpu_interp, skip_interp);
+    #endif
+
+    // CPU logic here, have only regular and interp moments per group
+    std::vector<std::vector<moment_id>> regular(std::max(term_groups.size(), size_t{1}));
+    std::vector<std::vector<moment_id>> intp(regular.size());
+    for (auto &r : regular) r.reserve(250);
+    for (auto &r : intp) r.reserve(250);
+
+    for (int gid : igroups) {
+      auto this_group = (term_groups.empty()) ? indexrange(terms) : indexrange(term_groups[gid]);
+      for (int tid : this_group) {
+        auto const &tentry = terms[tid];
+        if (not resources.owns(tentry.rec)) continue;
+
+        has_poisson = has_poisson or tentry.has_poisson;
+        if (tentry.is_separable()) { // only separable terms can have 1D moment deps
+          for (int d : iindexof(num_dims)) {
+            auto const &mids = tentry.tmd.dim(d).mids_;
+            insert(mids, regular[gid]);
+            has_sep_mom = has_sep_mom or not mids.empty();
+          }
+        } else if (tentry.interplan.uses_moments()) {
+          auto const &mids = tentry.tmd.mids_;
+          insert(mids, regular[gid]);
+          insert(mids, intp[gid]);
         }
       }
     }
+    for (int gid : igroups) {
+      auto const &src = sources_md[gid];
+      if (not src or not src.is_moment() or not resources.owns(src.rec)) continue;
+
+      auto const &mids = src.get_mom_md().mids_;
+      insert(mids, regular[gid]);
+      insert(mids, intp[gid]);
+    }
+    // remove redundant entries
+    for (auto &vec : regular) remove_repeated(vec);
+
+    for (auto &vec : intp) remove_repeated(vec);
+
+    moms.set_moment_types(regular, intp);
+
     if (has_poisson) {
       if (term_groups.empty())
-        has_poisson_.resize(1, true);
-      else
-        has_poisson_.resize(term_groups.size(), false); // will process groups below
-    }
-    if (not term_groups.empty()) {
-      for (int gid : iindexof(term_groups)) {
-        bool needs = false;
-        for (int tid : indexrange(term_groups[gid])) {
-          #ifdef ASGARD_USE_MPI
-          if (not resources.owns(terms[tid].rec))
-            continue;
-          #endif
-          needs = needs or terms[tid].has_poisson;
+        has_poisson_.resize(1, true); // one group, has Poisson
+      else {
+        // multiple groups, not all groups would have Poisson dep
+        has_poisson_.resize(term_groups.size(), false);
+        for (int gid : iindexof(term_groups)) {
+          for (int tid : indexrange(term_groups[gid])) {
+            if (not resources.owns(terms[tid].rec)) continue;
+
+            if (terms[tid].has_poisson) {
+              has_poisson_[gid] = true;
+              break; // move to the next group
+            }
+          }
         }
-        if (needs)
-          has_poisson_[gid] = needs;
       }
     }
     // There is a catch here. The has_poisson() logic is used to determine whether we need
     // to have a local Poisson solve and whether to update any Poisson terms at all.
-    // The has_sep_moments() logic is used to determine when any of the terms change
+    // The has_sep_moments() logic is used to determine when any of the terms change,
     // which would require updating the preconditioner even if the sparse grid is unchanged.
     // Thus, the Poisson logic considers separable and non-separable terms and excludes terms
-    // no associated with this MPI rank, while the sep-mom logic considers only separable terms
-    // but disregards MPI, since building the preconditioner is a global MPI operation.
+    // not associated with this MPI rank, while the sep-mom logic considers only separable terms
+    // but includes all MPI ranks, since building the preconditioner is a global MPI operation.
+    // (maybe this should be "change-with-time" logic)
     if (has_sep_mom) {
       if (term_groups.empty())
         has_sep_moments_.resize(1, true);
-      else
+      else {
         has_sep_moments_.resize(term_groups.size(), false); // will process groups below
-    }
-    if (not term_groups.empty()) {
-      // for each group, look for separable term that has moment dependence
-      for (int gid : iindexof(term_groups)) {
-        for (int tid : indexrange(term_groups[gid])) {
-          if (terms[tid].is_separable()) {
-            for (int d : iindexof(num_dims))
-              if (terms[tid].tmd.dim(d).depends() != term_dependence::none) {
-                has_sep_moments_[gid] = true;
-                break;
-              }
+        for (int gid : iindexof(term_groups)) {
+          for (int tid : indexrange(term_groups[gid])) {
+            if (terms[tid].is_separable()) {
+              for (int d : iindexof(num_dims))
+                if (terms[tid].tmd.dim(d).depends() != term_dependence::none) {
+                  has_sep_moments_[gid] = true;
+                  break;
+                }
+            }
           }
         }
       }
     }
-  }
+
+  } // end of the moment dependencies logic
+
   #ifdef ASGARD_USE_GPU
-  kwork.row_map.resize(max_num_gpus);
+  kwork.row_map.resize(max_num_gpus); // TODO: check if this is needed
   #endif
 }
 

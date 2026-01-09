@@ -76,11 +76,15 @@ struct source_entry_interp
     }
   }
   //! calls the moment variant, if set for moments
-  void operator() (int64_t const num, P t, P const x[], momentset<P> const &,
+  void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                    P vals[]) const
   {
-    expect(not std::holds_alternative<std::monostate>(func));
-    std::get<md_gpu_func<P>>(func)(num, t, x, vals);
+    expect(uses_gpu());
+    if (std::holds_alternative<moment_source<P>>(func)) {
+      std::get<moment_source<P>>(func)(num, t, x, moments, vals);
+    } else {
+      std::get<md_gpu_func<P>>(func)(num, t, x, vals);
+    }
   }
   //! returns the moment source, use only if is_moment()
   moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
@@ -95,7 +99,9 @@ struct source_entry_interp
   }
   //! indicates whether the entry contains a moment function
   bool uses_gpu() const {
-    return std::holds_alternative<md_gpu_func<P>>(func);
+    return std::holds_alternative<md_gpu_func<P>>(func)
+           or (std::holds_alternative<moment_source<P>>(func)
+               and std::get<moment_source<P>>(func).uses_gpu());
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }

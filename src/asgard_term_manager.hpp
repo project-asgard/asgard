@@ -132,16 +132,19 @@ struct term_manager
   mutable std::vector<P> cpu_s1; // used for sources on the CPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
-  // for both multi-gpu support and interpolation evals on the CPU
+  // for both multi-gpu support and interpolation evals on the CPU/GPU
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
   //! has Poisson solver for the given group
-  bool has_poisson(group_id group) const { return (not has_poisson_.empty() and has_poisson_[group()]); }
-  //! has Poisson solver for any group
-  bool has_poisson() const { return (not has_poisson_.empty()); }
+  bool has_poisson(group_id group = group_id::all()) const {
+    if (group == group_id::all())
+      return (not has_poisson_.empty());
+    else
+      return (not has_poisson_.empty() and has_poisson_[group()]);
+  }
   //! the given group has separable terms that depend on the moments
   bool has_sep_moments(group_id group = group_id::all()) const {
     if (group == group_id::all())
@@ -324,8 +327,8 @@ struct term_manager
                  std::vector<P> &y) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x.data(), {},
-             alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
+      interp(tme.interplan, grid, conns, moms.get_cached_interps(),
+             0, x.data(), {}, alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -349,8 +352,8 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {}, {},
-             alpha, tme.tmd, beta, y, kwork,
+      interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(),
+             moms.get_cached_interps(dev), 0, x, {}, {}, alpha, tme.tmd, beta, y, kwork,
              cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
     } else {
       block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,

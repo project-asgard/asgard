@@ -1,5 +1,9 @@
 #include "asgard_discretization.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_algorithms.hpp"
+#endif
+
 namespace asgard
 {
 template<typename precision>
@@ -261,13 +265,45 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
   if (terms.moms)
-    compute_moments(state);
+    compute_moments_(group_id::all(), state);
 
   if (terms.has_poisson()) {
     moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
                                grid.current_level(0), m0);
   }
+}
+
+template<typename precision>
+void discretization_manager<precision>::compute_moments_(
+    group_id gid, std::vector<precision> const &f) const
+{
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    if (is_leader()) {
+      terms.resources.template bcast <precision, resource_comm::regular>(f);
+      compute_moments_local(gid, f);
+    } else {
+      terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
+      terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
+      compute_moments_local(gid, terms.mpiwork);
+    }
+  } else {
+  #endif
+    compute_moments_local(gid, f);
+  #ifdef ASGARD_USE_MPI
+  }
+  #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::compute_moments_local(
+    group_id gid, std::vector<precision> const &f) const
+{
+  terms.moms.cache_moments(gid, grid, f);
+  terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
+  compute_poisson(gid);
+  terms.rebuild_moment_terms(gid, grid, conn, hier);
 }
 
 template<typename precision>
@@ -388,7 +424,7 @@ discretization_manager<precision>::project_function(
 template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
   std::vector<precision> result;
-  terms.moms.compute(grid, id, state, result);
+  terms.moms.mcompute(grid, id, state, result);
   return result;
 }
 
@@ -397,7 +433,7 @@ std::vector<precision> discretization_manager<precision>::get_moment_level(momen
   rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
   std::vector<precision> tmp;
   std::vector<precision> result;
-  terms.moms.compute(grid, id, state, tmp);
+  terms.moms.mcompute(grid, id, state, tmp);
   terms.moms.complete_level(hier, tmp, result);
   return result;
 }
@@ -490,9 +526,8 @@ void discretization_manager<precision>::ode_rhs_base(
       #endif
     }();
 
-  // locally update all moments
   if (terms.moms)
-    compute_moments(group, in);
+    compute_moments_local(group, in);
 
   out.resize(in.size());
 
@@ -569,9 +604,8 @@ void discretization_manager<precision>::ode_euler_base(
       #endif
     }();
 
-  // locally update all moments
   if (terms.moms)
-    compute_moments(group, in);
+    compute_moments_local(group, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -652,6 +686,42 @@ void discretization_manager<precision>::ode_rhs_sources(
 
 #ifdef ASGARD_USE_GPU
 template<typename precision>
+void discretization_manager<precision>::compute_moments_gpu_(group_id gid, precision const f[]) const {
+  #ifdef ASGARD_USE_MPI
+  if (terms.resources.num_ranks() > 1) {
+    int64_t const num_entries = num_dof();
+    if (is_leader()) {
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(num_entries, f);
+      compute_moments_local_gpu(gid, f);
+    } else {
+      terms.gpumpi_work.resize(num_entries);
+      terms.resources.template bcast_gpu <precision, resource_comm::regular>(
+            num_entries, terms.gpumpi_work.data());
+      compute_moments_local_gpu(gid, terms.gpumpi_work.data());
+    }
+  } else {
+  #endif
+    compute_moments_local_gpu(gid, f);
+  #ifdef ASGARD_USE_MPI
+  }
+  #endif
+}
+
+template<typename precision>
+void discretization_manager<precision>::compute_moments_local_gpu(
+    group_id gid, precision const f[]) const
+{
+  {
+    // const-cast is safe here, since wf is only used as "const" in the call
+    gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
+    terms.moms.compute_moments(gid, grid, terms.interp, terms.kwork,
+                               terms.gpu_it1, terms.gpu_it2, wf.vec);
+  }
+  compute_poisson(gid);
+  terms.rebuild_moment_terms(gid, grid, conn, hier);
+}
+
+template<typename precision>
 void discretization_manager<precision>::ode_rhs_base_gpu(
     group_id group, precision time, precision const current[], precision R[]) const
 {
@@ -695,12 +765,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
       #endif
     }();
 
-  // locally update all moments
-  if (terms.moms) {
-    moments_workspace.resize(num_entries);
-    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments(group, moments_workspace);
-  }
+  if (terms.moms) compute_moments_local_gpu(group, in);
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -773,12 +838,8 @@ void discretization_manager<precision>::ode_euler_base_gpu(
       #endif
     }();
 
-  // locally update all moments
-  if (terms.moms) {
-    moments_workspace.resize(num_entries);
-    gpu::memcopy_dev2host(num_entries, in, moments_workspace.data());
-    compute_moments(group, moments_workspace);
-  }
+  if (terms.moms) compute_moments_local_gpu(group, in);
+
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(group, grid, conn);

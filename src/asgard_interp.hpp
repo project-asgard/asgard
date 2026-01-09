@@ -418,6 +418,7 @@ public:
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments,
+       momentset_gpu<P> const &gpu_moments,
        P time, P const state[], std::vector<P> const &ifield,
        gpu::vector<P> const &gpu_ifield,
        P alpha, term_md<P> const &tmd, P beta, P y[],
@@ -438,8 +439,7 @@ public:
       {
         tools::time_event perf_("interpolation func-gpu");
         if (plan.uses_moments()) {
-          // TODO: moments on the GPU
-          // tmd.interp(time, nodes(grid), moments, nodal, t2);
+          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), gpu_moments, nodal.data(), gpu_t2.data());
         } else {
           tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), nodal.data(), gpu_t2.data());
         }
@@ -504,7 +504,7 @@ public:
   template<typename tmd_type>
   void operator ()
       (gpu::device dev, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments, P time,
+       connection_patterns const &conn, momentset_gpu<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const

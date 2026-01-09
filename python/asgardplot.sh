@@ -2,15 +2,17 @@
 
 set -e
 
-if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" ]]; then
+if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" || "$1" == "-h" ]]; then
 
     echo ""
     echo "usage: asgardplot.sh <filename> <plot opts>"
     echo ""
     echo "calls the asgard python quick plot utility"
-    echo "for more details see:"
-    echo "@Python_EXECUTABLE@ -m asgard --help"
+    echo "equivalent to calling @Python_EXECUTABLE@ -m asgard <filename> <opts>"
+    echo "see the list of options below:"
     echo ""
+
+    @Python_EXECUTABLE@ -m asgard --help
 
     exit 0;
 fi

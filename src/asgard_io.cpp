@@ -122,7 +122,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
     for (int i : iindexof(moms.num_moments()))
     {
       int const auxid = static_cast<int>(aux_fields.size()) + i;
-      moms.compute(grid, moment_id{i}, state, vals);
+      moms.mcompute(grid, moment_id{i}, state, vals);
       H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_name",
                    std::string("__moment_") + moms.get_by_id(moment_id{i}).to_string());
       write_vector("aux_field_" + std::to_string(auxid) + "_data", vals);

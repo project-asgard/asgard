@@ -669,40 +669,7 @@ struct solver_manager
   //! iterative solver, calls the appropriate iterative solver, gpu variant
   void iterate_solve(solvers::operatoin_apply_precon<P> prec,
                      solvers::operatoin_apply_lhs<P> apply_lhs,
-                     gpu::vector<P> const &rhs, gpu::vector<P> &x) const
-  {
-    if (method() == solver_method::bicgstab) {
-      if (prec) {
-        solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
-
-        bicg.prec_y_gpu.resize(rhs.size());
-
-        bicg.prec_rhs_gpu = rhs;
-        prec(bicg.prec_rhs_gpu.data());
-
-        num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
-            -> void {
-              if (beta == 0) {
-                apply_lhs(alpha, xx, 0, y);
-                prec(y);
-              } else {
-                apply_lhs(alpha, xx, 0, bicg.prec_y_gpu.data());
-                prec(bicg.prec_y_gpu.data());
-                gpu::xpby(bicg.prec_y_gpu, beta, y);
-              }
-            }, bicg.prec_rhs_gpu, x);
-      } else {
-        num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
-      }
-    } else { // if (opt == solve_opts::gmres)
-      if (prec) {
-        num_apply += std::get<solvers::gmres<P>>(var).solve(prec, apply_lhs, rhs, x);
-      } else {
-        num_apply += std::get<solvers::gmres<P>>(var).solve(
-          [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
-      }
-    }
-  }
+                     gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
   //! iterative solver, calls the appropriate iterative solver
   void iterate_solve(solvers::operatoin_apply_lhs<P> apply_lhs,
                      gpu::vector<P> const &rhs, gpu::vector<P> &x) const

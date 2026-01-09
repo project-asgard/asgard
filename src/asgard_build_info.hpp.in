@@ -67,6 +67,11 @@ namespace asgard
  * This is a workaround that lets us have a max size.
  */
 inline constexpr int max_num_dimensions = 6;
+/*!
+ * Similar to max_num_dimensions, represent the maximum number of velocity dimensions,
+ * i.e., dimensions that have to be folded to compute the moments.
+ */
+inline constexpr int max_mom_dims = 3;
 
 inline constexpr int max_num_gpus = ASGARD_MAX_NUM_GPUS;
 

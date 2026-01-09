@@ -41,19 +41,19 @@ public:
   moment const &get_by_id(moment_id id) const { return mlist[id]; }
   //! returns the ID of an existing moment
   moment_id find_id(moment const &m) const { return mlist.get_id(m); }
-  //! update the action for the given moment
-  void set_action(moment_id id, moment::moment_type action) {
-    mlist.set_action(id, action);
-  }
 
   //! returns a grid indexes, used for I/O
   std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
   //! computes the specified moment
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
 
   //! load all moments into the data-structures
-  void cache_moments(sparse_grid const &grid, std::vector<P> const &state, int group = -1) const;
+  void cache_moments(group_id group, sparse_grid const &grid, std::vector<P> const &state) const;
+  //! load all moments into the data-structures
+  void cache_moments(sparse_grid const &grid, std::vector<P> const &state) const {
+    cache_moments(group_id::all(), grid, state);
+  }
   //! computes and caches a specific moment
   void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
 
@@ -111,15 +111,65 @@ public:
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &work, std::vector<P> &workspace) const;
-  //! load the inteprolatory moments, all groups
-  void load_interp(interpolation_manager<P> const &interp,
-                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! load the inteprolatory moments, specified group
   void load_interp(group_id group, interpolation_manager<P> const &interp,
                    kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
   //! computes approximate memory usage by the object
   size_t used_bytes() const;
+
+  #ifdef ASGARD_USE_GPU
+  /*!
+   * \brief Set the distribution of inteprolatory moments across GPU devices
+   *
+   * Interpolation moments require most expensive kronmult operations and can be fed into
+   * user provided functions on the GPU device. But this must respect the distribution
+   * of moments across GPU devices, and this applies only to interpolatory moments.
+   * The format is device dev, group grp has a vector of moments mom[dev][grp].
+   *
+   * CPU moments can be interpolated, regular or inactive. The interpolated moments
+   * will be computed on device 0 and moved back to the CPU.
+   * Regular moments will be computed on the CPU.
+   */
+  void set_moment_distribution(std::array<std::vector<std::vector<moment_id>>, max_num_gpus> const &gpu_mom,
+                               std::vector<std::vector<moment_id>> const &cpu_raw,
+                               std::vector<std::vector<moment_id>> const &cpu_interp,
+                               std::vector<std::vector<moment_id>> const &skip_interp);
+  //! load the inteprolatory moments, specified device and group
+  void load_interp(gpu::device dev, group_id group, interpolation_manager<P> const &interp,
+                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+  //! return the set of cached interpolation values, all relevant moments must be cached already
+  momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
+  //! load all moments into the data-structures
+  void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+                       kronmult::workspace<P> &kwork,
+                       std::array<gpu::vector<P>, max_num_gpus> &work1,
+                       std::array<gpu::vector<P>, max_num_gpus> &work2,
+                       gpu::vector<P> const &state) const;
+  //! load all moments into the data-structures
+  void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
+                       kronmult::workspace<P> &kwork,
+                       std::array<gpu::vector<P>, max_num_gpus> &work1,
+                       std::array<gpu::vector<P>, max_num_gpus> &work2,
+                       gpu::vector<P> const &state) const
+  {
+    compute_moments(group_id::all(), grid, interp, kwork, work1, work2, state);
+  }
+  #endif
+  /*!
+   * \brief Defines moments that should be used as raw or interpolation
+   *
+   * The raw moments are the ones computed directly from the state and those are defined on
+   * the position grid. The level and interp moments are computed from the raw moments,
+   * where the level moments are generated on call and the interp moments require
+   * a separate call to load_interp().
+   * Thus, the raw moments include both the level moments and interp moments.
+   * The interp moments are those that require interpolation.
+   *
+   * Using access: raws[group][moment]
+   */
+  void set_moment_types(std::vector<std::vector<moment_id>> const &raws,
+                        std::vector<std::vector<moment_id>> const &intps);
 
 protected:
   //! set the new groups
@@ -138,12 +188,12 @@ protected:
    * degrees of freedom (pdof) to speed up work.
    */
   template<int nvel, int tpdof>
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
   //! mid-step, realizes the template from above using the pdof
   template<int nvel>
-  void compute(sparse_grid const &grid, moment_id id,
-               std::vector<P> const &state, std::vector<P> &vals) const;
+  void mcompute(sparse_grid const &grid, moment_id id,
+                std::vector<P> const &state, std::vector<P> &vals) const;
   /*!
    * \brief computes the position grid from the given global grid
    *
@@ -158,6 +208,18 @@ protected:
    */
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+
+  //! returns an iterator to the first entry of the given group using serialized vector
+  template<typename vector_like>
+  static auto first_in(group_id group, vector_like const &vec) {
+    int gid = 0;
+    auto mid = vec.begin();
+    while (group != group_id{gid}) {
+      if (*mid == moment_id::unset()) gid++;
+      mid++;
+    }
+    return mid;
+  }
 
 private:
   //! indicates whether level 0 contains all the needed moment data
@@ -186,6 +248,9 @@ private:
   moments_list mlist;
   std::vector<std::vector<moment_id>> groups_;
 
+  std::vector<moment_id> raw_moments_;
+  std::vector<moment_id> interp_moments_;
+
   bool all_levels_zero = true;
   std::array<moment_level, max_mom_dims> dim_level;
 
@@ -194,6 +259,42 @@ private:
   mutable momentset<P> raw_vals; // computed on pos-grid
   mutable momentset<P> full_level; // operator matrices need full level moments
   mutable momentset<P> interps; // moment values for interpolation
+
+  #ifdef ASGARD_USE_GPU
+  //! combines the moment_id with a flag if the raw-data is needed on the CPU
+  struct mom_on_gpu {
+    //! create and set the moment id
+    mom_on_gpu(moment_id id = moment_id::unset()) : mid(id) {}
+    //! the moment id
+    moment_id mid;
+    //! flag whether to keep on the cpu or gpu
+    unsigned int flags = 0;
+    //! indicates if the moment is unset
+    operator bool () const { return (mid != moment_id::unset()); }
+    //! indicates if the moment is unset
+    bool is_unset() const { return (mid == moment_id::unset()); }
+    //! indicates whether to use raw-value on the cpu
+    bool raw_on_cpu() const { return ((flags & 1u) != 0); }
+    //! indicates whether to use interp value on the cpu
+    bool interp_on_cpu() const { return ((flags & 2u) != 0); }
+    //! indicated whether this is regular or interp moment
+    bool skip_interp() const { return  ((flags & 4u) != 0); }
+    //! sets the moment as needing raw on the cpu
+    void set_raw_on_cpu() { flags |= 1u; }
+    //! sets the moment as needing interp on the cpu
+    void set_interp_on_cpu() { flags |= 2u; }
+    //! sets the moment as not needing interp on the gpu
+    void set_skip_interp() { flags |= 4u; }
+  };
+
+  std::array<std::array<gpu::vector<P>, max_mom_dims>, max_num_gpus> gpu_integ;
+  mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij; // pairs of ij corresponding to pos-grid to global-grid
+  mutable std::array<gpu::vector<int>, max_num_gpus> reduce_ij_allzero; // special case, only using level zero
+  std::vector<bool> has_interp; // if moments have to computed on the CPU too
+  std::array<std::vector<mom_on_gpu>, max_num_gpus> gpu_moments; // distribution of moments across GPU devices
+
+  mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
+  #endif
 
   mutable std::vector<P> poisson_raw_; // computed on pos-grid (or full grid for 1D)
   mutable std::vector<P> poisson_level_; // Poisson extended to full level

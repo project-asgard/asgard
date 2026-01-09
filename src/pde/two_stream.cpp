@@ -240,9 +240,9 @@ void test_energy(std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_two_stream(options);
-  moment_id const m0 = pde.register_moment({0, moment::inactive});
-  moment_id const m1 = pde.register_moment({1, moment::inactive}); // needed for verification, but not running
-  moment_id const m2 = pde.register_moment({2, moment::inactive});
+  moment_id const m0 = pde.register_moment({0});
+  moment_id const m1 = pde.register_moment({1}); // needed for verification, but not running
+  moment_id const m2 = pde.register_moment({2});
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
@@ -251,7 +251,7 @@ void test_energy(std::string const &opt_str) {
 
   for (int64_t i = 0; i < n; i++)
   {
-    disc.advance_time(1);
+    tassert( disc.advance_time(1) );
 
     disc.sync_mpi_state();
 

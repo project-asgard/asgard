@@ -118,6 +118,15 @@ using md_gpu_func = std::function<void(int64_t const, P, P const[], P[])>;
 template<typename P>
 using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
                                        std::vector<P> &)>;
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Signature for a non-separable function with moment dependence on the GPU
+ */
+template<typename P>
+using md_gpu_mom_func = std::function<void(int64_t, P t, P const[], momentset_gpu<P> const &moments,
+                                           P vals[])>;
+
 /*!
  * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function that accepts an additional field parameter
@@ -138,6 +147,17 @@ using md_gpu_func_f = std::function<void(int64_t const, P, P const[], P const[],
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Signature for a GPU non-separable function that accepts an moment and field parameters
+ *
+ * Using this function requires either CUDA or ROCM support and the arrays will
+ * be on the GPU device.
+ */
+template<typename P>
+using md_gpu_mom_func_f = std::function<void(int64_t const, P, P const[],
+                                             momentset_gpu<P> const &, P const[], P[])>;
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Signature for a non-separable function with field and moment parameters
  */
 template<typename P>
@@ -152,23 +172,42 @@ using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
  */
 template<typename P = default_precision>
 struct moment_source {
+  //! create an empty moment source
+  moment_source() = default;
   //! create a new moment source
   moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
       : func_(std::move(func)), mids_(std::move(mids))
   {
-    rassert(not (!!func_ and mids_.empty()),
+    rassert(not (!!std::get<md_mom_func<P>>(func_) and mids_.empty()),
+            "providing a moment source must include a non-empty vector of moment_id");
+  }
+  //! create a new moment source
+  moment_source(md_gpu_mom_func<P> func, std::vector<moment_id> mids)
+      : func_(std::move(func)), mids_(std::move(mids))
+  {
+    rassert(not (!!std::get<md_gpu_mom_func<P>>(func_) and mids_.empty()),
             "providing a moment source must include a non-empty vector of moment_id");
   }
   //! call the loaded function
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    func_(t, x, moments, vals);
+    expect(std::holds_alternative<md_mom_func<P>>(func_));
+    std::get<md_mom_func<P>>(func_)(t, x, moments, vals);
   }
+  //! call the loaded function
+  void operator() (int64_t num, P t, P const x[], momentset_gpu<P> const &moments,
+                   P vals[]) const
+  {
+    expect(std::holds_alternative<md_gpu_mom_func<P>>(func_));
+    std::get<md_gpu_mom_func<P>>(func_)(num, t, x, moments, vals);
+  }
+  //! returns true if the function is set to use the gpu
+  bool uses_gpu() const { return std::holds_alternative<md_gpu_mom_func<P>>(func_); }
   //! check if a function has been set
-  operator bool () const { return !!func_; }
+  operator bool () const { return not std::holds_alternative<std::monostate>(func_); }
   //! the callable function
-  md_mom_func<P> func_;
+  std::variant<std::monostate, md_mom_func<P>, md_gpu_mom_func<P>> func_ = std::monostate{};
   //! the moments used by this function
   std::vector<moment_id> mids_;
 };
@@ -663,9 +702,7 @@ public:
       depends_(term_dependence::moment_divided_by_density),
       change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
       smom_(mover.mom)
-  {
-    smom_.action = moment::regular;
-  }
+  {}
   //! make a special term using the collision theta term
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
@@ -934,8 +971,10 @@ struct term_interp {
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
+  explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids)
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
-  std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>> interp;
+  std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>> interp;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
 };
@@ -1217,6 +1256,12 @@ public:
               "the GPU interpolation functions requires CUDA or ROCM enabled");
       #endif
       interp_ = std::move(std::get<md_gpu_func_f<P>>(tint.interp));
+    } else if (std::holds_alternative<md_gpu_mom_func_f<P>>(tint.interp)) {
+      #if !defined(ASGARD_USE_CUDA) && !defined(ASGARD_USE_ROCM)
+      rassert(not std::holds_alternative<md_gpu_mom_func_f<P>>(tint.interp),
+              "the GPU interpolation functions requires CUDA or ROCM enabled");
+      #endif
+      interp_ = std::move(std::get<md_gpu_mom_func_f<P>>(tint.interp));
     } else
       interp_ = std::move(std::get<md_func_f<P>>(tint.interp));
   }
@@ -1255,7 +1300,10 @@ public:
   //! return true if the term uses interpolation
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
   //! return true if the term uses interpolation on the GPU device
-  bool is_gpu_interpolatory() const { return std::holds_alternative<md_gpu_func_f<P>>(interp_); }
+  bool is_gpu_interpolatory() const {
+    return std::holds_alternative<md_gpu_func_f<P>>(interp_)
+           or std::holds_alternative<md_gpu_mom_func_f<P>>(interp_);
+  }
 
   //! sets the mass term
   void set_mass(mass_md<P> tmass) {
@@ -1344,6 +1392,14 @@ public:
     std::get<md_gpu_func_f<P>>(interp_)(num_points, t, x, f, vals);
   }
 
+  //! applies the function on the GPU device, vals = f(n, t, x, moments, f)
+  void interp(int64_t num_points, P t, P const x[], momentset_gpu<P> const &moments,
+              P const f[], P vals[]) const
+  {
+    expect(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
+    std::get<md_gpu_mom_func_f<P>>(interp_)(num_points, t, x, moments, f, vals);
+  }
+
   // allow direct access to the private data
   friend struct term_manager<P>;
 
@@ -1365,7 +1421,8 @@ private:
                std::array<term_1d<P>, max_num_dimensions>,
                md_func_f<P>,
                md_mom_func_f<P>,
-               md_gpu_func_f<P>> interp_ = std::monostate{};
+               md_gpu_func_f<P>,
+               md_gpu_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
   // chain of other terms
@@ -1450,6 +1507,8 @@ struct group_id {
   constexpr int operator () () const { return gid; }
   //! compare the two group ids
   bool operator == (group_id const &other) const { return (other.gid == gid); }
+  //! compare the two group ids
+  bool operator != (group_id const &other) const { return not (*this == other); }
   //! check if the id is between -1 and the max bound, used for sanity checking
   bool is_valid(size_t index_end) const {
     return (-1 <= gid and gid < static_cast<int>(index_end));
@@ -1651,15 +1710,13 @@ public:
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(moment_source<P> smd) {
+    rassert(smd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
-
-    for (auto id : smd.mids_)
-      mlist.set_action(id, moment::moment_type::interpolatory);
 
     sources_md_[idx] = std::move(smd);
   }
