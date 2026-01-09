@@ -128,6 +128,11 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     options.default_solver = asgard::solver_method::scaled_identity;
   }
 
+  // the BGK example requires adaptivity to avoid instabilities, especially in 4D and up
+  // instabilities can lead to locally negative density and non-physical results
+  if (not options.adapt_threshold and not options.adapt_relative)
+    options.adapt_threshold = 1.E-4;
+
   // create a pde from the given options and domain
   asgard::pde_scheme<P> pde(options, domain);
 

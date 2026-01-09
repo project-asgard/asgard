@@ -17,6 +17,14 @@ if [[ "$1" == "help" || "$1" == "-help" || "$1" == "--help" || "$1" == "-h" ]]; 
     exit 0;
 fi
 
+if [[ "$1" == "-plt" ]]; then
+
+    echo "$1 is not a valid plotter command"
+    echo "did you mean to call ./asgardrun.sh"
+
+    exit 0;
+fi
+
 
 if [ ! -f $1 ]; then
     echo "cannot find file '$1'"
