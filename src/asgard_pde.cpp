@@ -1,7 +1,7 @@
 #include "asgard_pde_functions.hpp"
 
 #ifdef ASGARD_USE_GPU
-#include "asgard_pde_gpu.hpp"
+#include "asgard_gpu_pde.hpp"
 #endif
 
 namespace asgard

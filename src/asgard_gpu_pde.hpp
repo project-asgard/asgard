@@ -2,8 +2,8 @@
 
 #include "asgard_block_matrix.hpp"
 
-// GPU kernels and algorithms for keeping as much of the workload as possible
-// on the GPU device and avoid moving data between kronmult operations.
+// GPU kernels and algorithms for special terms, such as Lenard-Bernstein
+// or BGK collision operators
 
 namespace asgard::gpu
 {

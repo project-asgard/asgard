@@ -487,13 +487,13 @@ if (ASGARD_USE_CUDA)
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_cuda.cpp>
-                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_pde_cuda.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_cuda.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp>
                    )
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_cuda.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_cuda.cpp
-                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_pde_cuda.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_cuda.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_cuda.cpp
                                  PROPERTIES LANGUAGE CUDA)
 
