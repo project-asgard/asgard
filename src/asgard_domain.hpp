@@ -1,7 +1,6 @@
 #pragma once
 
-#include "asgard_resource_groups.hpp"
-#include "asgard_program_options.hpp"
+#include "asgard_function_defs.hpp"
 
 namespace asgard
 {

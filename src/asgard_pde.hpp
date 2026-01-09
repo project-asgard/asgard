@@ -1,10 +1,6 @@
 #pragma once
 
 #include "asgard_domain.hpp"
-#include "asgard_momentset.hpp"
-#include "asgard_quadrature.hpp"
-
-// the quadrature is needed by some of the pdes to perform internal operations
 
 /*!
  * \defgroup asgard_pde_definition ASGarD PDE Definition
