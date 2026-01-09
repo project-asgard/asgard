@@ -576,6 +576,8 @@ void moment_manager<P>::make_nodal(
 {
   if (dsort_generation != pos_grid.generation()) {
     pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+    bool constexpr skip_indexes = true; // already loaded in reduce_grid()
+    pos_grid.gpu_sync<skip_indexes>();
     dsort_generation = pos_grid.generation();
   }
 
@@ -797,7 +799,8 @@ void moment_manager<P>::compute_moments(
     if (group == group_id::all() or has_interp[group()]) {
       if (dsort_generation != pos_grid.generation()) {
         pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
-        pos_grid.gpu_sync();
+        bool constexpr skip_indexes = true; // already loaded in reduce_grid()
+        pos_grid.gpu_sync<skip_indexes>();
         dsort_generation = pos_grid.generation();
       }
     }

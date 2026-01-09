@@ -633,6 +633,7 @@ public:
     return gpu_xy[dev.id][dim].back();
   }
   //! low-memory usage, sync the grid to the GPU
+  template<bool skip_indexes = false>
   void gpu_sync() {
     if (gpu_generation_ == generation_)
       return; // nothing to sync
@@ -644,18 +645,21 @@ public:
       for (auto &dims : gpus)
         for (auto &cnn : dims)
           cnn.clear();
-    gpu_indexes_    = iset_.indexes();
+    if constexpr (not skip_indexes)
+      gpu_indexes_    = iset_.indexes();
     gpu_generation_ = generation_;
   }
   #else
   //! send the grid to all of the managed GPUs, check if needed
+  template<bool skip_indexes = false>
   void gpu_sync() {
     if (gpu_generation_ == generation_)
       return; // nothing to sync
     // this is split into two methods, so that the if statement can be inlined
     // while the load process uses OpenMP and more complex code
     gpu_generation_ = generation_;
-    gpu_indexes_    = iset_.indexes();
+    if constexpr (not skip_indexes)
+      gpu_indexes_    = iset_.indexes();
     gpu_load();
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
