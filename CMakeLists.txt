@@ -506,11 +506,13 @@ if (ASGARD_USE_ROCM)
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms.hpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_rocm.cpp>
+                   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_rocm.cpp>
                    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp>
                    )
 
     set_source_files_properties (${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_algorithms_rocm.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_tensors_rocm.cpp
+                                 ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_gpu_pde_rocm.cpp
                                  ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_kronmult_rocm.cpp
                                  PROPERTIES LANGUAGE HIP)
 

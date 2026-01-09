@@ -16,7 +16,9 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
   rassert(domain_.num_vel() <= 3, "cannot set lenard_bernstein_collisions operator for a pde_domain with more than 3 velocity dimensions");
   rassert(lbc.nu > 0, "the collision frequency has to be positive");
 
-  auto vnu = [nu=lbc.nu](std::vector<P> const &v, std::vector<P> &fv)
+  P const nu = static_cast<P>(lbc.nu);
+
+  auto vnu = [=](std::vector<P> const &v, std::vector<P> &fv)
         -> void {
       ASGARD_OMP_PARFOR_SIMD
       for (size_t i = 0; i < v.size(); i++)
@@ -51,20 +53,20 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
       moment_id const m2 = this->register_moment(moment{2});
 
       #ifdef ASGARD_USE_GPU
-      auto m1over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                    P const f[], P vals[]) -> void
+      auto m1over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                         P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m1], moments[m0], f, vals);
         };
 
-      auto theta = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                  P const f[], P vals[]) -> void
+      auto theta = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                       P const f[], P vals[]) -> void
         {
           gpu::lbc_vel1(nu, moments[m0], moments[m1], moments[m2], f, vals);
         };
       #else
-      auto m1over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                    std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m1over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                         std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
@@ -75,8 +77,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
             vals[i] = (nu * mom1[i] * f[i]) / mom0[i];
         };
 
-      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                  std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto theta = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                       std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
@@ -120,26 +122,26 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
       moment_id const m02 = this->register_moment(moment{0, 2});
 
       #ifdef ASGARD_USE_GPU
-      auto m10over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                     P const f[], P vals[]) -> void
+      auto m10over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                          P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m10], moments[m0], f, vals);
         };
-      auto m01over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                     P const f[], P vals[]) -> void
+      auto m01over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                          P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m01], moments[m0], f, vals);
         };
 
-      auto theta = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                     P const f[], P vals[]) -> void
+      auto theta = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                       P const f[], P vals[]) -> void
         {
           gpu::lbc_vel2(nu, moments[m0], moments[m10], moments[m01], moments[m20],
                         moments[m02], f, vals);
         };
       #else
-      auto m10over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                     std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m10over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                          std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0  = moments[m0];
           std::vector<P> const &mom10 = moments[m10];
@@ -147,8 +149,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom10[i] * f[i]) / mom0[i];
         };
-      auto m01over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                     std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m01over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                          std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0  = moments[m0];
           std::vector<P> const &mom01 = moments[m01];
@@ -156,8 +158,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom01[i] * f[i]) / mom0[i];
         };
-      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                  std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto theta = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                       std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0  = moments[m0];
           std::vector<P> const &mom10 = moments[m10];
@@ -220,30 +222,30 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
       moment_id const m002 = this->register_moment(moment{0, 0, 2});
 
       #ifdef ASGARD_USE_GPU
-      auto m100over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                      P const f[], P vals[]) -> void
+      auto m100over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                           P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m100], moments[m0], f, vals);
         };
-      auto m010over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                      P const f[], P vals[]) -> void
+      auto m010over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                           P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m010], moments[m0], f, vals);
         };
-      auto m001over0 = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                      P const f[], P vals[]) -> void
+      auto m001over0 = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                           P const f[], P vals[]) -> void
         {
           gpu::moment_ratio(nu, moments[m001], moments[m0], f, vals);
         };
-      auto theta = [=, nu=lbc.nu](int64_t, P, P const[], momentset_gpu<P> const &moments,
-                                  P const f[], P vals[]) -> void
+      auto theta = [=](int64_t, P, P const[], momentset_gpu<P> const &moments,
+                       P const f[], P vals[]) -> void
         {
           gpu::lbc_vel3(nu, moments[m0], moments[m100], moments[m010], moments[m001],
                         moments[m200], moments[m020], moments[m002], f, vals);
         };
       #else
-      auto m100over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m100over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                           std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0   = moments[m0];
           std::vector<P> const &mom100 = moments[m100];
@@ -251,8 +253,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom100[i] * f[i]) / mom0[i];
         };
-      auto m010over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m010over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                           std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0   = moments[m0];
           std::vector<P> const &mom010 = moments[m010];
@@ -260,8 +262,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom010[i] * f[i]) / mom0[i];
         };
-      auto m001over0 = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                      std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto m001over0 = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                           std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0   = moments[m0];
           std::vector<P> const &mom001 = moments[m001];
@@ -269,8 +271,8 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom001[i] * f[i]) / mom0[i];
         };
-      auto theta = [=, nu=lbc.nu](P, vector2d<P> const &x, momentset<P> const &moments,
-                                  std::vector<P> const &f, std::vector<P> &vals) -> void
+      auto theta = [=](P, vector2d<P> const &x, momentset<P> const &moments,
+                       std::vector<P> const &f, std::vector<P> &vals) -> void
         {
           std::vector<P> const &mom0  = moments[m0];
           std::vector<P> const &mom100 = moments[m100];

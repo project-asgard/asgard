@@ -791,6 +791,7 @@ ASGARD_OMP_PARFOR_SIMD
     y[i] = x[i] + beta * y[i];
 }
 
+#ifdef ASGARD_USE_GPU
 template<typename P>
 void solver_manager<P>::iterate_solve(
     solvers::operatoin_apply_precon<P> prec, solvers::operatoin_apply_lhs<P> apply_lhs,
@@ -828,6 +829,7 @@ void solver_manager<P>::iterate_solve(
     }
   }
 }
+#endif
 
 template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const
