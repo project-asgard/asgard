@@ -39,9 +39,10 @@ if (NOT DOXYGEN_INTERNAL_DOCS)
     set(DOXYGEN_EXCLUDE_SYMBOLS asgard::vecstrview asgard::split_views
         asgard::time_advance::steady_state    asgard::time_advance::rungekutta
         asgard::time_advance::crank_nicolson  asgard::time_advance::imex_stepper
-        asgard::time_advance_manager)
+        asgard::time_advance_manager          asgard::moment_manager
+        asgard::refinement_manager)
 
-    set(DOXYGEN_PREDEFINED "__ASGARD_DOXYGEN_SKIP;__ASGARD_DOXYGEN_SKIP_INTERNAL;ASGARD_USE_MPI;")
+    set(DOXYGEN_PREDEFINED "__ASGARD_DOXYGEN_SKIP;__ASGARD_DOXYGEN_SKIP_INTERNAL;ASGARD_USE_MPI;ASGARD_USE_GPU")
 endif()
 
 doxygen_add_docs(asgard_doxygen
@@ -54,6 +55,9 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_discretization.hpp
                  src/asgard_program_options.hpp
                  src/asgard_reconstruct.hpp
+                 src/asgard_function_defs.hpp
+                 src/asgard_indexset.hpp
+                 src/asgard_momentset.hpp
                  src/asgard_domain.hpp
                  src/asgard_pde.hpp
                  examples/continuity_2d.cpp

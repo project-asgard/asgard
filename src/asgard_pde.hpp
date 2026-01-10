@@ -94,76 +94,6 @@ enum class changes_with
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function
- */
-template<typename P>
-using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_func = std::function<void(int64_t const, P, P const[], P[])>;
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with moment dependence
- */
-template<typename P>
-using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
-                                       std::vector<P> &)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with moment dependence on the GPU
- */
-template<typename P>
-using md_gpu_mom_func = std::function<void(int64_t, P t, P const[], momentset_gpu<P> const &moments,
-                                           P vals[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function that accepts an additional field parameter
- */
-template<typename P>
-using md_func_f = std::function<void(P t, vector2d<P> const &x,
-                                     std::vector<P> const &f, std::vector<P> &vals)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function that accepts an additional field parameter
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_func_f = std::function<void(int64_t const, P, P const[], P const[], P[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function that accepts an moment and field parameters
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_mom_func_f = std::function<void(int64_t const, P, P const[],
-                                             momentset_gpu<P> const &, P const[], P[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with field and moment parameters
- */
-template<typename P>
-using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
-                                         momentset<P> const &moments,
-                                         std::vector<P> const &f,
-                                         std::vector<P> &vals)>;
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief Source term that depends on the moments
  */
 template<typename P = default_precision>
@@ -967,6 +897,7 @@ struct term_interp {
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
+  //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function

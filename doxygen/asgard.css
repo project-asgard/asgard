@@ -22,7 +22,6 @@ html, body {
 }
 
 #doc-content {
-        height: calc(100% - 112px);
         background: #F0F0F0;
 }
 

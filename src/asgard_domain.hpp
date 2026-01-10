@@ -7,38 +7,9 @@ namespace asgard
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Vector function, computing fx = F(t, x)
- */
-template<typename P>
-using svector_func1d = std::function<void(std::vector<P> const &x, P t, std::vector<P> &fx)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Vector function, computing fx = F(x), no time-dependence
- */
-template<typename P>
-using sfixed_func1d = std::function<void(std::vector<P> const &x, std::vector<P> &fx)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Vector function, computing fx = F(x, f), where f is a field, e.g., moment of the solution
- */
-template<typename P>
-using sfixed_func1d_f = std::function<void(std::vector<P> const &x, std::vector<P> const &f,
-                                           std::vector<P> &fx)>;
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief Ratio of the circumference to the diameter of a circle
  */
 static constexpr double const PI = 3.141592653589793;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Scalar function, returning y = F(x)
- */
-template<typename P>
-using scalar_func = std::function<P(P const)>;
 
 /*!
  * \ingroup asgard_pde_definition
