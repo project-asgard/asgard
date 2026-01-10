@@ -6,27 +6,30 @@
  * \defgroup asgard_funcdef ASGarD Function Definitions
  *
  * \par Functions
- * The PDE term coefficients, sources, initial and boundary conditions, must be defined
+ * The PDE term coefficients, sources, initial and boundary conditions must be defined
  * by functions, e.g., y = f(x).
  * ASGarD uses std::function with many different signatures to handle different cases.
- * The C++ std::function uses v-tables and polymorphic jumps with performance overhead,
- * the std::function approach allows ASGarD to be compiled as a library and be open to
- * user provided definitions after the installation.
- * The performance hit is mitigated by using "batch" calls, e.g., calling f(x) for
- * a set of points, as opposed to making a separate call for each quadrature point.
+ * The std::function approach allows ASGarD to be compiled as a library and work with
+ * user provided definitions after the installation, sometimes this is referred to as
+ * having an "open" or "extensible" set of types and functionality.
+ * The C++ std::function uses v-tables and polymorphic jumps with performance overhead
+ * and is mitigated by using "batch" calls, e.g., calling f(x) for a set (vector) of points,
+ * as opposed to making a separate v-table jump for each quadrature point
+ * in each finite element cell.
  *
  * \par Inputs and const correctness
- * Most of the functions signatures use std::vector with either float or double precision,
- * several rules must be observed.
- * User provided functions should \b never resize the vectors or violate const-correctness,
+ * Most of the functions signatures use std::vector with either float or double precision
+ * user provided functions should \b never resize the vectors or violate const-correctness,
  * e.g., by modifying the entries of vectors marked as "const".
+ * All vectors and arrays will be pre-allocated to the correct size.
  *
  * \par Naming conventions
  * Function type names that start with "s" relate to a single-dimensional or scalar context,
- * while "md" indicates multidimensional context.
+ * while "md" indicates multidimensional context, i.e., all dimensions defined in
+ * the problem and set in the asgard::pde_domain.
  * Suffix "_f" indicates an additional input field, e.g., F(x, y) vs. F(x, y, f(x, y)).
- * The "mom" indicates moment dependence and the asgard::momentset will be passed into
- * all function calls.
+ * Having "mom" in the name indicates moment dependence and the asgard::momentset will be passed
+ * into all function calls.
  * The "gpu" indicates that all arrays/pointers relate to data on the GPU device.
  *
  * \par GPU context
@@ -187,4 +190,28 @@ using md_gpu_mom_func = std::function<void(int64_t const num, P t, P const x[], 
  */
 template<typename P>
 using md_gpu_mom_func_f = std::function<void(int64_t const num, P t, P const x[], momentset_gpu<P> const &moments, P const f[], P fx[])>;
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! trait type that indicates if a function signature uses moments
+template<typename F> struct uses_mom_trait : std::false_type {};
+//! specializations
+template<typename P> struct uses_mom_trait<md_mom_func<P>> : std::true_type {};
+template<typename P> struct uses_mom_trait<md_mom_func_f<P>> : std::true_type {};
+template<typename P> struct uses_mom_trait<md_gpu_mom_func<P>> : std::true_type {};
+template<typename P> struct uses_mom_trait<md_gpu_mom_func_f<P>> : std::true_type {};
+
+template<typename F> constexpr bool uses_moments = uses_mom_trait<F>::value;
+
+//! trait type indicating if the GPU is being used
+template<typename F> struct uses_gpu_trait : std::false_type {};
+//! specializations
+template<typename P> struct uses_gpu_trait<md_gpu_func<P>> : std::true_type {};
+template<typename P> struct uses_gpu_trait<md_gpu_func_f<P>> : std::true_type {};
+template<typename P> struct uses_gpu_trait<md_gpu_mom_func<P>> : std::true_type {};
+template<typename P> struct uses_gpu_trait<md_gpu_mom_func_f<P>> : std::true_type {};
+
+template<typename F> constexpr bool uses_gpu = uses_gpu_trait<F>::value;
+
+#endif
+
 }

@@ -68,7 +68,7 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    expect(not uses_gpu());
+    expect(not is_gpu());
     if (std::holds_alternative<moment_source<P>>(func)) {
       std::get<moment_source<P>>(func)(t, x, moments, vals);
     } else {
@@ -79,7 +79,7 @@ struct source_entry_interp
   void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                    P vals[]) const
   {
-    expect(uses_gpu());
+    expect(is_gpu());
     if (std::holds_alternative<moment_source<P>>(func)) {
       std::get<moment_source<P>>(func)(num, t, x, moments, vals);
     } else {
@@ -90,18 +90,17 @@ struct source_entry_interp
   moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
-    return std::holds_alternative<moment_source<P>>(func);
-  }
-  //! indicates whether the entry contains a non-moment function
-  bool is_non_moment() const {
-    return std::holds_alternative<md_func<P>>(func)
-           or std::holds_alternative<md_gpu_func<P>>(func);
+    return std::visit([](auto const &v) -> bool {
+        using current_type = std::remove_reference_t<decltype(v)>;
+        return asgard::uses_moments<current_type>;
+    }, func);
   }
   //! indicates whether the entry contains a moment function
-  bool uses_gpu() const {
-    return std::holds_alternative<md_gpu_func<P>>(func)
-           or (std::holds_alternative<moment_source<P>>(func)
-               and std::get<moment_source<P>>(func).uses_gpu());
+  bool is_gpu() const {
+    return std::visit([](auto const &v) -> bool {
+        using current_type = std::remove_reference_t<decltype(v)>;
+        return uses_gpu<current_type>;
+    }, func);
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }

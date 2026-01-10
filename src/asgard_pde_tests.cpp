@@ -5,6 +5,23 @@ using namespace asgard;
 template<typename TestType>
 void test_bookkeeping() {
   {
+    current_test<TestType> name_("pde_functions");
+    // compile time tests for the traits
+    static_assert(not uses_moments<md_func<TestType>>);
+    static_assert(not uses_moments<md_gpu_func_f<TestType>>);
+    static_assert(uses_moments<md_mom_func<TestType>>);
+    static_assert(uses_moments<md_mom_func_f<TestType>>);
+    static_assert(uses_moments<md_gpu_mom_func<TestType>>);
+    static_assert(uses_moments<md_gpu_mom_func_f<TestType>>);
+
+    static_assert(not uses_gpu<md_func_f<TestType>>);
+    static_assert(not uses_gpu<md_mom_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_func_f<TestType>>);
+    static_assert(uses_gpu<md_gpu_mom_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_mom_func_f<TestType>>);
+  }
+  {
     current_test<TestType> name_("pde_domain");
     tassert(pde_domain<TestType>(1).num_dims() == 1);
     tassert(pde_domain<TestType>(2).num_dims() == 2);
