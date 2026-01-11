@@ -218,9 +218,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (dims > 0) ++num_sources;
     }
 
-    sources_md.resize(pde.sources_md_.size());
-    for (size_t i = 0; i < pde.sources_md_.size(); i++)
-      sources_md[i].func = std::move(pde.sources_md_[i]);
+    sources_md.resize(pde.src_md_.size());
+    for (size_t i = 0; i < pde.src_md_.size(); i++)
+      sources_md[i].func = std::move(pde.src_md_[i]);
 
     sources.reserve(num_sources);
 
@@ -444,7 +444,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = src.get_mom_md().mids_;
+      //auto const &mids = src.get_mom_md().mids_;
+      auto const &mids = pde.src_moms_[gid];
       insert(mids, gpu_moms[src.rec.device][gid]);
       insert(mids, all_interp[gid]);
       if (not src.is_gpu())
@@ -539,7 +540,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src or not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = src.get_mom_md().mids_;
+      // auto const &mids = src.get_mom_md().mids_;
+      auto const &mids = pde.src_moms_[gid];
       insert(mids, regular[gid]);
       insert(mids, intp[gid]);
     }

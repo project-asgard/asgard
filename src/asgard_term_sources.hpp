@@ -69,8 +69,8 @@ struct source_entry_interp
                    std::vector<P> &vals) const
   {
     expect(not is_gpu());
-    if (std::holds_alternative<moment_source<P>>(func)) {
-      std::get<moment_source<P>>(func)(t, x, moments, vals);
+    if (std::holds_alternative<md_mom_func<P>>(func)) {
+      std::get<md_mom_func<P>>(func)(t, x, moments, vals);
     } else {
       std::get<md_func<P>>(func)(t, x, vals);
     }
@@ -80,33 +80,35 @@ struct source_entry_interp
                    P vals[]) const
   {
     expect(is_gpu());
-    if (std::holds_alternative<moment_source<P>>(func)) {
-      std::get<moment_source<P>>(func)(num, t, x, moments, vals);
+    if (std::holds_alternative<md_gpu_mom_func<P>>(func)) {
+      std::get<md_gpu_mom_func<P>>(func)(num, t, x, moments, vals);
     } else {
       std::get<md_gpu_func<P>>(func)(num, t, x, vals);
     }
   }
-  //! returns the moment source, use only if is_moment()
-  moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
-    return std::holds_alternative<moment_source<P>>(func);
+    // return std::holds_alternative<moment_source<P>>(func);
+    return std::visit([](auto const &v) -> bool {
+        return uses_moments<std::decay_t<decltype(v)>>;
+    }, func);
   }
   //! indicates whether the entry contains a moment function
   bool is_gpu() const {
     return std::visit([](auto const &v) -> bool {
-        using current_type = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<current_type, moment_source<P>>) {
-          return v.is_gpu();
-        } else {
-          return uses_gpu<current_type>;
-        }
+        return uses_gpu<std::decay_t<decltype(v)>>;
+        // using current_type = std::decay_t<decltype(v)>;
+        // if constexpr (std::is_same_v<current_type, moment_source<P>>) {
+        //   return v.is_gpu();
+        // } else {
+        //   return uses_gpu<current_type>;
+        // }
     }, func);
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
   //! interpolatory function for the source entry
-  md_source_var<P> func;
+  md_source_func<P> func;
 };
 
 /*!

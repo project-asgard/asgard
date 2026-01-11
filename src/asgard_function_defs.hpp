@@ -192,6 +192,10 @@ template<typename P>
 using md_gpu_mom_func_f = std::function<void(int64_t const num, P t, P const x[], momentset_gpu<P> const &moments, P const f[], P fx[])>;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
+//! variant holding any of the possible multidimensional source functions
+template<typename P>
+using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>>;
+
 //! trait type that indicates if a function signature uses moments
 template<typename F> struct uses_mom_trait : std::false_type {};
 //! specializations
