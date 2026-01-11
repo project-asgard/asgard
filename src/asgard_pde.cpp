@@ -381,7 +381,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     };
     #endif
 
-    this->set_source(moment_source<P>(fbgk, {im0, im1, im2}));
+    this->set_source(fbgk, {im0, im1, im2});
   }
   break;
   case 2: {
@@ -426,7 +426,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     };
     #endif
 
-    this->set_source(moment_source<P>(fbgk, mids));
+    this->set_source(fbgk, mids);
   }
   break;
   case 3: {
@@ -478,7 +478,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     };
     #endif
 
-    this->set_source(moment_source<P>(fbgk, mids));
+    this->set_source(fbgk, mids);
   }
   break;
   default:

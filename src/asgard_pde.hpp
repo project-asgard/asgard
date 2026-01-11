@@ -94,63 +94,6 @@ enum class changes_with
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Source term that depends on the moments
- */
-template<typename P = default_precision>
-struct moment_source {
-  //! create an empty moment source
-  moment_source() = default;
-  //! create a new moment source
-  moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
-      : func_(std::move(func)), mids_(std::move(mids))
-  {
-    rassert(not (!!std::get<md_mom_func<P>>(func_) and mids_.empty()),
-            "providing a moment source must include a non-empty vector of moment_id");
-  }
-  //! create a new moment source
-  moment_source(md_gpu_mom_func<P> func, std::vector<moment_id> mids)
-      : func_(std::move(func)), mids_(std::move(mids))
-  {
-    rassert(not (!!std::get<md_gpu_mom_func<P>>(func_) and mids_.empty()),
-            "providing a moment source must include a non-empty vector of moment_id");
-  }
-  //! call the loaded function
-  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
-                   std::vector<P> &vals) const
-  {
-    expect(std::holds_alternative<md_mom_func<P>>(func_));
-    std::get<md_mom_func<P>>(func_)(t, x, moments, vals);
-  }
-  //! call the loaded function
-  void operator() (int64_t num, P t, P const x[], momentset_gpu<P> const &moments,
-                   P vals[]) const
-  {
-    expect(std::holds_alternative<md_gpu_mom_func<P>>(func_));
-    std::get<md_gpu_mom_func<P>>(func_)(num, t, x, moments, vals);
-  }
-  //! returns true if the function is set to use the gpu
-  bool is_gpu() const {
-      std::cout << " check is_gpu()\n";
-      if (std::holds_alternative<md_gpu_mom_func<P>>(func_)) std::cout << " is true\n";
-      return std::holds_alternative<md_gpu_mom_func<P>>(func_);
-      }
-  //! check if a function has been set
-  operator bool () const { return not std::holds_alternative<std::monostate>(func_); }
-  //! the callable function
-  std::variant<std::monostate, md_mom_func<P>, md_gpu_mom_func<P>> func_ = std::monostate{};
-  //! the moments used by this function
-  std::vector<moment_id> mids_;
-};
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Variant for the non-separable source functions
- */
-template<typename P>
-using md_source_var = std::variant<std::monostate, md_func<P>, moment_source<P>, md_gpu_func<P>>;
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief Defines the boundary conditions for separable operator
  *
  * The separable operators are always defined on a 1d interval. Periodic conditions
@@ -1640,20 +1583,32 @@ public:
     sources_md_[idx] = std::move(smd);
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
-  void set_source(moment_source<P> smd) {
-    rassert(smd, "cannot add an empty moment source");
+  void set_source(md_mom_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
 
-    if (std::holds_alternative<md_mom_func<P>>(smd.func_))
-      sources_md_[idx] = std::get<md_mom_func<P>>(smd.func_);
-    else if (std::holds_alternative<md_gpu_mom_func<P>>(smd.func_))
-      sources_md_[idx] = std::move(std::get<md_gpu_mom_func<P>>(smd.func_));
-    sources_moments_[idx] = std::move(smd.mids_);
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {

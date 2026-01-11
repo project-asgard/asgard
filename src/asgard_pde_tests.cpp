@@ -56,20 +56,6 @@ void test_bookkeeping() {
     tassert(dom.name(1) == std::string("d2"));
   }
 
-  auto momf = [](TestType, vector2d<TestType> const &, momentset<TestType> const &,
-                 std::vector<TestType> &) -> void {};
-
-  {
-    current_test<TestType> name_("moment source");
-
-    tassert(not moment_source<TestType>{}); // empty moment source
-
-    moment_source<TestType> mom{momf, {moment_id{0}, }};
-    tassert(mom);
-    terror_message(moment_source<TestType>(momf, {}),
-                   "providing a moment source must include a non-empty vector of moment_id");
-  }
-
   auto rhs = [](std::vector<TestType> const &, std::vector<TestType> &) -> void {};
   auto mhs = [](std::vector<TestType> const &x, std::vector<TestType> &fx)
     -> void {
@@ -354,7 +340,7 @@ void test_pde_class() {
     pde_scheme<TestType> pde(opts, domain);
     auto id0 = pde.register_moment({0, 2});
     auto id1 = pde.register_moment({1, 0});
-    pde.set_source(moment_source<TestType>(momf, {id0, id1}));
+    pde.set_source(momf, {id0, id1});
     terror_message(pde.set_source(mom),
                    "cannot simultaneously set a moment and non-moment source");
     pde.new_term_group();
@@ -362,7 +348,7 @@ void test_pde_class() {
                    "cannot simultaneously set a moment and non-moment source");
     pde.new_term_group();
     pde.set_source(mom);
-    terror_message(pde.set_source(moment_source<TestType>(momf, {id0, id1})),
+    terror_message(pde.set_source(momf, {id0, id1}),
                    "cannot simultaneously set a moment and non-moment source");
   }
 }

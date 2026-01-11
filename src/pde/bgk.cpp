@@ -242,7 +242,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     // If GPU capabilities are not enabled, the builtin BGK operator is identical
     // to the one implemented in this example.
     pde += asgard::term_md<P>(nuI);
-    pde.set_source(asgard::moment_source<P>(fbgk, {im0, im1, im2}));
+    pde.set_source(fbgk, {im0, im1, im2});
     #endif
 
     auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
@@ -294,7 +294,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     pde += asgard::operators::simple_bgk_collisions{nu};
     #else
     pde += asgard::term_md<P>(nuI);
-    pde.set_source(asgard::moment_source<P>(fbgk, mids));
+    pde.set_source(fbgk, mids);
     #endif
 
     auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
