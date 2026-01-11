@@ -447,7 +447,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &mids = src.get_mom_md().mids_;
       insert(mids, gpu_moms[src.rec.device][gid]);
       insert(mids, all_interp[gid]);
-      if (not src.uses_gpu())
+      if (not src.is_gpu())
         insert(mids, cpu_interp[gid]);
     }
 

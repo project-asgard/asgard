@@ -492,7 +492,9 @@ void term_manager<P>::apply_sources_gpu(
 
   auto interp_source = [&](source_entry_interp<P> const &src)
         -> void {
-      if (src.uses_gpu()) {
+            std::cout << " EVAL SOURCE\n";
+      if (src.is_gpu()) {
+          std::cout << " IS GPU\n";
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           interp(gpu::device{0}, grid, conns, moms.get_cached_interps(gpu::device{0}), time,
                  1, src, 1, y, kwork, gpu_it1[0], gpu_it2[0]);

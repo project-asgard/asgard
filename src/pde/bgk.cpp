@@ -88,7 +88,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
                  + std::to_string(dims) + "x" + std::to_string(dims) + "v";
 
   // get the collision frequency
-  P const nu = options.extra_cli_value_group<P>({"-nu", "-collision_freq"}).value_or(1.0);
+  P const nu = options.extra_cli_value_group<P>({"-nu", }).value_or(1.0);
   options.subtitle = "collision frequency: " + std::to_string(nu);
 
   std::vector<asgard::domain_range> ranges;

@@ -90,16 +90,22 @@ struct source_entry_interp
   moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
-    return std::visit([](auto const &v) -> bool {
-        using current_type = std::remove_reference_t<decltype(v)>;
-        return asgard::uses_moments<current_type>;
-    }, func);
+    return std::holds_alternative<moment_source<P>>(func);
   }
   //! indicates whether the entry contains a moment function
   bool is_gpu() const {
+      std::cout << " is-gpu with index: " << func.index() << '\n';
     return std::visit([](auto const &v) -> bool {
         using current_type = std::remove_reference_t<decltype(v)>;
-        return uses_gpu<current_type>;
+        std::cout << " type of visitor: " << typeid(current_type).name() << '\n';
+        std::cout << " type of visitor: " << typeid(moment_source<P>).name() << '\n';
+        if constexpr (std::is_same_v<current_type, moment_source<P>>) {
+            std::cout <<  " is mom-source\b";
+          return v.is_gpu();
+        } else {
+            std::cout << " not mom-source\n";
+          return uses_gpu<current_type>;
+        }
     }, func);
   }
   //! indicates whether the entry contains any function of any kind

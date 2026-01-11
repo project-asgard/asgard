@@ -129,7 +129,11 @@ struct moment_source {
     std::get<md_gpu_mom_func<P>>(func_)(num, t, x, moments, vals);
   }
   //! returns true if the function is set to use the gpu
-  bool uses_gpu() const { return std::holds_alternative<md_gpu_mom_func<P>>(func_); }
+  bool is_gpu() const {
+      std::cout << " check is_gpu()\n";
+      if (std::holds_alternative<md_gpu_mom_func<P>>(func_)) std::cout << " is true\n";
+      return std::holds_alternative<md_gpu_mom_func<P>>(func_);
+      }
   //! check if a function has been set
   operator bool () const { return not std::holds_alternative<std::monostate>(func_); }
   //! the callable function
