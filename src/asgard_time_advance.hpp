@@ -406,13 +406,13 @@ struct time_advance_manager
   //! returns whether the manager requires a solver
   bool needs_solver() const {
     return std::visit([&](auto const &s) -> bool {
-                          return std::remove_reference_t<decltype(s)>::needs_solver;
+                          return std::decay_t<decltype(s)>::needs_solver;
                        }, method);
   }
   //! returns the precondtioner required by the solver, if any
   precon_method needed_precon() const {
     return std::visit([&](auto const &s) -> precon_method {
-                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                          if constexpr (std::decay_t<decltype(s)>::needs_solver)
                             return s.needed_precon();
                           else
                             return precon_method::none;
@@ -455,7 +455,7 @@ struct time_advance_manager
   //! returns the count the iterations of the iterative solver, -1 if using a direct solver
   int64_t solver_iterations() const {
     return std::visit([&](auto const &s) -> int64_t {
-                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                          if constexpr (std::decay_t<decltype(s)>::needs_solver)
                             return s.num_apply_calls();
                           else
                             return -1;

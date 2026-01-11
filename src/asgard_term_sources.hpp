@@ -94,16 +94,11 @@ struct source_entry_interp
   }
   //! indicates whether the entry contains a moment function
   bool is_gpu() const {
-      std::cout << " is-gpu with index: " << func.index() << '\n';
     return std::visit([](auto const &v) -> bool {
-        using current_type = std::remove_reference_t<decltype(v)>;
-        std::cout << " type of visitor: " << typeid(current_type).name() << '\n';
-        std::cout << " type of visitor: " << typeid(moment_source<P>).name() << '\n';
+        using current_type = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<current_type, moment_source<P>>) {
-            std::cout <<  " is mom-source\b";
           return v.is_gpu();
         } else {
-            std::cout << " not mom-source\n";
           return uses_gpu<current_type>;
         }
     }, func);
