@@ -1480,7 +1480,7 @@ public:
   //! initialize the pde over the domain
   pde_scheme(prog_opts opts, pde_domain<P> domain)
     : options_(std::move(opts)), domain_(std::move(domain)),
-      mass_(domain_.num_dims()), sources_md_(1), src_md_(1), src_moms_(1)
+      mass_(domain_.num_dims()), sources_md_(1), sources_moments_(1)
   {
     int const numd = domain_.num_dims();
     rassert(numd > 0, "the pde cannot be initialized with an empty domain");
@@ -1623,37 +1623,37 @@ public:
   void set_source(md_func<P> smd) {
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
-    rassert(std::holds_alternative<std::monostate>(src_md_[idx]),
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source or CPU and GPU for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
-    src_md_[idx] = std::move(smd);
+    sources_md_[idx] = std::move(smd);
   }
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_gpu_func<P> smd) {
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
-    rassert(std::holds_alternative<std::monostate>(src_md_[idx]),
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source or CPU and GPU for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
-    src_md_[idx] = std::move(smd);
+    sources_md_[idx] = std::move(smd);
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(moment_source<P> smd) {
     rassert(smd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
-    rassert(std::holds_alternative<std::monostate>(src_md_[idx]),
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
 
     if (std::holds_alternative<md_mom_func<P>>(smd.func_))
-       src_md_[idx] = std::get<md_mom_func<P>>(smd.func_);
+      sources_md_[idx] = std::get<md_mom_func<P>>(smd.func_);
     else if (std::holds_alternative<md_gpu_mom_func<P>>(smd.func_))
-      src_md_[idx] = std::move(std::get<md_gpu_mom_func<P>>(smd.func_));
-    src_moms_[idx] = std::move(smd.mids_);
+      sources_md_[idx] = std::move(std::get<md_gpu_mom_func<P>>(smd.func_));
+    sources_moments_[idx] = std::move(smd.mids_);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
@@ -1696,9 +1696,8 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
-      sources_md_.emplace_back(std::monostate{}); // add empty interpolatory source
-      src_md_.emplace_back(std::monostate{}); // start with no interpolation source for this group
-      src_moms_.emplace_back(); // start with no moment dependence for this group
+      sources_md_.emplace_back(std::monostate{}); // start with no interpolation source for this group
+      sources_moments_.emplace_back(); // start with no moment dependence for this group
       mom_groups.emplace_back();
     }
     return current_term_group;
@@ -1801,11 +1800,10 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  std::vector<md_source_var<P>> sources_md_;
+  //std::vector<md_source_var<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
-
-  std::vector<md_source_func<P>> src_md_; // TODO: rename to sources_md_
-  std::vector<std::vector<moment_id>> src_moms_;
+  std::vector<md_source_func<P>> sources_md_; // TODO: rename to sources_md_
+  std::vector<std::vector<moment_id>> sources_moments_;
 
   int current_term_group = -1;
   std::vector<irange> term_groups;

@@ -88,7 +88,6 @@ struct source_entry_interp
   }
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
-    // return std::holds_alternative<moment_source<P>>(func);
     return std::visit([](auto const &v) -> bool {
         return uses_moments<std::decay_t<decltype(v)>>;
     }, func);
@@ -97,12 +96,6 @@ struct source_entry_interp
   bool is_gpu() const {
     return std::visit([](auto const &v) -> bool {
         return uses_gpu<std::decay_t<decltype(v)>>;
-        // using current_type = std::decay_t<decltype(v)>;
-        // if constexpr (std::is_same_v<current_type, moment_source<P>>) {
-        //   return v.is_gpu();
-        // } else {
-        //   return uses_gpu<current_type>;
-        // }
     }, func);
   }
   //! indicates whether the entry contains any function of any kind
