@@ -1015,21 +1015,21 @@ private:
 template<typename P>
 struct source {
   //! make a separable source
-  source(separable_func<P> s) : func(std::move(s)) {}
+  source(separable_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation source
-  source(md_func<P> s) : func(std::move(s)) {}
+  source(md_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation source using a GPU device data
-  source(md_gpu_func<P> s) : func(std::move(s)) {}
+  source(md_gpu_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation moment source
   source(md_mom_func<P> s, std::vector<moment_id> mids)
-    : func(std::move(s)), mids_(std::move(mids)) {}
+    : func_(std::move(s)), mids_(std::move(mids)) {}
   //! make an interpolation moment source using a GPU device data
   source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
-    : func(std::move(s)), mids_(std::move(mids)) {}
+    : func_(std::move(s)), mids_(std::move(mids)) {}
 
   //! variant holding all permissible function types
   std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
-               md_gpu_func<P>, md_gpu_mom_func<P>> func;
+               md_gpu_func<P>, md_gpu_mom_func<P>> func_;
   //! holds the moment ids for moment sources
   std::vector<moment_id> mids_;
 };
@@ -1655,7 +1655,7 @@ public:
             this->add_source(std::move(s));
           else
             this->set_source(std::move(s));
-        }, std::move(src.func));
+        }, std::move(src.func_));
     return *this;
   }
   //! add collision operator
