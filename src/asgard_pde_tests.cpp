@@ -271,6 +271,36 @@ void test_pde_class() {
 
     terror_message(pde_scheme<TestType>(make_opts("-l 3"), domain),
                    "must provide a polynomial degree with -d");
+
+    pde_scheme<TestType> pde(make_opts("-d 1 -l 3"), domain);
+
+    auto fixed = [](std::vector<TestType> const &, std::vector<TestType> &) -> void {};
+    auto vecf  = [](std::vector<TestType> const &, TestType, std::vector<TestType> &) -> void {};
+    auto timef = [](TestType t) -> TestType { return t; };
+
+    terror_message(pde.add_initial(separable_func<TestType>({fixed, fixed, fixed })),
+                   "incorrect dimension for separable function added as initial condition")
+    terror_message(pde.add_source(separable_func<TestType>({fixed, })),
+                   "invalid dimension for the added source")
+
+    pde.add_initial(separable_func<TestType>({fixed, fixed, }, timef));
+
+    std::cerr << "<generating some error messages - this is OK to ignore>\n";
+    { // adding time-non-separable on what is supposed to be separable in time
+      separable_func<TestType> f1({fixed, fixed, }, timef);
+      f1.set(dimension_id{0}, vecf);
+      terror_message(pde.add_source(f1), "invalid separable function added as source");
+    }
+    { // adding time component on what is supposed to be time-non-separable
+      separable_func<TestType> f1({vecf, vecf, });
+      f1.set_time(timef);
+      terror_message(pde.add_source(f1), "invalid separable function added as source");
+    }
+    { // testing initial conditions
+      separable_func<TestType> f1({vecf, vecf, });
+      f1.set_time(timef);
+      terror_message(pde.add_initial(f1), "invalid separable function for initial condition");
+    }
   }
   {
     current_test<TestType> name_("pde constructors");
