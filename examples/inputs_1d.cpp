@@ -132,8 +132,7 @@ int main(int argc, char **argv)
                                                         asgard::boundary_type::periodic)};
 
   // exact solution
-  auto exact_x = [](std::vector<precision> const &x, precision /* time */,
-                    std::vector<precision> &fx) ->
+  auto exact_x = [](std::vector<precision> const &x, std::vector<precision> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = std::sin(x[i]);
@@ -142,8 +141,7 @@ int main(int argc, char **argv)
   auto exact_t = [](precision t) -> precision { return std::cos(t); };
 
   // derivatives of the components
-  auto exact_dx = [](std::vector<precision> const &x, precision /* time */,
-                     std::vector<precision> &fx) ->
+  auto exact_dx = [](std::vector<precision> const &x, std::vector<precision> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = std::cos(x[i]);

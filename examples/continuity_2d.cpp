@@ -132,14 +132,12 @@ int main(int argc, char** argv)
   // exact solution in x, y and t
   // the functions in x and y are evaluated in batches, hence the vector signature
   // the time function is evaluated one entry at a time
-  auto exact_x = [](std::vector<precision> const &x, precision /* time */,
-                    std::vector<precision> &fx) ->
+  auto exact_x = [](std::vector<precision> const &x, std::vector<precision> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = std::cos(PI * x[i]);
     };
-  auto exact_y = [](std::vector<precision> const &y, precision /* time */,
-                    std::vector<precision> &fy) ->
+  auto exact_y = [](std::vector<precision> const &y, std::vector<precision> &fy) ->
     void {
       for (size_t i = 0; i < y.size(); i++)
         fy[i] = std::sin(2 * PI * y[i]);
@@ -148,14 +146,12 @@ int main(int argc, char** argv)
   auto exact_t = [](precision t) -> precision { return std::sin(2 * t); };
 
   // the right-hand-sources will also need the derivatives in x, y and t
-  auto exact_dx = [](std::vector<precision> const &x, precision /* time */,
-                     std::vector<precision> &fx) ->
+  auto exact_dx = [](std::vector<precision> const &x, std::vector<precision> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = - PI * std::sin(PI * x[i]);
     };
-  auto exact_dy = [](std::vector<precision> const &y, precision /* time */,
-                     std::vector<precision> &fy) ->
+  auto exact_dy = [](std::vector<precision> const &y, std::vector<precision> &fy) ->
     void {
       for (size_t i = 0; i < y.size(); i++)
         fy[i] = 2 * PI * std::cos(2 * PI * y[i]);

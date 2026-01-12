@@ -165,7 +165,7 @@ void term_manager<P>::apply_sources(
           sweights.push_back(alpha);
         break;
       case source_entry<P>::time_mode::separable: {
-          P t = std::get<scalar_func<P>>(src.func)(time);
+          P t = src.func.time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(alpha * t);
           else
@@ -175,10 +175,10 @@ void term_manager<P>::apply_sources(
       case source_entry<P>::time_mode::time_dependent:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
-              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, y);
+              (src.func, grid, lmass, time, alpha, y);
         else
           hier.template project_separable<data_mode::scal_inc>
-              (std::get<separable_func<P>>(src.func), grid, lmass, time, alpha, y);
+              (src.func, grid, lmass, time, alpha, y);
         break;
       default:
         // unreachable here
@@ -222,7 +222,7 @@ void term_manager<P>::apply_sources(
           sweights.push_back(-alpha);
         break;
       case boundary_entry<P>::time_mode::separable: {
-          P t = bc.flux.func().ftime(time);
+          P t = bc.flux.func().time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(-alpha * t);
           else

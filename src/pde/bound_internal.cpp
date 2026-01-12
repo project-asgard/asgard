@@ -87,16 +87,15 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
     pde += div_md;
   }
 
-  auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
+  auto one = [=](std::vector<P> const &, std::vector<P> &fx) ->
     void {
       std::fill(fx.begin(), fx.end(), P{1});
     };
 
-  pde.add_source({std::vector<svector_func1d<P>>(num_dims, one),
-                  ignores_time});
+  pde.add_source({std::vector<sfixed_func1d<P>>(num_dims, one), });
 
-  std::vector<svector_func1d<P>> one_md(num_dims, one);
-  one_md[dim] = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  std::vector<sfixed_func1d<P>> one_md(num_dims, one);
+  one_md[dim] = [=](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       if constexpr (std::is_same_v<btype, type_left>) {
         for (size_t i = 0; i < x.size(); i++)
@@ -106,7 +105,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
       }
     };
 
-  pde.add_initial({one_md, ignores_time});
+  pde.add_initial({one_md, });
 
   return pde;
 }
@@ -158,21 +157,21 @@ pde_scheme<P> make_quad_pde(int num_dims, prog_opts options) {
     ops[d] = term_identity{}; // reset back to identity
   }
 
-  auto one = [=](std::vector<P> const &, P /* time */, std::vector<P> &fx) ->
+  auto one = [=](std::vector<P> const &, std::vector<P> &fx) ->
     void {
       std::fill(fx.begin(), fx.end(), P{1});
     };
-  auto s1d = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto s1d = [=](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = 0.5 * x[i] * (P{1} - x[i]);
     };
 
-  std::vector<svector_func1d<P>> func(num_dims, s1d);
+  std::vector<sfixed_func1d<P>> func(num_dims, s1d);
 
   for (int d : iindexof(num_dims)) {
     func[d] = one;
-    pde.add_source({func, ignores_time});
+    pde.add_source({func, });
     func[d] = s1d;
   }
 
@@ -189,14 +188,14 @@ double get_error_l2(discretization_manager<P> const &disc)
     double constexpr n1d = 25.0 / 3000.0;
     double const enorm   = fm::ipow(n1d, disc.num_dims());
 
-    auto ex1d = [=](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+    auto ex1d = [=](std::vector<P> const &x, std::vector<P> &fx) ->
       void {
         for (size_t i = 0; i < x.size(); i++)
           fx[i] = 0.5 * x[i] * (1 - x[i]);
       };
 
-    std::vector<P> const eref = disc.project_function({std::vector<svector_func1d<P>>(num_dims, ex1d),
-                                                       ignores_time});
+    std::vector<P> const eref = disc.project_function(
+      separable_func<P>{std::vector<sfixed_func1d<P>>(num_dims, ex1d), });
 
     std::vector<P> const &state = disc.current_state_mpi();
     assert(eref.size() == state.size());

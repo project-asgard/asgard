@@ -34,7 +34,7 @@ struct source_entry
   bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
 
   //! if the function is separable or time-dependent, handle the extra data
-  std::variant<std::monostate, scalar_func<P>, separable_func<P>> func;
+  separable_func<P> func;
 
   //! vector for the current grid
   std::vector<P> val;

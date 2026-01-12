@@ -111,13 +111,27 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
     pde.add_initial(func_md);
     func_md[0] = cos_t;
 
-    pde.add_source({func_md, dcos_s}); // derivative in time
+    { // the time-derivative and the first dimension are done with entirely separable functions
+      std::vector<sfixed_func1d<P>> func_md_nt(num_dims,
+        [](std::vector<P> const &x, std::vector<P> &fx) ->
+          void {
+            ASGARD_OMP_PARFOR_SIMD
+            for (size_t i = 0; i < x.size(); i++)
+              fx[i] = std::cos(x[i]);
+          });
 
-    func_md[0] = dcos_t;
-    pde.add_source({func_md, cos_s});
-    func_md[0] = cos_1t;
+      pde.add_source({func_md_nt, dcos_s}); // derivative in time
 
-    // compute the spacial derivatives
+      func_md_nt[0] = [](std::vector<P> const &x, std::vector<P> &fx) ->
+        void {
+          ASGARD_OMP_PARFOR_SIMD
+          for (size_t i = 0; i < x.size(); i++)
+            fx[i] = -std::sin(x[i]);
+        };
+      pde.add_source({func_md_nt, cos_s});
+    }
+
+    // compute the spacial derivatives, testing non-separable in time logic
     for (int d = 1; d < num_dims; d++)
     {
       func_md[d] = dcos_t;
@@ -313,7 +327,7 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
     // adding inhomogeneous boundary condition on the right
     asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
     fr.set(asgard::dimension_id{1},
-           [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
+           [=](std::vector<P> const &y, std::vector<P> &fy) ->
               void {
                 for (size_t i = 0; i < y.size(); i++)
                   fy[i] = icy(y[i]);
@@ -338,12 +352,12 @@ pde_scheme<P> make_testpde(int num_dims, prog_opts options) {
             asgard::imex_explicit_group{non_linear_group_id});
 
     // the vector version of the initial conditions
-    auto icx_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
+    auto icx_vec = [=](std::vector<P> const &x, std::vector<P> &fx)
       -> void {
         for (size_t i = 0; i < x.size(); i++)
           fx[i] = icx(x[i]);
       };
-    auto icy_vec = [=](std::vector<P> const &y, P, std::vector<P> &fy)
+    auto icy_vec = [=](std::vector<P> const &y, std::vector<P> &fy)
       -> void {
         for (size_t i = 0; i < y.size(); i++)
           fy[i] = icy(y[i]);

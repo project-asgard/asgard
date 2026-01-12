@@ -866,12 +866,14 @@ struct left_boundary_flux {
   explicit left_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for left boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for left boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
@@ -898,12 +900,14 @@ struct right_boundary_flux {
   explicit right_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for right boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for right boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of right_boundary_flux");
@@ -935,12 +939,14 @@ struct sym_boundary_flux {
   explicit sym_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for symmetric boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit sym_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for symmetric boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of sym_boundary_flux");
@@ -1015,7 +1021,10 @@ private:
 template<typename P>
 struct source {
   //! make a separable source
-  source(separable_func<P> s) : func_(std::move(s)) {}
+  source(separable_func<P> s) : func_(std::move(s)) {
+    rassert(std::get<separable_func<P>>(func_).is_valid(),
+            "invalid separable function for source entry");
+  }
   //! make an interpolation source
   source(md_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation source using a GPU device data
@@ -1550,10 +1559,11 @@ public:
     initial_md_ = std::move(ic_md);
   }
   //! add separable initial condition, can have multiple
-  void add_initial(separable_func<P> ic_md) {
-    rassert(ic_md.num_dims() == domain_.num_dims(),
+  void add_initial(separable_func<P> ic) {
+    rassert(ic.is_valid(), "invalid separable function for initial condition");
+    rassert(ic.num_dims() == domain_.num_dims(),
             "incorrect dimension for separable function added as initial condition");
-    initial_sep_.emplace_back(std::move(ic_md));
+    initial_sep_.emplace_back(std::move(ic));
   }
   //! returns the separable initial conditions
   std::vector<separable_func<P>> const &ic_sep() const { return initial_sep_; }
@@ -1643,6 +1653,8 @@ public:
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
+    rassert(smd.is_valid(), "invalid separable function added as source");
+    rassert(smd.num_dims() == domain_.num_dims(), "invalid dimension for the added source");
     sources_sep_.emplace_back(std::move(smd));
   }
   //! add the source to the pde_scheme

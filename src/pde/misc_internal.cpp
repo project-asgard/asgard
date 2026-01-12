@@ -45,13 +45,13 @@ double run_chain_test(prog_opts options) {
 
   // exact solution is the sum of two separable functions
   separable_func<P> exact1({
-      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
-      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
-  }, ignores_time);
+      vectorize<P>([](P x) -> P { return std::exp(x); }),
+      vectorize<P>([](P y) -> P { return std::cos(y); }),
+  });
   separable_func<P> exact2({
-      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
-      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
-  }, ignores_time);
+      vectorize<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize<P>([](P y) -> P { return std::sin(y); }),
+  });
 
   {
     // first operator, mix of volume and derivative terms
@@ -125,45 +125,45 @@ double run_chain_test(prog_opts options) {
 
   // derivatives in x
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return -std::cos(x) * std::exp(x); }),
-      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return -std::cos(x) * std::exp(x); }),
+      vectorize<P>([](P y) -> P { return std::cos(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::cos(x) * std::exp(-x); }),
-      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::cos(x) * std::exp(-x); }),
+      vectorize<P>([](P y) -> P { return std::sin(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return -std::sin(x) * std::exp(x); }),
-      vectorize_t<P>([](P y) -> P { return std::cos(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return -std::sin(x) * std::exp(x); }),
+      vectorize<P>([](P y) -> P { return std::cos(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return -std::sin(x) * std::exp(-x); }),
-      vectorize_t<P>([](P y) -> P { return std::sin(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return -std::sin(x) * std::exp(-x); }),
+      vectorize<P>([](P y) -> P { return std::sin(y); }),
+  }));
 
   // derivatives in y
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
-      vectorize_t<P>([](P y) -> P { return 2 * std::sin(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::exp(x); }),
+      vectorize<P>([](P y) -> P { return 2 * std::sin(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
-      vectorize_t<P>([](P y) -> P { return -2 * std::cos(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize<P>([](P y) -> P { return -2 * std::cos(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::exp(x); }),
-      vectorize_t<P>([](P y) -> P { return 2 * y * std::cos(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::exp(x); }),
+      vectorize<P>([](P y) -> P { return 2 * y * std::cos(y); }),
+  }));
 
   pde.add_source(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::exp(-x); }),
-      vectorize_t<P>([](P y) -> P { return 2 * y * std::sin(y); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::exp(-x); }),
+      vectorize<P>([](P y) -> P { return 2 * y * std::sin(y); }),
+  }));
 
   discretization_manager<P> disc(std::move(pde), verbosity_level::low);
 
@@ -209,8 +209,8 @@ double run_volume_test(prog_opts options) {
   pde_scheme<P> pde(options, domain);
 
   pde.add_initial(separable_func<P>({
-      vectorize_t<P>([](P x) -> P { return std::cos(x); }),
-  }, ignores_time));
+      vectorize<P>([](P x) -> P { return std::cos(x); }),
+  }));
 
   {
     // first operator, mix of volume and derivative terms
@@ -233,9 +233,9 @@ double run_volume_test(prog_opts options) {
   P const t = disc.time();
 
   separable_func<P> exact({
-      vectorize_t<P>(
+      vectorize<P>(
           [=](P x) -> P { return std::exp(- P{3} * (1 + x) * std::sin(x) * t) * std::cos(x); }),
-  }, ignores_time);
+  });
 
   std::vector<P> const eref   = disc.project_function(exact);
   std::vector<P> const &state = disc.current_state();

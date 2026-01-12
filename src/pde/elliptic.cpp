@@ -99,15 +99,14 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
   // s1d is the exact solution in 1d
-  auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto s1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = x[i] * (P{2} - x[i]);
     };
 
   // "exact" is the solution in multiple dimensions
-  asgard::separable_func<P> exact(std::vector<asgard::svector_func1d<P>>(num_dims, s1d),
-                                  asgard::ignores_time);
+  asgard::separable_func<P> exact(std::vector<asgard::sfixed_func1d<P>>(num_dims, s1d));
 
   if constexpr (boundary == boundary_enum::homogeneous)
   {

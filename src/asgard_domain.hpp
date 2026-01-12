@@ -43,12 +43,20 @@ struct dimension_id {
   //! do not create an empty dimension id
   dimension_id() = delete;
   //! set the index dimension
-  explicit dimension_id(int n) : id(n) {}
+  explicit dimension_id(int n) : id(n) {
+    rassert(0 <= n and n < max_num_dimensions,
+            "invalid dimension, must be in 0 ... 5 for 1D through 6D problems");
+  }
   //! holds the id of the position dimensions
   int const id;
   //! returns the index with a simple call
   int operator()() const { return id; }
 };
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong-type, usage auto func = separable_func<double>::const_one(number_of_dimensions{3});
+ */
+enum class number_of_dimensions : int {};
 
 /*!
  * \ingroup asgard_pde_definition
@@ -223,31 +231,6 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
- * \brief Type-tag that indicates that a separable_func function does not depend on time
- */
-struct type_tag_ignores_time{};
-/*!
- * \ingroup asgard_pde_definition
- * \brief Easy shortcut to indicate that a separable_func ignores time
- */
-inline constexpr type_tag_ignores_time ignores_time = type_tag_ignores_time{};
-
-/*!
- * \ingroup asgard_discretization
- * \brief Indicates a separable function with ones in the given number of dimensions
- */
-struct ones_for_dimensions {
-  //! sets the number of dimensions
-  explicit ones_for_dimensions(int d = 0) : dims(d) {
-    rassert(0 < dims and dims < max_num_dimensions,
-            "incorrect number of dimensions for ones_for_dimensions()");
-  }
-  //! number of dimensions
-  int dims = 0;
-};
-
-/*!
- * \ingroup asgard_pde_definition
  * \brief A function that is the product of 1d functions
  *
  * There are 3 modes of this function, depending on the way that the time
@@ -255,133 +238,236 @@ struct ones_for_dimensions {
  * the separability and time-invariance can be exploited for better performance,
  * e.g., pre-compute the constant part once and then reuse for each time-step.
  *
- * If the function is non-separable in time:
+ * If the function does not depend on time:
  * \code
  *   separable_func<P> f({f1, f2, f3, ...});
- *   // f1 has signature svector_func1d<P>
+ *   // f1, f2, f3 ... have signature asgard::sfixed_func1d<P>
+ *   // or f1, f2, f3 ... are just constants
  * \endcode
  *
- * If the function is separable in time:
+ * * If the function is separable in time:
  * \code
  *   separable_func<P> f({f1, f2, f3, ...}, t);
+ *   // f1, f2, f3 ... have signature asgard::sfixed_func1d<P>
+ *   // or f1, f2, f3 ... are just constants
  *   // t has signature scalar_func<P>
  * \endcode
  *
- * If the function does not depend on time:
+ * If the function is non-separable in time:
  * \code
- *   separable_func<P> f({f1, f2, f3, ...}, ignores_time);
+ *   separable_func<P> f({f1, f2, f3, ...});
+ *   // f1, f2, f3 ... have signature svector_func1d<P>
  * \endcode
+ *
+ * The separable function also provides API to query the type and time-dependence in each dimension
+ * as well as read the total number of active dimensions.
+ * Additionally, each dimension can be reset to a new value with the set() methods.
+ *
  */
 template<typename P = default_precision>
 class separable_func
 {
 public:
   //! default constructor, no function is set
-  separable_func() = default;
+  separable_func() { funcs_.fill(std::monostate{}); }
 
   //! set a function that depends on time and is not separable in time
-  separable_func(std::vector<svector_func1d<P>> fdomain)
+  separable_func(std::vector<svector_func1d<P>> fdomain) : separable_func()
   {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    for (auto i : indexof(fdomain))
+    rassert(static_cast<int>(fdomain.size()) <= max_num_dimensions,
+            "separable function provided with too many dimensions, must be up to 6D");
+    for (auto i : iindexof(fdomain)) {
+      rassert(fdomain[i], "cannot use null function in dimension " + std::to_string(i));
       funcs_[i] = std::move(fdomain[i]);
+    }
   }
   //! set a function that is constant in time
-  separable_func(std::vector<svector_func1d<P>> fdomain, type_tag_ignores_time)
-    : ignores_time_(true)
+  separable_func(std::vector<sfixed_func1d<P>> fdomain) : separable_func()
   {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    for (auto i : indexof(fdomain))
+    rassert(static_cast<int>(fdomain.size()) <= max_num_dimensions,
+            "separable function provided with too many dimensions, must be up to 6D");
+    for (auto i : iindexof(fdomain)) {
+      rassert(fdomain[i], "cannot use null-function in dimension " + std::to_string(i));
       funcs_[i] = std::move(fdomain[i]);
+    }
+    time_func_ = P{1};
   }
   //! set a function that is separable in both space and time
-  separable_func(std::vector<svector_func1d<P>> fdomain, scalar_func<P> f_time)
-    : time_func_(std::move(f_time))
+  separable_func(std::vector<sfixed_func1d<P>> fdomain, scalar_func<P> f_time)
+    : separable_func()
   {
-    expect(static_cast<int>(fdomain.size()) <= max_num_dimensions);
-    for (auto i : indexof(fdomain))
+    rassert(static_cast<int>(fdomain.size()) <= max_num_dimensions,
+            "separable function provided with too many dimensions, must be up to 6D");
+    rassert(f_time, "cannot use null-function for the time dependence");
+    for (auto i : iindexof(fdomain)) {
+      rassert(fdomain[i], "cannot use null-function in dimension " + std::to_string(i));
       funcs_[i] = std::move(fdomain[i]);
+    }
+    time_func_ = std::move(f_time);
   }
   //! set a function that is constant throughout the domain but has a time component
-  separable_func(std::vector<P> cosnts, scalar_func<P> f_time)
-    : time_func_(std::move(f_time))
+  separable_func(std::vector<P> cosnts, scalar_func<P> f_time) : separable_func()
   {
-    expect(static_cast<int>(cosnts.size()) <= max_num_dimensions);
+    rassert(static_cast<int>(cosnts.size()) <= max_num_dimensions,
+            "separable function provided with too many dimensions, must be up to 6D");
     for (auto i : indexof(cosnts))
-      funcs_[i] = cosnts[i];
+      funcs_[i] = std::move(cosnts[i]);
+    time_func_ = std::move(f_time);
   }
   //! set a function that is constant throughout space and time
-  separable_func(std::vector<P> const &cosnts)
-    : ignores_time_(true)
+  separable_func(std::vector<P> cosnts) : separable_func()
   {
-    expect(static_cast<int>(cosnts.size()) <= max_num_dimensions);
+    rassert(static_cast<int>(cosnts.size()) <= max_num_dimensions,
+            "separable function provided with too many dimensions, must be up to 6D");
     for (auto i : indexof(cosnts))
-      funcs_[i] = cosnts[i];
+      funcs_[i] = std::move(cosnts[i]);
+    time_func_ = P{1};
   }
-  //! sets ones in the given number of dimensions
-  separable_func(ones_for_dimensions const &ones) {
-    for (auto i : indexof(ones.dims))
-      funcs_[i] = 1;
-  }
-  //! sets ones in the given number of dimensions
-  separable_func(ones_for_dimensions const &ones, type_tag_ignores_time)
-    : ignores_time_(true)
-  {
-    for (auto i : indexof(ones.dims))
-      funcs_[i] = 1;
+  //! returns a function that has ones for the given number of dimensions, no time component
+  static separable_func<P> const_one(number_of_dimensions num_dims) {
+    rassert(static_cast<int>(num_dims) <= max_num_dimensions,
+            "too many dimensions, must be up to 6D");
+    rassert(static_cast<int>(num_dims) >= 1, "the number of dimensions must be at least 1");
+    separable_func<P> result;
+    for (int d : iindexof(static_cast<int>(num_dims))) result.funcs_[d] = P{1};
+    return result;
   }
 
   //! check the number of dimensions, does not cache so the cost is not-trivial
   int num_dims() const {
     int dims = 0;
-    for (auto const &f : funcs_) if (f.index() != 0) dims++;
+    while (dims < 6 and not std::holds_alternative<std::monostate>(funcs_[dims])) ++dims;
     return dims;
   }
-
-  //! returns the i-th domain function
-  svector_func1d<P> const &fdomain(int i) const { return std::get<2>(funcs_[i]); }
-  //! returns the i-th constant function
-  P cdomain(dimension_id id) const { return std::get<1>(funcs_[id()]); }
-  //! set the i-th function to f
-  void set(dimension_id id, svector_func1d<P> f) {
-    funcs_[id()] = std::move(f);
+  //! returns true if the function is constant in given dimension
+  bool is_const(dimension_id dim) const {
+    return std::holds_alternative<P>(funcs_[dim()]);
   }
-  //! sets the i-th function to a constant function
-  void set(dimension_id id, P c) {
-    funcs_[id()] = c;
+  //! returns true if the function is time-independent in the given dimension
+  bool is_fixed(dimension_id dim) const {
+    return std::holds_alternative<sfixed_func1d<P>>(funcs_[dim()]);
   }
-  //! applies the i-th domain function on x and return the result in y
-  void fdomain(dimension_id id, std::vector<P> const &x, P t, std::vector<P> &y) const {
-    return std::get<2>(funcs_[id()])(x, t, y);
+  //! returns true if the function is (non-separable) time-dependent in the given dimension
+  bool is_time_dep(dimension_id dim) const {
+    return std::holds_alternative<svector_func1d<P>>(funcs_[dim()]);
   }
-  //! check if the given dimension is constant
-  bool is_const(dimension_id dim) const { return (funcs_[dim()].index() == 1); }
+  //! returns true if the function is time-dependent and non-separable in time
+  bool is_time_non_sep() const {
+    return std::holds_alternative<std::monostate>(time_func_);
+  }
+  //! returns true if the function is time-depend and separable in time
+  bool is_time_sep() const {
+    return std::holds_alternative<scalar_func<P>>(time_func_);
+  }
+  //! returns true if the function is constant in time
+  bool is_time_const() const {
+    return std::holds_alternative<P>(time_func_);
+  }
+  //! returns the constant function, use only if is_const(dim) is true
+  P const_at(dimension_id dim) const { return std::get<P>(funcs_[dim()]); }
+  //! returns the fixed function, use only if is_fixed(dim) is true
+  sfixed_func1d<P> fixed_at(dimension_id dim) const {
+    return std::get<sfixed_func1d<P>>(funcs_[dim()]);
+  }
+  //! returns the time-dependent function, use only if is_time_dep(dim) is true
+  svector_func1d<P> time_dep_at(dimension_id dim) const {
+    return std::get<svector_func1d<P>>(funcs_[dim()]);
+  }
+  //! returns the value of the time-component or 1 if not separable in time
+  P time_at(P time) const {
+    if (std::holds_alternative<scalar_func<P>>(time_func_))
+      return std::get<scalar_func<P>>(time_func_)(time);
+    else
+      return P{1};
+  }
+  //! set the given dimension to constant c
+  void set(dimension_id dim, P c) {
+    rassert(not std::holds_alternative<std::monostate>(funcs_[dim()]),
+            "setting constant for invalid dimension " + std::to_string(dim()));
+    funcs_[dim()] = c;
+  }
+  //! set the given dimension to function f
+  void set(dimension_id dim, sfixed_func1d<P> f) {
+    rassert(not std::holds_alternative<std::monostate>(funcs_[dim()]),
+            "setting fixed function for invalid dimension " + std::to_string(dim()));
+    funcs_[dim()] = std::move(f);
+  }
+  //! set the given dimension to function f
+  void set(dimension_id dim, svector_func1d<P> f) {
+    rassert(not std::holds_alternative<std::monostate>(funcs_[dim()]),
+            "setting time-dependant function for invalid dimension " + std::to_string(dim()));
+    funcs_[dim()] = std::move(f);
+  }
+  //! set the time component to be a constant 1
+  void set_time_constant() {
+    time_func_ = P{1};
+  }
+  //! set the time component to ft
+  void set_time(scalar_func<P> ft) {
+    rassert(ft, "invalid time-function");
+    time_func_ = std::move(ft);
+  }
+  //! converts the function to separable in space and non-separable in time
+  void set_time_non_separable() {
+    time_func_ = std::monostate{};
+  }
 
-  //! returns the time function
-  scalar_func<P> const &ftime() const { return time_func_; }
-  //! returns the value of the time function
-  P ftime(P t) const { return time_func_(t); }
-
-  //! returns true if the function is set to ignore times
-  bool ignores_time() const { return ignores_time_; }
-  //! returns true if the function is separable in time
-  bool separable_time() const { return (!!time_func_ or ignores_time_); }
+  //! return true if the current state if invalid, prints to cerr if not consistent
+  bool is_valid() const {
+    int const nd = num_dims();
+    if (is_time_non_sep()) {
+      bool any = false;
+      for (int d : iindexof(nd)) if (is_time_dep(dimension_id{d})) any = true;
+      if (not any) {
+        std::cerr << "Found asgard::separable_func set as non-separable in time "
+                     "but without a time-depend spacial component for any dimension. "
+                     "This 'smells' of an error, so stopping here.\n";
+        return false;
+      }
+    } else {
+      bool any = false;
+      for (int d : iindexof(nd)) if (is_time_dep(dimension_id{d})) any = true;
+      if (any) {
+        std::cerr << "Found asgard::separable_func set as separable or constant in time "
+                     "but some spacial component have a time-dependence. "
+                     "This 'smells' of an error, so stopping here.\n";
+        return false;
+      }
+    }
+    for (int d = nd; d < max_num_dimensions; d++) {
+      if (not std::holds_alternative<std::monostate>(funcs_[d])) {
+        std::cerr << "Found asgard::separable_func where spatial components are set with "
+                      "a gap in the dimensions. This should never happen?!\n";
+        return false;
+      }
+    }
+    return true;
+  }
 
   //! (testing purposes) eval the function at the points x[] and time t
   P eval(P const x[], P t) {
     std::vector<P> xx(1), fx(1);
     P v = P{1};
     for (int d : iindexof(max_num_dimensions)) {
-      if (funcs_[d].index() == 2) {
-        xx.front() = x[d];
-        std::get<2>(funcs_[d])(xx, t, fx);
-        v *= fx[0];
-      } else if (funcs_[d].index() == 1) {
-        v *= std::get<1>(funcs_[d]);
-      }
+      v *= std::visit([&](auto const &f) -> P {
+          using current_type = std::decay_t<decltype(f)>;
+          if constexpr (std::is_same_v<current_type, std::monostate>) {
+            return 1; // ignore this dimension
+          } else if constexpr (std::is_same_v<current_type, P>) {
+            return f;
+          } else {
+            xx.front() = x[d];
+            if constexpr (std::is_same_v<current_type, sfixed_func1d<P>>) {
+              f(xx, fx);
+              return fx.front();
+            } else {
+              f(xx, t, fx);
+              return fx.front();
+            }
+          }
+        }, funcs_[d]);
     }
-    if (time_func_)
-      v *= time_func_(t);
+    if (is_time_sep()) v *= std::get<scalar_func<P>>(time_func_)(t);
     return v;
   }
 
@@ -390,23 +476,21 @@ public:
     int nd = num_dims();
     os << "separable function: " << nd << "D\n";
     os << "  (";
-    if (is_const(0))
-      os << cdomain(0);
-    else
-      os << "func";
-    for (int d = 1; d < nd; d++)
-      if (is_const(d))
-        os << ", " << cdomain(d);
+    for (int d : iindexof(nd)) {
+      if (is_const(dimension_id{d}))
+        os << const_at(dimension_id{d});
+      else if (is_fixed(dimension_id{d}))
+        os << "f" << d << "(x)";
       else
-        os << ", func";
-    os << ") ";
-    if (ignores_time_) {
-      os << "constant-in-time\n";
-    } else if (time_func_) {
-      os << "separable-in-time\n";
-    } else {
-      os << "non-separable-in-time\n";
+        os << "f" << d << "(x, t)";
+      if (d + 1 < nd) os << ", ";
     }
+    os << ")";
+    if (is_time_const())
+      os << " * 1";
+    else if (is_time_sep())
+      os << " * time(t)";
+    os << '\n';
   }
  /*!
   * \ingroup asgard_discretization
@@ -418,11 +502,15 @@ public:
   }
 
 private:
-  using func_entry = std::variant<std::monostate, P, svector_func1d<P>>;
+  // meaning of the type:  monostate -> dimension not set; P -> constant;
+  // sfixed -> no-time dep in this dimension; svector_func1d<P> -> non-separable in time
+  using func_entry = std::variant<std::monostate, P, sfixed_func1d<P>, svector_func1d<P>>;
+  // monostate -> non-separable in time (using svector_func1d); P constant in time (implicit 1);
+  // scalar_func<P> -> separable in time
+  using time_entry = std::variant<std::monostate, P, scalar_func<P>>;
 
-  bool ignores_time_ = false;
   std::array<func_entry, max_num_dimensions> funcs_;
-  scalar_func<P> time_func_;
+  time_entry time_func_ = std::monostate{};
 };
 
 /*!

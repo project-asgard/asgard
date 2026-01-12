@@ -131,7 +131,7 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
   // creating a vector function corresponding to sin(x)
   // the function is called for batch of points in the domain (-2 PI, 2 PI)
   // corresponding to the 1d cells and the quadrature points in each cell
-  auto sin_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto sin_1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       // given values in x, must populate fx with the corresponding values
       assert(fx.size() == x.size()); // this is guaranteed, do NOT resize fx
@@ -145,7 +145,7 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
   auto cos_t = [](P t) -> P { return std::cos(t); };
 
   // the derivatives, d/dx sin(x) = cos(x) and d/dx cos(t) = -sin(t)
-  auto cos_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto cos_1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = std::cos(x[i]);
@@ -155,7 +155,7 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
   auto nsin_t = [](P t) -> P { return -std::sin(t); };
 
   // multidimensional product of functions, initializing to just sin(x)
-  std::vector<asgard::svector_func1d<P>> sign_md(num_dims, sin_1d);
+  std::vector<asgard::sfixed_func1d<P>> sign_md(num_dims, sin_1d);
 
   // this is the exact solution
   asgard::separable_func<P> exact(sign_md, cos_t);
@@ -423,7 +423,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
   // the reconstruction is always done in double-precision even if the data
   // coming from the discretization_manager is in floats
   // thus, use the double-precision version of the exact solution
-  auto sin_1d = [](std::vector<double> const &x, double, std::vector<double> &fx) ->
+  auto sin_1d = [](std::vector<double> const &x, std::vector<double> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = std::sin(x[i]);
@@ -431,8 +431,7 @@ void dotest(double tol, int num_dims, std::string const &opts, int np) {
 
   auto cos_t = [](double t) -> double { return std::cos(t); };
 
-  separable_func<double> exact(
-      std::vector<svector_func1d<double>>(num_dims, sin_1d), cos_t);
+  separable_func<double> exact(std::vector<sfixed_func1d<double>>(num_dims, sin_1d), cos_t);
 
   std::vector<double> ref(mesh.num_strips());
   std::vector<double> com(mesh.num_strips());
