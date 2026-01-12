@@ -486,8 +486,6 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     break;
   };
 
-
-
   return *this;
 }
 

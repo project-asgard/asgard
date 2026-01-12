@@ -1005,6 +1005,37 @@ private:
 
 /*!
  * \ingroup asgard_pde_definition
+ * \brief Source to be added to the pde_scheme
+ *
+ * This is an optional wrapper that allows syntax of the form
+ * \code
+ *   pde += asgard::source<P>(asgard::separable_func<P>{....});
+ * \endcode
+ */
+template<typename P>
+struct source {
+  //! make a separable source
+  source(separable_func<P> s) : func(std::move(s)) {}
+  //! make an interpolation source
+  source(md_func<P> s) : func(std::move(s)) {}
+  //! make an interpolation source using a GPU device data
+  source(md_gpu_func<P> s) : func(std::move(s)) {}
+  //! make an interpolation moment source
+  source(md_mom_func<P> s, std::vector<moment_id> mids)
+    : func(std::move(s)), mids_(std::move(mids)) {}
+  //! make an interpolation moment source using a GPU device data
+  source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
+    : func(std::move(s)), mids_(std::move(mids)) {}
+
+  //! variant holding all permissible function types
+  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
+               md_gpu_func<P>, md_gpu_mom_func<P>> func;
+  //! holds the moment ids for moment sources
+  std::vector<moment_id> mids_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
  * \brief Multidimensional term of the partial differential equation
  *
  * The term can be one of three modes:
@@ -1613,11 +1644,6 @@ public:
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
     sources_sep_.emplace_back(std::move(smd));
-  }
-  //! add separable right-hand-source, can have multiple
-  pde_scheme<P> &operator += (separable_func<P> tmd) {
-    this->add_source(std::move(tmd));
-    return *this;
   }
   //! add collision operator
   pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
