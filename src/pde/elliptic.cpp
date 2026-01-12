@@ -126,7 +126,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
       asgard::term_1d<P> fxx({div, grad});
 
       // based on the domain and max-level, get the cell-size in direction d
-      P const dx = pde.cell_size(d);
+      P const dx = pde.cell_size(asgard::dimension_id{d});
 
       // adding penalty to stabilize the steady state equation
       // the penalty is applied only to discontinuities, if the solution is continuous

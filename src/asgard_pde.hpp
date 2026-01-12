@@ -1668,7 +1668,7 @@ public:
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
-  P cell_size(int dim, int level = -1) const {
+  P cell_size(dimension_id dim, int level = -1) const {
     if (level < 0)
       level = max_level_;
     return domain_.cell_size(dim, level);

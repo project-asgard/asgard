@@ -119,43 +119,24 @@ public:
   }
 
   //! overwrites the dimension lengths, defaults is (0, 1) in each direction
-  void set(std::initializer_list<domain_range> list)
-  {
-    if (static_cast<int>(list.size()) != num_dims_)
-      throw std::runtime_error("provided number of domain_range entries does not match the "
-                               "number of dimensions");
-
-    for (int d : iindexof(num_dims_))
-    {
-      xleft_[d] = (list.begin() + d)->left;
-      xright_[d] = (list.begin() + d)->right;
-      length_[d] = xright_[d] - xleft_[d];
-      if (length_[d] < P{0})
-        throw std::runtime_error("domain_range specified with negative length");
-    }
-  }
-  //! overwrites the dimension lengths, defaults is (0, 1) in each direction
   void set(std::vector<domain_range> list)
   {
-    if (static_cast<int>(list.size()) != num_dims_)
-      throw std::runtime_error("provided number of domain_range entries does not match the "
-                               "number of dimensions");
+    rassert(list.size() == static_cast<size_t>(num_dims_),
+            "provided number of domain_range entries does not match the number of dimensions");
 
     for (int d : iindexof(num_dims_))
     {
       xleft_[d] = (list.begin() + d)->left;
       xright_[d] = (list.begin() + d)->right;
       length_[d] = xright_[d] - xleft_[d];
-      if (length_[d] < P{0})
-        throw std::runtime_error("domain_range specified with negative length");
+      rassert(length_[d] > P{0}, "domain_range specified with negative length");
     }
   }
   //! (for plotting) overwrites the  default names, e.g., x1, x2, x3, v1, v2, v3
   void set_names(std::initializer_list<std::string> list)
   {
-    if (static_cast<int>(list.size()) != num_dims_)
-      throw std::runtime_error("provided number of names does not match the "
-                               "number of dimensions");
+    rassert(list.size() == static_cast<size_t>(num_dims_),
+            "provided number of names does not match the number of dimensions");
 
     for (int d : iindexof(num_dims_))
       dnames_[d] = *(list.begin() + d);
@@ -187,9 +168,9 @@ public:
     return msize;
   }
   //! returns the cell-size for given dimension and level, uses the length
-  P cell_size(int dim, int level) const {
+  P cell_size(dimension_id dim, int level) const {
     int num_cells = fm::ipow2(level);
-    return length_[dim] / num_cells;
+    return length_[dim()] / num_cells;
   }
   //! (mostly for moment testing) returns just the position dimensions
   pde_domain<P> position_domain() const {
