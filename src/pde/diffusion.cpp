@@ -212,14 +212,14 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
 
   // no-initial condition implies zero as the initial condition
 
-  // setting up the sources
-  pde.add_source({exp_md, exp_t}); // derivative in time
+  // setting up the sources, derivative in time
+  pde += asgard::source<P>({exp_md, exp_t});
 
   // compute the spacial derivatives
   for (int d = 0; d < num_dims; d++)
   {
     exp_md[d] = ddexp_1d; // set derivative in x for direction d
-    pde.add_source({exp_md, nexp_t});
+    pde += asgard::source<P>({exp_md, nexp_t});
     exp_md[d] = exp_1d; // revert to the original value
   }
 

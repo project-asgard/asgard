@@ -1645,6 +1645,19 @@ public:
   void add_source(separable_func<P> smd) {
     sources_sep_.emplace_back(std::move(smd));
   }
+  //! add the source to the pde_scheme
+  pde_scheme<P> & operator += (source<P> src) {
+    std::visit([&, this](auto &&s) {
+          using current_type = std::decay_t<decltype(s)>;
+          if constexpr (uses_moments<current_type>)
+            this->set_source(std::move(s), std::move(src.mids_));
+          else if constexpr (std::is_same_v<current_type, separable_func<P>>)
+            this->add_source(std::move(s));
+          else
+            this->set_source(std::move(s));
+        }, std::move(src.func));
+    return *this;
+  }
   //! add collision operator
   pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
   //! add collision operator

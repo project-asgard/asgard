@@ -320,7 +320,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
         };
 
       // setting the non-separable source into the pde_scheme
-      pde.set_source(smd);
+      pde += asgard::source<P>(smd);
 
       // second order term in x
       asgard::term_1d<P> div_grad_x = std::vector<asgard::term_1d<P>>{

@@ -164,14 +164,17 @@ asgard::pde_scheme<P> make_continuity_pde(int num_dims, asgard::prog_opts option
   // in general, the PDE can have multiple functions as initial conditions
   pde.add_initial(exact);
 
-  // setting up the sources
-  pde.add_source({sign_md, nsin_t}); // derivative in time
+  // setting up the sources, this is the derivative in time
+  // all sources in this example are separable functions
+  // the "asgard::separable_func<P>" is optional, the compiler can figure it out
+  // alternatively, call pde.add_source({sign_md, nsin_t});
+  pde += asgard::source<P>(asgard::separable_func<P>{sign_md, nsin_t});
 
   // compute the spacial derivatives
   for (int d = 0; d < num_dims; d++)
   {
     sign_md[d] = cos_1d; // set derivative in x for direction d
-    pde.add_source({sign_md, cos_t});
+    pde += asgard::source<P>({sign_md, cos_t});
     sign_md[d] = sin_1d; // revert to the original value
   }
 
