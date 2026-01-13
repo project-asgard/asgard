@@ -216,6 +216,7 @@ template<typename P> struct uses_gpu_trait<md_gpu_mom_func_f<P>> : std::true_typ
 
 template<typename F> constexpr bool uses_gpu = uses_gpu_trait<F>::value;
 
+template<typename> constexpr bool is_valid_call = false;
 #endif
 
 }

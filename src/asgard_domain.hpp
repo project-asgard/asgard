@@ -281,6 +281,14 @@ public:
       funcs_[i] = std::move(fdomain[i]);
     }
   }
+  //! do not set simultaneously svector_func1d and time function, those can be merged
+  separable_func(std::vector<svector_func1d<P>>, scalar_func<P>) : separable_func()
+  {
+    static_assert(is_valid_call<P>,
+        "svector_func1d<P> contains a time variable, so a separate time scalar is not needed. "
+        "If the time dependence can be cast as a separable function, it will improve performance. "
+        "Otherwise, the time scalar function can be merged within one of the svector_func1d<P>");
+  }
   //! set a function that is constant in time
   separable_func(std::vector<sfixed_func1d<P>> fdomain) : separable_func()
   {
