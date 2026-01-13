@@ -157,14 +157,17 @@ void term_manager<P>::apply_sources(
     auto const &src = sources[is];
     if (not resources.owns(src.rec)) continue;
 
-    switch (src.tmode) {
-      case source_entry<P>::time_mode::constant:
+    // switch (src.tmode) {
+    switch (src.func.get_time_mode()) {
+      // case source_entry<P>::time_mode::constant:
+      case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(P{1});
         else
           sweights.push_back(alpha);
         break;
-      case source_entry<P>::time_mode::separable: {
+      //case source_entry<P>::time_mode::separable: {
+      case separable_func<P>::time_mode::separable: {
           P t = src.func.time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(alpha * t);
@@ -172,7 +175,8 @@ void term_manager<P>::apply_sources(
             sweights.push_back(t);
         }
         break;
-      case source_entry<P>::time_mode::time_dependent:
+      //case source_entry<P>::time_mode::time_dependent:
+      case separable_func<P>::time_mode::non_separable:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
               (src.func, grid, lmass, time, alpha, y);
@@ -402,14 +406,17 @@ void term_manager<P>::apply_sources_gpu(
     auto const &src = sources[is];
     if (not resources.owns(src.rec)) continue;
 
-    switch (src.tmode) {
-      case source_entry<P>::time_mode::constant:
+    //switch (src.tmode) {
+    switch (src.func.get_time_mode()) {
+      //case source_entry<P>::time_mode::constant:
+      case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(P{1});
         else
           sweights.push_back(alpha);
         break;
-      case source_entry<P>::time_mode::separable: {
+      //case source_entry<P>::time_mode::separable: {
+      case separable_func<P>::time_mode::separable: {
           P t = src.func.time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(alpha * t);
@@ -417,7 +424,8 @@ void term_manager<P>::apply_sources_gpu(
             sweights.push_back(t);
         }
         break;
-      case source_entry<P>::time_mode::time_dependent:
+      //case source_entry<P>::time_mode::time_dependent:
+      case separable_func<P>::time_mode::time_dependent:
         using_cpu_s1();
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>

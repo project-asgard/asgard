@@ -239,19 +239,15 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (s.num_dims() == 0)
         continue;
 
+      sources.emplace_back();
+
       if (s.is_time_non_sep())
       {
         sources_have_time_dep = true;
-        sources.emplace_back(source_entry<P>::time_mode::time_dependent);
       }
-      else //
+      else
       {
         expect(s.is_time_const() or s.is_time_sep());
-        if (s.is_time_const()) {
-          sources.emplace_back(source_entry<P>::time_mode::constant);
-        } else {
-          sources.emplace_back(source_entry<P>::time_mode::separable);
-        }
 
         for (int d : iindexof(num_dims)) {
           if (s.is_const(dimension_id{d})) {

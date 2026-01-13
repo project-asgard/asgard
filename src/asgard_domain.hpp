@@ -443,6 +443,18 @@ public:
     }
     return true;
   }
+  //! represents the different ways the time dependence is handled
+  enum class time_mode : int { // sync with time_entry
+    //! non-separable in time
+    non_separable = 0,
+    //! constant in time
+    constant = 1,
+    //! separable in time
+    separable = 2
+  };
+
+  //! Indicates the time-mode of the function
+  time_mode get_time_mode() const { return static_cast<time_mode>(time_func_.index()); }
 
   //! (testing purposes) eval the function at the points x[] and time t
   P eval(P const x[], P t) {

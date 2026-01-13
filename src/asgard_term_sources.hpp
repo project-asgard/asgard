@@ -10,28 +10,15 @@ namespace asgard
 template<typename P>
 struct source_entry
 {
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! interior source that is constant in time
-    constant = 0,
-    //! interior source that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! interior source that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
   //! default source entry, must be reinitialized before use
   source_entry() = default;
-  //! create a new source entry
-  source_entry(time_mode mode_in) : tmode(mode_in) {}
 
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
   //! resource (GPU/MPI-rank) assigned to this source
   resource rec;
 
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
+  bool is_constant() const { return func.is_constant(); }
+  bool is_separable() const { return func.is_separable(); }
+  bool is_time_dependent() const { return func.is_time_non_sep(); }
 
   //! if the function is separable or time-dependent, handle the extra data
   separable_func<P> func;
