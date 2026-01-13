@@ -18,7 +18,7 @@ struct source_entry
 
   bool is_constant() const { return func.is_constant(); }
   bool is_separable() const { return func.is_separable(); }
-  bool is_time_dependent() const { return func.is_time_non_sep(); }
+  bool is_time_non_sep() const { return func.is_time_non_sep(); }
 
   //! if the function is separable or time-dependent, handle the extra data
   separable_func<P> func;
@@ -98,15 +98,6 @@ struct source_entry_interp
  */
 template<typename P>
 struct boundary_entry {
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! boundary condition that is constant in time
-    constant = 0,
-    //! boundary condition that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! boundary condition that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
   //! default source entry, must be reinitialized before use
   boundary_entry() = default;
   //! create a new source entry
@@ -114,19 +105,16 @@ struct boundary_entry {
   //! defines the flux, moved out of the term
   boundary_flux<P> flux;
 
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
+  bool is_constant() const { return flux.func().is_const(); }
+  bool is_separable() const { return flux.func().is_separable(); }
+  bool is_time_non_sep() const { return flux.func().is_time_non_sep(); }
 
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
-
-  //! the term associated with this boundary entry
-  int term_index = -1;
   //! vector for the current grid
   std::vector<P> val;
   //! constant components of the source vector
   std::array<std::vector<P>, max_num_dimensions> consts;
+  //! the term associated with this boundary entry
+  int term_index = -1;
   //! index if lumped with other sources
   int ilump = -1;
 

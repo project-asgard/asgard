@@ -172,39 +172,14 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                                           ? (tt.tmd.dim(d).num_chain() - 1) : 0;
         }
       }
-      if (bcs.back().flux.func().is_time_const()) {
-        bcs.back().tmode = boundary_entry<P>::time_mode::constant;
-      } else if (bcs.back().flux.func().is_time_sep()) {
-        bcs.back().tmode = boundary_entry<P>::time_mode::separable;
-      } else { // non-separable in time
-        expect(bcs.back().flux.func().is_time_non_sep());
+      if (bcs.back().is_time_non_sep()) { // non-separable in time
         bcs_have_time_dep = true;
-        bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
         for (int d : iindexof(num_dims)) {
           rassert(not tt.tmd.dim(d).is_chain(),
                   "cannot use non-separable in time boundary conditions with 1d-chains, "
                   "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
                   "data cannot be pre-computed, an md-chain must be used instead");
-      }
-        // if (bcs.back().flux.func_.ftime()) {
-        //   if (bcs.back().flux.func_.cdomain(dimension_id{fdim}) == 0) {
-        //     // using dependent term in the flux-dimension, cannot depend on space
-        //     // therefore it must depend on time
-        //     bcs_have_time_dep = true;
-        //     bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
-        //     for (int d : iindexof(num_dims)) {
-        //       rassert(not tt.tmd.dim(d).is_chain(),
-        //               "cannot use non-separable in time boundary conditions with 1d-chains, "
-        //               "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
-        //               "data cannot be pre-computed, an md-chain must be used instead");
-        //     }
-        //   } else {
-        //     bcs.back().tmode = boundary_entry<P>::time_mode::separable;
-        //   }
-        // } else {
-        //   // fdim is constant, but the other dirs are non-separable
-        //   bcs.back().tmode = boundary_entry<P>::time_mode::separable;
-        // }
+        }
       }
     }
   }
@@ -286,13 +261,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     {
       if (not resources.owns(src.rec))
         return false;
-      return (not src.is_time_dependent());
+      return (not src.is_time_non_sep());
     };
   auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
     {
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      return (not bc.is_time_dependent());
+      return (not bc.is_time_non_sep());
     };
 
   for (auto const &src : sources)
@@ -958,7 +933,7 @@ void term_manager<P>::build_raw_mat(
           bmass->solve(pdof, bentry.consts[d]);
 
       } else {
-        if (bentry.is_time_dependent()) // no constant components to pre-compute
+        if (bentry.is_time_non_sep()) // no constant components to pre-compute
           continue;
 
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
@@ -1327,7 +1302,7 @@ void term_manager<P>::assign_compute_resources()
 
       for (auto is : sgroup) {
         auto const &src = sources[is];
-        if (src.is_time_dependent())
+        if (src.is_time_non_sep())
           work.emplace_back(work_amount{static_cast<float>(num_dims)}, is);
         else
           work.emplace_back(work_amount{0.1f}, is);

@@ -111,7 +111,7 @@ void term_manager<P>::apply_sources(
     // update the constant components
     for (auto &src : sources)
     {
-      if (src.is_time_dependent() or not resources.owns(src.rec))
+      if (src.is_time_non_sep() or not resources.owns(src.rec))
         continue;
 
       // the time-dependent case will construct both the 1D can mD vector for each t
@@ -123,7 +123,7 @@ void term_manager<P>::apply_sources(
     // update the constant components
     for (auto &bc : bcs)
     {
-      if (bc.is_time_dependent() or not resources.owns(terms[bc.term_index].rec))
+      if (bc.is_time_non_sep() or not resources.owns(terms[bc.term_index].rec))
         continue;
 
       // In addition to the tensoring, the boundary condition case
@@ -157,16 +157,13 @@ void term_manager<P>::apply_sources(
     auto const &src = sources[is];
     if (not resources.owns(src.rec)) continue;
 
-    // switch (src.tmode) {
     switch (src.func.get_time_mode()) {
-      // case source_entry<P>::time_mode::constant:
       case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(P{1});
         else
           sweights.push_back(alpha);
         break;
-      //case source_entry<P>::time_mode::separable: {
       case separable_func<P>::time_mode::separable: {
           P t = src.func.time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
@@ -175,7 +172,6 @@ void term_manager<P>::apply_sources(
             sweights.push_back(t);
         }
         break;
-      //case source_entry<P>::time_mode::time_dependent:
       case separable_func<P>::time_mode::non_separable:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
@@ -218,14 +214,14 @@ void term_manager<P>::apply_sources(
     auto &bc = bcs[ib]; // non-const for the time-dependent case
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
-    switch (bc.tmode) {
-      case boundary_entry<P>::time_mode::constant:
+    switch (bc.flux.func().get_time_mode()) {
+      case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(-P{1});
         else
           sweights.push_back(-alpha);
         break;
-      case boundary_entry<P>::time_mode::separable: {
+      case separable_func<P>::time_mode::separable: {
           P t = bc.flux.func().time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(-alpha * t);
@@ -233,7 +229,7 @@ void term_manager<P>::apply_sources(
             sweights.push_back(-t);
         }
         break;
-      case boundary_entry<P>::time_mode::time_dependent:
+      case separable_func<P>::time_mode::non_separable:
         if (terms[bc.term_index].is_chain_link()) {
           hier.template project_separable<data_mode::replace>
               (bc.flux.func(), grid, lmass, time, 1, t1.data());
@@ -349,7 +345,7 @@ void term_manager<P>::apply_sources_gpu(
     // update the constant components
     for (auto &src : sources)
     {
-      if (src.is_time_dependent() or not resources.owns(src.rec)) continue;
+      if (src.is_time_non_sep() or not resources.owns(src.rec)) continue;
 
       // see the CPU version, only tensoring when there's time-independent component
       tensor_consts(src);
@@ -360,7 +356,7 @@ void term_manager<P>::apply_sources_gpu(
     {
       if (not resources.owns(terms[bc.term_index].rec)) continue;
 
-      if (bc.is_time_dependent())
+      if (bc.is_time_non_sep())
         continue;
 
       // In addition to the tensoring, the boundary condition case
@@ -406,16 +402,13 @@ void term_manager<P>::apply_sources_gpu(
     auto const &src = sources[is];
     if (not resources.owns(src.rec)) continue;
 
-    //switch (src.tmode) {
     switch (src.func.get_time_mode()) {
-      //case source_entry<P>::time_mode::constant:
       case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(P{1});
         else
           sweights.push_back(alpha);
         break;
-      //case source_entry<P>::time_mode::separable: {
       case separable_func<P>::time_mode::separable: {
           P t = src.func.time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
@@ -424,8 +417,7 @@ void term_manager<P>::apply_sources_gpu(
             sweights.push_back(t);
         }
         break;
-      //case source_entry<P>::time_mode::time_dependent:
-      case separable_func<P>::time_mode::time_dependent:
+      case separable_func<P>::time_mode::non_separable:
         using_cpu_s1();
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           hier.template project_separable<data_mode::increment>
@@ -447,14 +439,14 @@ void term_manager<P>::apply_sources_gpu(
     auto &bc = bcs[ib]; // non-const for the time-dependent case
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
-    switch (bc.tmode) {
-      case boundary_entry<P>::time_mode::constant:
+    switch (bc.flux.func().get_time_mode()) {
+      case separable_func<P>::time_mode::constant:
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           sweights.push_back(-P{1});
         else
           sweights.push_back(-alpha);
         break;
-      case boundary_entry<P>::time_mode::separable: {
+      case separable_func<P>::time_mode::separable: {
           P t = bc.flux.func().time_at(time);
           if constexpr (dmode == data_mode::scal_inc or dmode == data_mode::scal_rep)
             sweights.push_back(-alpha * t);
@@ -462,7 +454,7 @@ void term_manager<P>::apply_sources_gpu(
             sweights.push_back(-t);
         }
         break;
-      case boundary_entry<P>::time_mode::time_dependent:
+      case separable_func<P>::time_mode::non_separable:
         if (terms[bc.term_index].is_chain_link()) {
           hier.template project_separable<data_mode::replace>
               (bc.flux.func(), grid, lmass, time, 1, t2.data());
