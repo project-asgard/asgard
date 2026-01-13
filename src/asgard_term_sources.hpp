@@ -12,12 +12,14 @@ struct source_entry
 {
   //! default source entry, must be reinitialized before use
   source_entry() = default;
+  //! new source entry
+  source_entry(separable_func<P> f) : func(std::move(f)) {}
 
   //! resource (GPU/MPI-rank) assigned to this source
   resource rec;
 
-  bool is_constant() const { return func.is_constant(); }
-  bool is_separable() const { return func.is_separable(); }
+  bool is_time_const() const { return func.is_time_const(); }
+  bool is_time_sep() const { return func.is_time_sep(); }
   bool is_time_non_sep() const { return func.is_time_non_sep(); }
 
   //! if the function is separable or time-dependent, handle the extra data
@@ -105,8 +107,8 @@ struct boundary_entry {
   //! defines the flux, moved out of the term
   boundary_flux<P> flux;
 
-  bool is_constant() const { return flux.func().is_const(); }
-  bool is_separable() const { return flux.func().is_separable(); }
+  bool is_time_const() const { return flux.func().is_time_const(); }
+  bool is_time_sep() const { return flux.func().is_time_sep(); }
   bool is_time_non_sep() const { return flux.func().is_time_non_sep(); }
 
   //! vector for the current grid

@@ -214,37 +214,36 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (s.num_dims() == 0)
         continue;
 
-      sources.emplace_back();
+      sources.emplace_back(std::move(s));
 
-      if (s.is_time_non_sep())
+      if (sources.back().is_time_non_sep())
       {
         sources_have_time_dep = true;
       }
       else
       {
-        expect(s.is_time_const() or s.is_time_sep());
+        expect(sources.back().is_time_const() or sources.back().is_time_sep());
 
         for (int d : iindexof(num_dims)) {
-          if (s.is_const(dimension_id{d})) {
+          if (sources.back().func.is_const(dimension_id{d})) {
             sources.back().consts[d]
                 = hier.get_project1d_c(s.const_at(dimension_id{d}), mass[d], d, max_level);
           } else {
-            expect(s.is_fixed(dimension_id{d}));
+            expect(sources.back().func.is_fixed(dimension_id{d}));
             sources.back().consts[d] = hier.get_project1d_f(
                 [&](std::vector<P> const &x, std::vector<P> &y)->
                   void {
-                    s.fixed_at(dimension_id{d})(x, y);
+                    sources.back().func.fixed_at(dimension_id{d})(x, y);
                   },
                 mass[d], d, max_level);
           }
           #ifdef ASGARD_USE_GPU
-          // TODO: mult-GPU logic
+          compute->set_device(gpu::device{sources.back().rec.device});
           sources.back().gpu_consts[d] = sources.back().consts[d];
+          compute->set_device(gpu::device{0});
           #endif
         }
       }
-
-      sources.back().func = std::move(s);
     }
   }
 
@@ -752,7 +751,9 @@ void term_manager<P>::rebuild_term1d(
       // will be empty if non-flux direction and non-separable in time
       hier.transform(level, bentry.consts[dim]);
       #ifdef ASGARD_USE_GPU
+      compute->set_device(gpu::device{terms[bentry.term_index].rec.device});
       bentry.gpu_consts[dim] = bentry.consts[dim];
+      compute->set_device(gpu::device{0});
       #endif
     }
   }
