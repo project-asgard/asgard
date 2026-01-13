@@ -169,9 +169,9 @@ void test_sources(double const tol, std::string const &opts)
   auto fdx = [](P x) -> P { return std::cos(x); };
   auto fy  = [](P y) -> P { return std::cos(y); };
 
-  separable_func<P> exact({vectorize_t<P>(fx), vectorize_t<P>(fy)}, ft);
-  separable_func<P> s0({vectorize_t<P>(fx), vectorize_t<P>(fy)}, fdt);
-  separable_func<P> s1({vectorize_t<P>(fdx), vectorize_t<P>(fy)}, ft);
+  separable_func<P> exact({vectorize<P>(fx), vectorize<P>(fy)}, ft);
+  separable_func<P> s0({vectorize<P>(fx), vectorize<P>(fy)}, fdt);
+  separable_func<P> s1({vectorize<P>(fdx), vectorize<P>(fy)}, ft);
 
   separable_func<P> bc = exact;
   bc.set(dimension_id{0}, P{-1});
@@ -268,12 +268,12 @@ void test_pde(double const tol, std::string const &opts)
 
   auto flbc = [](P x) -> P { return std::sin(x) * std::cos(x); };
 
-  separable_func<P> exact({vectorize_t<P>(fx), vectorize_t<P>(fy)}, ft);
-  separable_func<P> s0({vectorize_t<P>(fx), vectorize_t<P>(fy)}, fdt);
+  separable_func<P> exact({vectorize<P>(fx), vectorize<P>(fy)}, ft);
+  separable_func<P> s0({vectorize<P>(fx), vectorize<P>(fy)}, fdt);
 
   separable_func<P> bcL = exact;
   bcL.set(dimension_id{1}, P{1});
-  bcL.set(dimension_id{0}, vectorize_t<P>(flbc));
+  bcL.set(dimension_id{0}, vectorize<P>(flbc));
 
   // non-separable source
   auto smd = [=](P t, vector2d<P> const &nodes, std::vector<P> &vals) ->

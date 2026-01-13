@@ -10,6 +10,7 @@ void interp_wav2nodal() {
   separable_func<P> ic({1, 1});
   ic.set(dimension_id{0}, vectorize_t<P>([](P x)->P { return std::sin(x); }));
   ic.set(dimension_id{1}, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+  ic.set_time_non_separable();
 
   auto vec2d = [](vector2d<P> const &vec) -> vector2d<double> {
     vector2d<double> result(vec.stride(), vec.num_strips());
@@ -116,7 +117,7 @@ template<typename P>
 void interp_identity(P tol, int degree, int max_level)
 {
   pde_domain<P> domain(2); // work in 2d
-  separable_func<P> ic;
+  separable_func<P> ic = separable_func<P>::const_one(number_of_dimensions{2});
   ic.set(dimension_id{0}, vectorize_t<P>([](P x)->P { return std::sin(x); }));
   ic.set(dimension_id{1}, vectorize_t<P>([](P x)->P { return std::exp(x); }));
 
@@ -162,7 +163,9 @@ template<typename P>
 void interp_identity_domain(P tol, int degree, int max_level)
 {
   pde_domain<P> domain({{-1, 1}, {0, 3}}); // work in 2d
-  separable_func<P> ic;
+  auto ic = separable_func<P>::const_one(number_of_dimensions{2});
+  static_assert(std::is_same_v<decltype(ic), separable_func<P>>,
+                "incorrect return type for separable_func<P>::const_one");
   ic.set(asgard::dimension_id{0}, vectorize_t<P>([](P x)->P { return std::sin(x); }));
   ic.set(asgard::dimension_id{1}, vectorize_t<P>([](P x)->P { return std::exp(x); }));
 

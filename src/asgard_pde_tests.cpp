@@ -5,6 +5,23 @@ using namespace asgard;
 template<typename TestType>
 void test_bookkeeping() {
   {
+    current_test<TestType> name_("pde_functions");
+    // compile time tests for the traits
+    static_assert(not uses_moments<md_func<TestType>>);
+    static_assert(not uses_moments<md_gpu_func_f<TestType>>);
+    static_assert(uses_moments<md_mom_func<TestType>>);
+    static_assert(uses_moments<md_mom_func_f<TestType>>);
+    static_assert(uses_moments<md_gpu_mom_func<TestType>>);
+    static_assert(uses_moments<md_gpu_mom_func_f<TestType>>);
+
+    static_assert(not uses_gpu<md_func_f<TestType>>);
+    static_assert(not uses_gpu<md_mom_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_func_f<TestType>>);
+    static_assert(uses_gpu<md_gpu_mom_func<TestType>>);
+    static_assert(uses_gpu<md_gpu_mom_func_f<TestType>>);
+  }
+  {
     current_test<TestType> name_("pde_domain");
     tassert(pde_domain<TestType>(1).num_dims() == 1);
     tassert(pde_domain<TestType>(2).num_dims() == 2);
@@ -37,20 +54,6 @@ void test_bookkeeping() {
                    "provided number of names does not match the number of dimensions");
     dom.set_names({"d1", "d2", "d3"});
     tassert(dom.name(1) == std::string("d2"));
-  }
-
-  auto momf = [](TestType, vector2d<TestType> const &, momentset<TestType> const &,
-                 std::vector<TestType> &) -> void {};
-
-  {
-    current_test<TestType> name_("moment source");
-
-    tassert(not moment_source<TestType>{}); // empty moment source
-
-    moment_source<TestType> mom{momf, {moment_id{0}, }};
-    tassert(mom);
-    terror_message(moment_source<TestType>(momf, {}),
-                   "providing a moment source must include a non-empty vector of moment_id");
   }
 
   auto rhs = [](std::vector<TestType> const &, std::vector<TestType> &) -> void {};
@@ -268,6 +271,36 @@ void test_pde_class() {
 
     terror_message(pde_scheme<TestType>(make_opts("-l 3"), domain),
                    "must provide a polynomial degree with -d");
+
+    pde_scheme<TestType> pde(make_opts("-d 1 -l 3"), domain);
+
+    auto fixed = [](std::vector<TestType> const &, std::vector<TestType> &) -> void {};
+    auto vecf  = [](std::vector<TestType> const &, TestType, std::vector<TestType> &) -> void {};
+    auto timef = [](TestType t) -> TestType { return t; };
+
+    terror_message(pde.add_initial(separable_func<TestType>({fixed, fixed, fixed })),
+                   "incorrect dimension for separable function added as initial condition")
+    terror_message(pde.add_source(separable_func<TestType>({fixed, })),
+                   "invalid dimension for the added source")
+
+    pde.add_initial(separable_func<TestType>({fixed, fixed, }, timef));
+
+    std::cerr << "<generating some error messages - this is OK to ignore>\n";
+    { // adding time-non-separable on what is supposed to be separable in time
+      separable_func<TestType> f1({fixed, fixed, }, timef);
+      f1.set(dimension_id{0}, vecf);
+      terror_message(pde.add_source(f1), "invalid separable function added as source");
+    }
+    { // adding time component on what is supposed to be time-non-separable
+      separable_func<TestType> f1({vecf, vecf, });
+      f1.set_time(timef);
+      terror_message(pde.add_source(f1), "invalid separable function added as source");
+    }
+    { // testing initial conditions
+      separable_func<TestType> f1({vecf, vecf, });
+      f1.set_time(timef);
+      terror_message(pde.add_initial(f1), "invalid separable function for initial condition");
+    }
   }
   {
     current_test<TestType> name_("pde constructors");
@@ -337,7 +370,7 @@ void test_pde_class() {
     pde_scheme<TestType> pde(opts, domain);
     auto id0 = pde.register_moment({0, 2});
     auto id1 = pde.register_moment({1, 0});
-    pde.set_source(moment_source<TestType>(momf, {id0, id1}));
+    pde.set_source(momf, {id0, id1});
     terror_message(pde.set_source(mom),
                    "cannot simultaneously set a moment and non-moment source");
     pde.new_term_group();
@@ -345,7 +378,7 @@ void test_pde_class() {
                    "cannot simultaneously set a moment and non-moment source");
     pde.new_term_group();
     pde.set_source(mom);
-    terror_message(pde.set_source(moment_source<TestType>(momf, {id0, id1})),
+    terror_message(pde.set_source(momf, {id0, id1}),
                    "cannot simultaneously set a moment and non-moment source");
   }
 }

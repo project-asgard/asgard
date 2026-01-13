@@ -250,7 +250,11 @@ public:
   #ifdef ASGARD_USE_GPU
   //! set the active device
   void set_device(gpu::device device) const {
+    #if ASGARD_MAX_NUM_GPUS > 1
     gpu::set_device(device.id);
+    #else
+    ignore(device);
+    #endif
   }
   //! synchronize the device
   void device_synchronize() const { gpu::device_synchronize(); }

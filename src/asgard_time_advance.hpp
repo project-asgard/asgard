@@ -137,6 +137,13 @@ struct steady_state
   //! prints the total memory used
   void print_bytes(std::ostream &os = std::cout) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! gpu vector holding the current step
+  mutable gpu::vector<P> gcurrent;
+  //! gpu vector holding the next step
+  mutable gpu::vector<P> gnext;
+  #endif
+
 private:
   static time_method constexpr method = time_method::steady;
   // the solver used
@@ -145,7 +152,6 @@ private:
   // workspace (rhs)
   mutable std::vector<P> work;
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> gcurrent, gendstep;
   mutable gpu::vector<P> gwork;
   #endif
 };
@@ -182,6 +188,13 @@ struct rungekutta
   static bool constexpr needs_solver = false;
   //! prints the total memory used
   void print_bytes(std::ostream &os = std::cout) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! gpu vector holding the current step
+  mutable gpu::vector<P> gcurrent;
+  //! gpu vector holding the next step
+  mutable gpu::vector<P> gnext;
+  #endif
 
 protected:
   // vector operations for various RK methods, performed only on the leader rank
@@ -220,7 +233,6 @@ private:
   // workspace vectors
   mutable std::vector<P> k1, k2, k3, k4, s1;
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> gcurrent, gnext;
   mutable gpu::vector<P> gk1, gk2, gk3, gk4, gs1;
   #endif
 };
@@ -281,6 +293,13 @@ struct crank_nicolson
   //! prints the total memory used
   void print_bytes(std::ostream &os = std::cout) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! gpu vector holding the current step
+  mutable gpu::vector<P> gcurrent;
+  //! gpu vector holding the next step
+  mutable gpu::vector<P> gnext;
+  #endif
+
 private:
   time_method method = time_method::cn;
   // the solver used
@@ -291,7 +310,6 @@ private:
   mutable std::vector<P> work;
 
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> gcurrent, gnext;
   mutable gpu::vector<P> gwork;
   #endif
 };
@@ -346,6 +364,13 @@ struct imex_stepper
   //! prints the total memory used
   void print_bytes(std::ostream &os = std::cout) const;
 
+  #ifdef ASGARD_USE_GPU
+  //! gpu vector holding the current step
+  mutable gpu::vector<P> gcurrent;
+  //! gpu vector holding the next step
+  mutable gpu::vector<P> gnext;
+  #endif
+
 private:
   //! fills into R the ode_rhs for the explicit part
   void implicit_solve(discretization_manager<P> const &disc, size_t stage,
@@ -372,7 +397,6 @@ private:
   mutable std::vector<P> f;
 
   #ifdef ASGARD_USE_GPU
-  mutable gpu::vector<P> gcurrent, gnext;
   mutable gpu::vector<P> gf;
   #endif
 };
@@ -406,13 +430,13 @@ struct time_advance_manager
   //! returns whether the manager requires a solver
   bool needs_solver() const {
     return std::visit([&](auto const &s) -> bool {
-                          return std::remove_reference_t<decltype(s)>::needs_solver;
+                          return std::decay_t<decltype(s)>::needs_solver;
                        }, method);
   }
   //! returns the precondtioner required by the solver, if any
   precon_method needed_precon() const {
     return std::visit([&](auto const &s) -> precon_method {
-                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                          if constexpr (std::decay_t<decltype(s)>::needs_solver)
                             return s.needed_precon();
                           else
                             return precon_method::none;
@@ -455,7 +479,7 @@ struct time_advance_manager
   //! returns the count the iterations of the iterative solver, -1 if using a direct solver
   int64_t solver_iterations() const {
     return std::visit([&](auto const &s) -> int64_t {
-                          if constexpr (std::remove_reference_t<decltype(s)>::needs_solver)
+                          if constexpr (std::decay_t<decltype(s)>::needs_solver)
                             return s.num_apply_calls();
                           else
                             return -1;
@@ -478,10 +502,6 @@ struct time_advance_manager
   //! advance to the next time-step
   void next_step(discretization_manager<P> const &dist, gpu::vector<P> const &current,
                  gpu::vector<P> &next) const;
-  //! moves the current step from the CPU to the GPU
-  mutable gpu::vector<P> gcurrent;
-  //! holds the next step compute on the GPU
-  mutable gpu::vector<P> gnext;
   #endif
 };
 

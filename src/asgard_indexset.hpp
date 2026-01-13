@@ -18,6 +18,7 @@ template<typename P>
 class refinement_manager;
 
 /*!
+ * \ingroup asgard_funcdef
  * \brief Wrapper around std::vector, but providing 2d organization of the data.
  *
  * The data is divided into contiguous strips of fixed size.
@@ -111,9 +112,9 @@ public:
       std::cout << '\n';
     }
   }
-  //! \brief Used to push data to the GPU
+  //! \brief Returns the internal vector, used to push data to the GPU
   std::vector<T> const &data_vector() const { return this->data_; }
-  //! \brief (testing) fill the vector with a value
+  //! \brief Fill the vector with a value (mostly for testing purposes)
   void fill(T v) { std::fill(this->data_.begin(), this->data_.end(), v); }
 
 private:
@@ -121,6 +122,8 @@ private:
   int64_t num_strips_ = 0;
   std::vector<T> data_;
 };
+
+#ifndef __ASGARD_DOXYGEN_SKIP
 
 //! \brief Non-owning version of vector2d.
 template<typename T>
@@ -727,5 +730,7 @@ private:
   #endif
   #endif
 };
+
+#endif // __ASGARD_DOXYGEN_SKIP
 
 } // namespace asgard

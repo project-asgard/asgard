@@ -1,10 +1,6 @@
 #pragma once
 
 #include "asgard_domain.hpp"
-#include "asgard_momentset.hpp"
-#include "asgard_quadrature.hpp"
-
-// the quadrature is needed by some of the pdes to perform internal operations
 
 /*!
  * \defgroup asgard_pde_definition ASGarD PDE Definition
@@ -95,129 +91,6 @@ enum class changes_with
   //! assume we must always update on chnge in the time or the solution field
   time
 };
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function
- */
-template<typename P>
-using md_func = std::function<void(P t, vector2d<P> const &, std::vector<P> &)>;
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_func = std::function<void(int64_t const, P, P const[], P[])>;
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with moment dependence
- */
-template<typename P>
-using md_mom_func = std::function<void(P t, vector2d<P> const &, momentset<P> const &moments,
-                                       std::vector<P> &)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with moment dependence on the GPU
- */
-template<typename P>
-using md_gpu_mom_func = std::function<void(int64_t, P t, P const[], momentset_gpu<P> const &moments,
-                                           P vals[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function that accepts an additional field parameter
- */
-template<typename P>
-using md_func_f = std::function<void(P t, vector2d<P> const &x,
-                                     std::vector<P> const &f, std::vector<P> &vals)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function that accepts an additional field parameter
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_func_f = std::function<void(int64_t const, P, P const[], P const[], P[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a GPU non-separable function that accepts an moment and field parameters
- *
- * Using this function requires either CUDA or ROCM support and the arrays will
- * be on the GPU device.
- */
-template<typename P>
-using md_gpu_mom_func_f = std::function<void(int64_t const, P, P const[],
-                                             momentset_gpu<P> const &, P const[], P[])>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Signature for a non-separable function with field and moment parameters
- */
-template<typename P>
-using md_mom_func_f = std::function<void(P t, vector2d<P> const &x,
-                                         momentset<P> const &moments,
-                                         std::vector<P> const &f,
-                                         std::vector<P> &vals)>;
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Source term that depends on the moments
- */
-template<typename P = default_precision>
-struct moment_source {
-  //! create an empty moment source
-  moment_source() = default;
-  //! create a new moment source
-  moment_source(md_mom_func<P> func, std::vector<moment_id> mids)
-      : func_(std::move(func)), mids_(std::move(mids))
-  {
-    rassert(not (!!std::get<md_mom_func<P>>(func_) and mids_.empty()),
-            "providing a moment source must include a non-empty vector of moment_id");
-  }
-  //! create a new moment source
-  moment_source(md_gpu_mom_func<P> func, std::vector<moment_id> mids)
-      : func_(std::move(func)), mids_(std::move(mids))
-  {
-    rassert(not (!!std::get<md_gpu_mom_func<P>>(func_) and mids_.empty()),
-            "providing a moment source must include a non-empty vector of moment_id");
-  }
-  //! call the loaded function
-  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
-                   std::vector<P> &vals) const
-  {
-    expect(std::holds_alternative<md_mom_func<P>>(func_));
-    std::get<md_mom_func<P>>(func_)(t, x, moments, vals);
-  }
-  //! call the loaded function
-  void operator() (int64_t num, P t, P const x[], momentset_gpu<P> const &moments,
-                   P vals[]) const
-  {
-    expect(std::holds_alternative<md_gpu_mom_func<P>>(func_));
-    std::get<md_gpu_mom_func<P>>(func_)(num, t, x, moments, vals);
-  }
-  //! returns true if the function is set to use the gpu
-  bool uses_gpu() const { return std::holds_alternative<md_gpu_mom_func<P>>(func_); }
-  //! check if a function has been set
-  operator bool () const { return not std::holds_alternative<std::monostate>(func_); }
-  //! the callable function
-  std::variant<std::monostate, md_mom_func<P>, md_gpu_mom_func<P>> func_ = std::monostate{};
-  //! the moments used by this function
-  std::vector<moment_id> mids_;
-};
-
-/*!
- * \ingroup asgard_pde_definition
- * \brief Variant for the non-separable source functions
- */
-template<typename P>
-using md_source_var = std::variant<std::monostate, md_func<P>, moment_source<P>, md_gpu_func<P>>;
 
 /*!
  * \ingroup asgard_pde_definition
@@ -971,6 +844,7 @@ struct term_interp {
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
+  //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
@@ -992,12 +866,14 @@ struct left_boundary_flux {
   explicit left_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for left boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for left boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
@@ -1024,12 +900,14 @@ struct right_boundary_flux {
   explicit right_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for right boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for right boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of right_boundary_flux");
@@ -1061,12 +939,14 @@ struct sym_boundary_flux {
   explicit sym_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for symmetric boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit sym_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
+    rassert(f.is_valid(), "invalid separable function for symmetric boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of sym_boundary_flux");
@@ -1127,6 +1007,40 @@ private:
   bf_mode side_ = unset;
   separable_func<P> func_;
   std::array<int, max_num_dimensions> ch_level_;
+};
+
+/*!
+ * \ingroup asgard_pde_definition
+ * \brief Source to be added to the pde_scheme
+ *
+ * This is an optional wrapper that allows syntax of the form
+ * \code
+ *   pde += asgard::source<P>(asgard::separable_func<P>{....});
+ * \endcode
+ */
+template<typename P>
+struct source {
+  //! make a separable source
+  source(separable_func<P> s) : func_(std::move(s)) {
+    rassert(std::get<separable_func<P>>(func_).is_valid(),
+            "invalid separable function for source entry");
+  }
+  //! make an interpolation source
+  source(md_func<P> s) : func_(std::move(s)) {}
+  //! make an interpolation source using a GPU device data
+  source(md_gpu_func<P> s) : func_(std::move(s)) {}
+  //! make an interpolation moment source
+  source(md_mom_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids)) {}
+  //! make an interpolation moment source using a GPU device data
+  source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids)) {}
+
+  //! variant holding all permissible function types
+  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
+               md_gpu_func<P>, md_gpu_mom_func<P>> func_;
+  //! holds the moment ids for moment sources
+  std::vector<moment_id> mids_;
 };
 
 /*!
@@ -1549,7 +1463,7 @@ public:
   //! initialize the pde over the domain
   pde_scheme(prog_opts opts, pde_domain<P> domain)
     : options_(std::move(opts)), domain_(std::move(domain)),
-      mass_(domain_.num_dims()), sources_md_(1)
+      mass_(domain_.num_dims()), sources_md_(1), sources_moments_(1)
   {
     int const numd = domain_.num_dims();
     rassert(numd > 0, "the pde cannot be initialized with an empty domain");
@@ -1645,10 +1559,11 @@ public:
     initial_md_ = std::move(ic_md);
   }
   //! add separable initial condition, can have multiple
-  void add_initial(separable_func<P> ic_md) {
-    rassert(ic_md.num_dims() == domain_.num_dims(),
+  void add_initial(separable_func<P> ic) {
+    rassert(ic.is_valid(), "invalid separable function for initial condition");
+    rassert(ic.num_dims() == domain_.num_dims(),
             "incorrect dimension for separable function added as initial condition");
-    initial_sep_.emplace_back(std::move(ic_md));
+    initial_sep_.emplace_back(std::move(ic));
   }
   //! returns the separable initial conditions
   std::vector<separable_func<P>> const &ic_sep() const { return initial_sep_; }
@@ -1709,24 +1624,50 @@ public:
     sources_md_[idx] = std::move(smd);
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
-  void set_source(moment_source<P> smd) {
-    rassert(smd, "cannot add an empty moment source");
+  void set_source(md_mom_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
             "cannot simultaneously set a moment and non-moment source for the same term group, "
             "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
             "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
 
-    sources_md_[idx] = std::move(smd);
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
+    rassert(smd.is_valid(), "invalid separable function added as source");
+    rassert(smd.num_dims() == domain_.num_dims(), "invalid dimension for the added source");
     sources_sep_.emplace_back(std::move(smd));
   }
-  //! add separable right-hand-source, can have multiple
-  pde_scheme<P> &operator += (separable_func<P> tmd) {
-    this->add_source(std::move(tmd));
+  //! add the source to the pde_scheme
+  pde_scheme<P> & operator += (source<P> src) {
+    std::visit([&, this](auto &&s) {
+          using current_type = std::decay_t<decltype(s)>;
+          if constexpr (uses_moments<current_type>)
+            this->set_source(std::move(s), std::move(src.mids_));
+          else if constexpr (std::is_same_v<current_type, separable_func<P>>)
+            this->add_source(std::move(s));
+          else
+            this->set_source(std::move(s));
+        }, std::move(src.func_));
     return *this;
   }
   //! add collision operator
@@ -1739,7 +1680,7 @@ public:
   separable_func<P> const &source_sep(int i) const { return sources_sep_[i]; }
 
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
-  P cell_size(int dim, int level = -1) const {
+  P cell_size(dimension_id dim, int level = -1) const {
     if (level < 0)
       level = max_level_;
     return domain_.cell_size(dim, level);
@@ -1761,7 +1702,8 @@ public:
     } else { // new group
       finalize_term_groups();
       current_term_group ++;
-      sources_md_.emplace_back(std::monostate{}); // add empty interpolatory source
+      sources_md_.emplace_back(std::monostate{}); // start with no interpolation source for this group
+      sources_moments_.emplace_back(); // start with no moment dependence for this group
       mom_groups.emplace_back();
     }
     return current_term_group;
@@ -1864,8 +1806,10 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  std::vector<md_source_var<P>> sources_md_;
+  //std::vector<md_source_var<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
+  std::vector<md_source_func<P>> sources_md_; // TODO: rename to sources_md_
+  std::vector<std::vector<moment_id>> sources_moments_;
 
   int current_term_group = -1;
   std::vector<irange> term_groups;

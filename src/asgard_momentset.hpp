@@ -6,7 +6,8 @@ namespace asgard
 {
 
 /*!
- * \brief Holds the coefficients for the moments
+ * \ingroup asgard_funcdef
+ * \brief Holds the power coefficients for the moments
  */
 struct moment
 {
@@ -16,7 +17,7 @@ struct moment
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
-  //! creating a placeholder invalid moment
+  //! creating a placeholder (invalid) moment
   moment() : pows{-1, -1, -1} {}
   //! create a 1D moment with the given power
   moment(int pv1) : pows{pv1, -1, -1} {}
@@ -64,7 +65,16 @@ struct moment
   std::array<int, max_mom_dims> pows;
 };
 
-//! strong type for the moment ID
+/*!
+ * \ingroup asgard_funcdef
+ * \brief Strong type for the moment ID
+ *
+ * Wrapper around an int that can be used to access a specific moment from asgard::momentset
+ * and asgard::momentset_gpu
+ *
+ * The moment-id is obtained by calling pde_scheme::register_moment and should be used or created
+ * directly from an int.
+ */
 class moment_id {
 public:
   //! default placeholder id
@@ -84,13 +94,15 @@ public:
   constexpr bool operator != (moment_id const &other) const {
     return not (*this == other);
   }
-  //! unset moment
+  //! unset moment, cannot be used inside asgard::momentset
   static constexpr moment_id unset() { return moment_id{-1}; }
 
 private:
   //! stored value for the ID
   int id_ = unset()();
 };
+
+#ifndef __ASGARD_DOXYGEN_SKIP
 
 /*!
  * \brief Holds the list of moments and manages the ids
@@ -149,7 +161,10 @@ private:
   std::vector<moment> moms_;
 };
 
+#endif
+
 /*!
+ * \ingroup asgard_funcdef
  * \brief Holds the computed moments
  *
  * Stores the data for each moment after it has been computed,
@@ -186,10 +201,15 @@ private:
 
 #ifdef ASGARD_USE_GPU
 /*!
+ * \ingroup asgard_funcdef
  * \brief Holds the computed moments on the GPU
  *
  * Stores the data for each moment after it has been computed,
  * can hold either the hierarchical coefficients or the interpolation values.
+ *
+ * The returned gpu::vector objects work similar to std::vector, they have a .data() method
+ * that returns a raw-pointer to the data and .size() that returns int64_t value.
+ * Individual entries cannot be dereferenced from the CPU.
  */
 template<typename P>
 class momentset_gpu {

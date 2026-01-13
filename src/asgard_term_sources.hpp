@@ -10,31 +10,20 @@ namespace asgard
 template<typename P>
 struct source_entry
 {
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! interior source that is constant in time
-    constant = 0,
-    //! interior source that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! interior source that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
   //! default source entry, must be reinitialized before use
   source_entry() = default;
-  //! create a new source entry
-  source_entry(time_mode mode_in) : tmode(mode_in) {}
+  //! new source entry
+  source_entry(separable_func<P> f) : func(std::move(f)) {}
 
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
   //! resource (GPU/MPI-rank) assigned to this source
   resource rec;
 
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
+  bool is_time_const() const { return func.is_time_const(); }
+  bool is_time_sep() const { return func.is_time_sep(); }
+  bool is_time_non_sep() const { return func.is_time_non_sep(); }
 
   //! if the function is separable or time-dependent, handle the extra data
-  std::variant<std::monostate, scalar_func<P>, separable_func<P>> func;
+  separable_func<P> func;
 
   //! vector for the current grid
   std::vector<P> val;
@@ -68,9 +57,9 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    expect(not uses_gpu());
-    if (std::holds_alternative<moment_source<P>>(func)) {
-      std::get<moment_source<P>>(func)(t, x, moments, vals);
+    expect(not is_gpu());
+    if (std::holds_alternative<md_mom_func<P>>(func)) {
+      std::get<md_mom_func<P>>(func)(t, x, moments, vals);
     } else {
       std::get<md_func<P>>(func)(t, x, vals);
     }
@@ -79,34 +68,29 @@ struct source_entry_interp
   void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                    P vals[]) const
   {
-    expect(uses_gpu());
-    if (std::holds_alternative<moment_source<P>>(func)) {
-      std::get<moment_source<P>>(func)(num, t, x, moments, vals);
+    expect(is_gpu());
+    if (std::holds_alternative<md_gpu_mom_func<P>>(func)) {
+      std::get<md_gpu_mom_func<P>>(func)(num, t, x, moments, vals);
     } else {
       std::get<md_gpu_func<P>>(func)(num, t, x, vals);
     }
   }
-  //! returns the moment source, use only if is_moment()
-  moment_source<P> const &get_mom_md() const { return std::get<moment_source<P>>(func); }
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
-    return std::holds_alternative<moment_source<P>>(func);
-  }
-  //! indicates whether the entry contains a non-moment function
-  bool is_non_moment() const {
-    return std::holds_alternative<md_func<P>>(func)
-           or std::holds_alternative<md_gpu_func<P>>(func);
+    return std::visit([](auto const &v) -> bool {
+        return uses_moments<std::decay_t<decltype(v)>>;
+    }, func);
   }
   //! indicates whether the entry contains a moment function
-  bool uses_gpu() const {
-    return std::holds_alternative<md_gpu_func<P>>(func)
-           or (std::holds_alternative<moment_source<P>>(func)
-               and std::get<moment_source<P>>(func).uses_gpu());
+  bool is_gpu() const {
+    return std::visit([](auto const &v) -> bool {
+        return uses_gpu<std::decay_t<decltype(v)>>;
+    }, func);
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
   //! interpolatory function for the source entry
-  md_source_var<P> func;
+  md_source_func<P> func;
 };
 
 /*!
@@ -116,15 +100,6 @@ struct source_entry_interp
  */
 template<typename P>
 struct boundary_entry {
-  //! mode indicating when to recompute the coefficients
-  enum class time_mode {
-    //! boundary condition that is constant in time
-    constant = 0,
-    //! boundary condition that is separable in time, i.e., constant in space with time multiplier
-    separable,
-    //! boundary condition that is non-separable in time, still separable in space for fixed time
-    time_dependent
-  };
   //! default source entry, must be reinitialized before use
   boundary_entry() = default;
   //! create a new source entry
@@ -132,19 +107,16 @@ struct boundary_entry {
   //! defines the flux, moved out of the term
   boundary_flux<P> flux;
 
-  //! when should we recompute the sources and when can we reuse existing data
-  time_mode tmode = time_mode::constant;
+  bool is_time_const() const { return flux.func().is_time_const(); }
+  bool is_time_sep() const { return flux.func().is_time_sep(); }
+  bool is_time_non_sep() const { return flux.func().is_time_non_sep(); }
 
-  bool is_constant() const { return tmode == time_mode::constant; }
-  bool is_separable() const { return tmode == time_mode::separable; }
-  bool is_time_dependent() const { return tmode == time_mode::time_dependent; }
-
-  //! the term associated with this boundary entry
-  int term_index = -1;
   //! vector for the current grid
   std::vector<P> val;
   //! constant components of the source vector
   std::array<std::vector<P>, max_num_dimensions> consts;
+  //! the term associated with this boundary entry
+  int term_index = -1;
   //! index if lumped with other sources
   int ilump = -1;
 

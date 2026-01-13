@@ -72,7 +72,7 @@ asgard::pde_scheme<P> make_sod(int vdims, asgard::prog_opts options) {
   options.title = "Sod shock 1x" + std::to_string(vdims) + "v";
 
   // get the collision frequency
-  P const nu = options.extra_cli_value_group<P>({"-nu", "-collision_freq"}).value_or(2.0);
+  P const nu = options.extra_cli_value_group<P>({"-nu", }).value_or(2.0);
   options.subtitle = "collision frequency: " + std::to_string(nu);
 
   std::vector<asgard::domain_range> ranges;

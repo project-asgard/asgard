@@ -24,9 +24,9 @@ void steady_state<P>::next_step(
 
   #if defined(ASGARD_USE_GPU)
   gcurrent = current;
-  gendstep.resize(gcurrent.size());
-  next_step(disc, gcurrent, gendstep);
-  gendstep.copy_to_host(endstep);
+  gnext.resize(gcurrent.size());
+  next_step(disc, gcurrent, gnext);
+  gnext.copy_to_host(endstep);
   return;
   #endif
 
@@ -873,8 +873,13 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   #ifdef ASGARD_USE_GPU
   // in GPU mode, move the data to the device and do not move back until the end
   // exception is made only when using refinement
-  gpu::vector<P> &current = stepper.gcurrent;
-  gpu::vector<P> &next    = stepper.gnext;
+  gpu::vector<P> &current = std::visit([&](auto &st) -> gpu::vector<P> & {
+      return st.gcurrent;
+    }, stepper.method);
+
+  gpu::vector<P> &next = std::visit([&](auto &st) -> gpu::vector<P> & {
+      return st.gnext;
+    }, stepper.method);
 
   current = manager.state;
 

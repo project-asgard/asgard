@@ -162,7 +162,7 @@ asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
                                             [](P t)->P{ return std::exp(-t); });
     // setting the boundary condition for theta
     boundary_func.set(asgard::dimension_id{1},
-        [&](std::vector<P> const &th, P, std::vector<P> &fth)
+        [&](std::vector<P> const &th, std::vector<P> &fth)
               -> void {
               for (size_t i = 0; i < th.size(); i++)
                 fth[i] = std::cos(th[i]);
@@ -200,12 +200,12 @@ asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
   }
 
   // source function
-  auto source_r_dr = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
+  auto source_r_dr = [=](std::vector<P> const &r, std::vector<P> &fr) {
     #pragma omp parallel for
     for (size_t i = 0; i < r.size(); i++)
       fr[i] = P{4} * r[i] * r[i] * std::sin(r[i]);
   };
-  auto source_th_dtheta = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
+  auto source_th_dtheta = [=](std::vector<P> const &th, std::vector<P> &fth) {
     #pragma omp parallel for
     for (size_t i = 0; i < th.size(); i++)
       fth[i] = std::cos(th[i]) * std::sin(th[i]);
@@ -217,12 +217,12 @@ asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
   pde.add_source(source);
 
   // exact solution
-  auto exact_r = [=](std::vector<P> const &r, P /*time*/, std::vector<P> &fr) {
+  auto exact_r = [=](std::vector<P> const &r, std::vector<P> &fr) {
     #pragma omp parallel for
     for (size_t i = 0; i < r.size(); i++)
       fr[i] = dr(r[i]) * r[i] * std::cos(r[i]);
   };
-  auto exact_th = [=](std::vector<P> const &th, P /*time*/, std::vector<P> &fth) {
+  auto exact_th = [=](std::vector<P> const &th, std::vector<P> &fth) {
     #pragma omp parallel for
     for (size_t i = 0; i < th.size(); i++)
       fth[i] = dtheta(th[i]) * std::cos(th[i]);

@@ -188,16 +188,19 @@ void hierarchy_manipulator<P>::project_separable(
   for (int d : iindexof(num_dims))
   {
     if (sep.is_const(dimension_id{d})) {
-      project1d_c(sep.cdomain(dimension_id{d}), mass[d], d, grid.current_level(d), pf[d]);
+      project1d_c(sep.const_at(dimension_id{d}), mass[d], d, grid.current_level(d), pf[d]);
     } else {
       project1d_f([&](std::vector<P> const &x, std::vector<P> &fx)
           -> void {
-        sep.fdomain(dimension_id{d}, x, time, fx);
+        if (sep.is_fixed(dimension_id{d}))
+          sep.fixed_at(dimension_id{d})(x, fx);
+        else
+          sep.time_dep_at(dimension_id{d})(x, time, fx);
       }, mass[d], d, grid.current_level(d), pf[d]);
     }
   }
 
-  P const tmult = (sep.ftime()) ? sep.ftime()(time) : P{1};
+  P const tmult = sep.time_at(time);
 
   int const pdof = degree_ + 1;
 

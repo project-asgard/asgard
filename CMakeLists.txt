@@ -396,7 +396,9 @@ endif()
 
 target_compile_features (libasgard PUBLIC cxx_std_17)
 
-#  components
+# components, each component "comp" may have a header asgard_component.hpp,
+# a source asgard_component.cpp and a test file asgard_component_tests.hpp
+# all of those are optional, e.g., if header only or testing is done elsewhere
 set(asgard_components
     blas
     block_matrix
@@ -405,6 +407,7 @@ set(asgard_components
     compute_cpu
     discretization
     domain
+    function_defs
     grid_1d
     indexset
     interp

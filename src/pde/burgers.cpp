@@ -320,7 +320,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
         };
 
       // setting the non-separable source into the pde_scheme
-      pde.set_source(smd);
+      pde += asgard::source<P>(smd);
 
       // second order term in x
       asgard::term_1d<P> div_grad_x = std::vector<asgard::term_1d<P>>{
@@ -335,7 +335,7 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
       // adding inhomogeneous boundary condition on the right
       asgard::separable_func<P> fr(std::vector<P>{icx(pde.domain().xright(0)), 1}, exact_t);
       fr.set(asgard::dimension_id{1},
-             [=](std::vector<P> const &y, P, std::vector<P> &fy) ->
+             [=](std::vector<P> const &y, std::vector<P> &fy) ->
                 void {
                   for (size_t i = 0; i < y.size(); i++)
                     fy[i] = icy(y[i]);
@@ -361,12 +361,12 @@ asgard::pde_scheme<P> make_burgers_pde(int num_dims, asgard::prog_opts options) 
     }
 
     // the vector version of the initial conditions
-    auto icx_vec = [=](std::vector<P> const &x, P, std::vector<P> &fx)
+    auto icx_vec = [=](std::vector<P> const &x, std::vector<P> &fx)
       -> void {
         for (size_t i = 0; i < x.size(); i++)
           fx[i] = icx(x[i]);
       };
-    auto icy_vec = [=](std::vector<P> const &y, P, std::vector<P> &fy)
+    auto icy_vec = [=](std::vector<P> const &y, std::vector<P> &fy)
       -> void {
         for (size_t i = 0; i < y.size(); i++)
           fy[i] = icy(y[i]);

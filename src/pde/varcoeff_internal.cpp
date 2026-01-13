@@ -56,7 +56,7 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
     term_1d<P> div = term_div<P>(expneg, boundary_type::left);
     pde += {div, };
 
-    auto cospi2 = vectorize_t<P>([](P x)->P{ return std::cos(0.5 * PI * x); });
+    auto cospi2 = vectorize<P>([](P x)->P{ return std::cos(0.5 * PI * x); });
 
     separable_func<P> exact({cospi2, }, cos_s);
     pde.add_initial(exact);
@@ -64,9 +64,9 @@ pde_scheme<P> make_var_pde(int num_dims, asgard::prog_opts options) {
     // add the time derivative
     pde.add_source({{cospi2, }, dcos_s});
 
-    pde.add_source({{vectorize_t<P>([](P x)->P{ return -std::exp(-x) * std::cos(0.5 * PI * x); }), },
+    pde.add_source({{vectorize<P>([](P x)->P{ return -std::exp(-x) * std::cos(0.5 * PI * x); }), },
                    cos_s});
-    pde.add_source({{vectorize_t<P>([](P x)->P{ return -0.5 * PI * std::exp(-x) * std::sin(0.5 * PI * x); }), },
+    pde.add_source({{vectorize<P>([](P x)->P{ return -0.5 * PI * std::exp(-x) * std::sin(0.5 * PI * x); }), },
                    cos_s});
   }
 

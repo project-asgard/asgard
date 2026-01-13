@@ -72,7 +72,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
     separable_func<P> ic(ic_vec); // separable initial conditions
 
     dimension_id const v1{xdims};
-    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = -1.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -82,7 +82,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
       });
     pde.add_initial(ic);
 
-    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr ux    = 2.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -100,7 +100,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
 
     dimension_id const v1{xdims};
     dimension_id const v2{xdims + 1};
-    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -108,7 +108,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set(v2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v2, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -118,7 +118,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
       });
     pde.add_initial(ic);
 
-    ic.set(v1, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v1, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -126,7 +126,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       });
-    ic.set(v2, [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    ic.set(v2, [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -140,7 +140,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
   {
     P constexpr xc = 1.0 / 3.0;
 
-    auto max3 = [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    auto max3 = [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 3.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);
@@ -148,7 +148,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
         for (size_t i = 0; i < v.size(); i++)
           fv[i] = c * std::exp(-(0.5 / theta) * (v[i] - u) * (v[i] - u));
       };
-    auto max0 = [](std::vector<P> const &v, P, std::vector<P> &fv) -> void {
+    auto max0 = [](std::vector<P> const &v, std::vector<P> &fv) -> void {
         P constexpr theta = 0.5;
         P constexpr u     = 0.0;
         P const c         = 1.0 / std::sqrt(2.0 * PI * theta);

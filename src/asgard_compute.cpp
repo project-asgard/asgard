@@ -96,7 +96,7 @@ __signleton_compute_resources::__signleton_compute_resources() {
   set_device(gpu::device{0}); // the default thread works on GPU device 0
   #endif
   #ifdef ASGARD_USE_CUDA
-  cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
+  asgard_cuda_check_error( cudaGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "CUDA is enabled but there are no visible CUDA devices, maybe a driver problem");
   // TODO: give GPU direct access to one-another's resources
@@ -105,11 +105,11 @@ __signleton_compute_resources::__signleton_compute_resources() {
     // if using shared memory, this leads to bad performance,
     // if a kernel is not using shared memory, then this has no effect
     // compute->set_device(gpu::device{g});
-    // cuda_check_error( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
+    // asgard_cuda_check_error( cudaDeviceSetCacheConfig(cudaFuncCachePreferL1) );
   }
   #endif
   #ifdef ASGARD_USE_ROCM
-  rocm_check_error( hipGetDeviceCount(&num_gpus_) );
+  asgard_rocm_check_error( hipGetDeviceCount(&num_gpus_) );
   num_gpus_ = std::min(num_gpus_, max_num_gpus);
   rassert(has_gpu(), "ROCM is enabled but there are no visible ROCM devices, maybe a driver problem");
   #endif
@@ -191,20 +191,20 @@ void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<
 
   int lwork = 0;
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
+    asgard_cusolver_check_error( cusolverDnDgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
   } else {
-    cusolver_check_error( cusolverDnSgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
+    asgard_cusolver_check_error( cusolverDnSgetrf_bufferSize(blas_, M, M, A.data(), M, &lwork) );
   }
 
   gpu::vector<P> workspace(lwork);
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrf(blas_, M, M, A.data(), M,
-                                           workspace.data(), ipiv.data(), gpu_info.data()) );
+    asgard_cusolver_check_error( cusolverDnDgetrf(blas_, M, M, A.data(), M,
+                                                  workspace.data(), ipiv.data(), gpu_info.data()) );
   } else {
-    cusolver_check_error( cusolverDnSgetrf(blas_, M, M, A.data(), M,
-                                           workspace.data(), ipiv.data(), gpu_info.data()) );
+    asgard_cusolver_check_error( cusolverDnSgetrf(blas_, M, M, A.data(), M,
+                                                  workspace.data(), ipiv.data(), gpu_info.data()) );
   }
 
   int info = 0;
@@ -236,11 +236,11 @@ void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    cusolver_check_error( cusolverDnDgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
-                                           ipiv.data(), b, M, gpu_info.data()) );
+    asgard_cusolver_check_error( cusolverDnDgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
+                                                  ipiv.data(), b, M, gpu_info.data()) );
   } else {
-    cusolver_check_error( cusolverDnSgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
-                                           ipiv.data(), b, M, gpu_info.data()) );
+    asgard_cusolver_check_error( cusolverDnSgetrs(blas_, CUBLAS_OP_N, M, 1, A.data(), M,
+                                                  ipiv.data(), b, M, gpu_info.data()) );
   }
 }
 #endif
@@ -256,11 +256,11 @@ void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A,
   gpu::vector<gpu::direct_int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    rocblas_check_error( rocsolver_dgetrf(blas_, M, M, A.data(), M,
-                                          ipiv.data(), gpu_info.data()) );
+    asgard_rocblas_check_error( rocsolver_dgetrf(blas_, M, M, A.data(), M,
+                                                 ipiv.data(), gpu_info.data()) );
   } else {
-    rocblas_check_error( rocsolver_sgetrf(blas_, M, M, A.data(), M,
-                                          ipiv.data(), gpu_info.data()) );
+    asgard_rocblas_check_error( rocsolver_sgetrf(blas_, M, M, A.data(), M,
+                                                 ipiv.data(), gpu_info.data()) );
   }
 
   int info = gpu_info.copy_to_host()[0];
@@ -287,11 +287,11 @@ void __signleton_compute_resources::getrs(
   gpu::vector<int> gpu_info(1);
 
   if constexpr (is_double<P>) {
-    rocblas_check_error( rocsolver_dgetrs(
+    asgard_rocblas_check_error( rocsolver_dgetrs(
         blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
         ipiv.data(), b, M) );
   } else {
-    rocblas_check_error( rocsolver_sgetrs(
+    asgard_rocblas_check_error( rocsolver_sgetrs(
         blas_, rocblas_operation_none, M, 1, const_cast<P*>(A.data()), M,
         ipiv.data(), b, M) );
   }

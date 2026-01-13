@@ -121,7 +121,7 @@ asgard::pde_scheme<P> make_robin_pde(asgard::prog_opts options) {
     dxx.set_left_robin(left);
     dxx.set_right_robin(right);
 
-    double const inv_dx = 1.0 / pde.cell_size(0);
+    double const inv_dx = 1.0 / pde.cell_size(asgard::dimension_id{0});
     dxx.set_penalty(inv_dx);
 
     pde += asgard::term_md<P>{{dxx, }};
@@ -134,7 +134,7 @@ asgard::pde_scheme<P> make_robin_pde(asgard::prog_opts options) {
     pde += asgard::term_md<P>{{robin, }};
 
     // we also need a penalty term
-    P const inv_dx = 1.0 / pde.cell_size(0);
+    P const inv_dx = 1.0 / pde.cell_size(asgard::dimension_id{0});
     asgard::term_1d<P> pen = asgard::term_penalty<P>{inv_dx, asgard::boundary_type::none};
     pde += asgard::term_md<P>{{pen, }};
   }

@@ -172,27 +172,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                                           ? (tt.tmd.dim(d).num_chain() - 1) : 0;
         }
       }
-      if (bcs.back().flux.func().ignores_time()) {
-        bcs.back().tmode = boundary_entry<P>::time_mode::constant;
-      } else {
-        if (bcs.back().flux.func_.ftime()) {
-          if (bcs.back().flux.func_.cdomain(dimension_id{fdim}) == 0) {
-            // using dependent term in the flux-dimension, cannot depend on space
-            // therefore it must depend on time
-            bcs_have_time_dep = true;
-            bcs.back().tmode  = boundary_entry<P>::time_mode::time_dependent;
-            for (int d : iindexof(num_dims)) {
-              rassert(not tt.tmd.dim(d).is_chain(),
-                      "cannot use non-separable in time boundary conditions with 1d-chains, "
-                      "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
-                      "data cannot be pre-computed, an md-chain must be used instead");
-            }
-          } else {
-            bcs.back().tmode = boundary_entry<P>::time_mode::separable;
-          }
-        } else {
-          // fdim is constant, but the other dirs are non-separable
-          bcs.back().tmode = boundary_entry<P>::time_mode::separable;
+      if (bcs.back().is_time_non_sep()) { // non-separable in time
+        bcs_have_time_dep = true;
+        for (int d : iindexof(num_dims)) {
+          rassert(not tt.tmd.dim(d).is_chain(),
+                  "cannot use non-separable in time boundary conditions with 1d-chains, "
+                  "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
+                  "data cannot be pre-computed, an md-chain must be used instead");
         }
       }
     }
@@ -228,39 +214,35 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (s.num_dims() == 0)
         continue;
 
-      if (s.ignores_time() or s.ftime()) {
-        // using constant entry
-        if (s.ignores_time()) {
-          sources.emplace_back(source_entry<P>::time_mode::constant);
-          sources.back().func = std::monostate{}; // no need for a func
-        } else {
-          sources.emplace_back(source_entry<P>::time_mode::separable);
-          sources.back().func = s.ftime();
-        }
+      sources.emplace_back(std::move(s));
+
+      if (sources.back().is_time_non_sep())
+      {
+        sources_have_time_dep = true;
+      }
+      else
+      {
+        expect(sources.back().is_time_const() or sources.back().is_time_sep());
 
         for (int d : iindexof(num_dims)) {
-          if (s.is_const(dimension_id{d})) {
+          if (sources.back().func.is_const(dimension_id{d})) {
             sources.back().consts[d]
-                = hier.get_project1d_c(s.cdomain(dimension_id{d}), mass[d], d, max_level);
+                = hier.get_project1d_c(s.const_at(dimension_id{d}), mass[d], d, max_level);
           } else {
+            expect(sources.back().func.is_fixed(dimension_id{d}));
             sources.back().consts[d] = hier.get_project1d_f(
                 [&](std::vector<P> const &x, std::vector<P> &y)->
                   void {
-                    s.fdomain(dimension_id{d}, x, 0, y);
+                    sources.back().func.fixed_at(dimension_id{d})(x, y);
                   },
                 mass[d], d, max_level);
           }
           #ifdef ASGARD_USE_GPU
-          // TODO: mult-GPU logic
+          compute->set_device(gpu::device{sources.back().rec.device});
           sources.back().gpu_consts[d] = sources.back().consts[d];
+          compute->set_device(gpu::device{0});
           #endif
         }
-
-      } else {
-        // non-separable in time
-        sources_have_time_dep = true;
-        sources.emplace_back(source_entry<P>::time_mode::time_dependent);
-        sources.back().func = std::move(s);
       }
     }
   }
@@ -278,13 +260,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     {
       if (not resources.owns(src.rec))
         return false;
-      return (not src.is_time_dependent());
+      return (not src.is_time_non_sep());
     };
   auto is_active_bc = [&, this](boundary_entry<P> const &bc) -> bool
     {
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      return (not bc.is_time_dependent());
+      return (not bc.is_time_non_sep());
     };
 
   for (auto const &src : sources)
@@ -444,10 +426,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = src.get_mom_md().mids_;
+      auto const &mids = pde.sources_moments_[gid];
       insert(mids, gpu_moms[src.rec.device][gid]);
       insert(mids, all_interp[gid]);
-      if (not src.uses_gpu())
+      if (not src.is_gpu())
         insert(mids, cpu_interp[gid]);
     }
 
@@ -539,7 +521,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src or not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = src.get_mom_md().mids_;
+      auto const &mids = pde.sources_moments_[gid];
       insert(mids, regular[gid]);
       insert(mids, intp[gid]);
     }
@@ -769,7 +751,9 @@ void term_manager<P>::rebuild_term1d(
       // will be empty if non-flux direction and non-separable in time
       hier.transform(level, bentry.consts[dim]);
       #ifdef ASGARD_USE_GPU
+      compute->set_device(gpu::device{terms[bentry.term_index].rec.device});
       bentry.gpu_consts[dim] = bentry.consts[dim];
+      compute->set_device(gpu::device{0});
       #endif
     }
   }
@@ -920,7 +904,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
-          P const fc = bentry.flux.func().cdomain(dimension_id{d});
+          P const fc = bentry.flux.func().const_at(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, basis.leg_left, bentry.consts[d].data());
@@ -935,7 +919,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
-          P const fc = bentry.flux.func().cdomain(dimension_id{d});
+          P const fc = bentry.flux.func().const_at(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, basis.leg_right,
@@ -950,7 +934,7 @@ void term_manager<P>::build_raw_mat(
           bmass->solve(pdof, bentry.consts[d]);
 
       } else {
-        if (bentry.is_time_dependent()) // no constant components to pre-compute
+        if (bentry.is_time_non_sep()) // no constant components to pre-compute
           continue;
 
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
@@ -958,22 +942,22 @@ void term_manager<P>::build_raw_mat(
         if (bentry.flux.func().is_const(dimension_id{d})) {
           if (t1d.rhs()) { // constant times spatially variable
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
-                                             bentry.flux.func().cdomain(dimension_id{d}), raw_rhs.vals);
+                                             bentry.flux.func().const_at(dimension_id{d}), raw_rhs.vals);
           } else { // constant times a constant
             P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
             bentry.consts[d] = basis.project(level, dsqr,
-                                             bentry.flux.func().cdomain(dimension_id{d}) * rconst);
+                                             bentry.flux.func().const_at(dimension_id{d}) * rconst);
           }
         } else {
           if (t1d.rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
-            bentry.flux.func().fdomain(dimension_id{d}, raw_rhs.pnts, 0, f);
+            bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, f);
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
           } else {
             // need function values, rhs is a constant
             basis.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
-            bentry.flux.func().fdomain(dimension_id{d}, raw_rhs.pnts, 0, raw_rhs.vals);
+            bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, raw_rhs.vals);
             bool constexpr use_interior = true;
             bentry.consts[d] = basis.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
           }
@@ -1166,7 +1150,7 @@ void term_manager<P>::rebuld_chain(
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
     if (bentry.flux.is_left()) {
-      P const fc = bentry.flux.func().cdomain(dimension_id{d});
+      P const fc = bentry.flux.func().const_at(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, -scale, basis.leg_left, dest);
       } else {
@@ -1175,7 +1159,7 @@ void term_manager<P>::rebuld_chain(
     }
 
     if (bentry.flux.is_right()) {
-      P const fc = bentry.flux.func().cdomain(dimension_id{d});
+      P const fc = bentry.flux.func().const_at(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, scale, basis.leg_right, dest + num_entries - pdof);
       } else {
@@ -1319,7 +1303,7 @@ void term_manager<P>::assign_compute_resources()
 
       for (auto is : sgroup) {
         auto const &src = sources[is];
-        if (src.is_time_dependent())
+        if (src.is_time_non_sep())
           work.emplace_back(work_amount{static_cast<float>(num_dims)}, is);
         else
           work.emplace_back(work_amount{0.1f}, is);

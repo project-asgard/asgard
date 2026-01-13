@@ -181,7 +181,7 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
   }
 
   // defining the separable known solution
-  auto exp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto exp_1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       // given values in x, must populate fx with the corresponding values
       assert(fx.size() == x.size()); // this is guaranteed, do NOT resize fx
@@ -195,7 +195,7 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
   auto nexp_t = [](P t) -> P { return 1 - std::exp(-t); };
 
   // the derivatives, d/dx sin(x) = cos(x) and d/dx cos(t) = -sin(t)
-  auto ddexp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto ddexp_1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = - (4 * x[i] * x[i] - 2) * std::exp(1 - x[i] * x[i]);
@@ -205,21 +205,21 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
   auto exp_t = [](P t) -> P { return std::exp(-t); };
 
   // multidimensional product of functions, initializing to just cos(x)
-  std::vector<asgard::svector_func1d<P>> exp_md(num_dims, exp_1d);
+  std::vector<asgard::sfixed_func1d<P>> exp_md(num_dims, exp_1d);
 
   // this is the exact solution
   asgard::separable_func<P> exact(exp_md, nexp_t);
 
   // no-initial condition implies zero as the initial condition
 
-  // setting up the sources
-  pde.add_source({exp_md, exp_t}); // derivative in time
+  // setting up the sources, derivative in time
+  pde += asgard::source<P>({exp_md, exp_t});
 
   // compute the spacial derivatives
   for (int d = 0; d < num_dims; d++)
   {
     exp_md[d] = ddexp_1d; // set derivative in x for direction d
-    pde.add_source({exp_md, nexp_t});
+    pde += asgard::source<P>({exp_md, nexp_t});
     exp_md[d] = exp_1d; // revert to the original value
   }
 
@@ -261,7 +261,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   int const num_dims = disc.num_dims();
 
   // setting the exact solution so we can project onto the basis
-  auto exp_1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+  auto exp_1d = [](std::vector<P> const &x, std::vector<P> &fx) ->
     void {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < static_cast<int64_t>(x.size()); i++)
@@ -270,7 +270,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   auto nexp_t = [](P t) -> P { return 1 - std::exp(-t); };
 
   asgard::separable_func<P> exact(
-      std::vector<asgard::svector_func1d<P>>(num_dims, exp_1d), nexp_t);
+      std::vector<asgard::sfixed_func1d<P>>(num_dims, exp_1d), nexp_t);
 
   std::vector<P> const eref = disc.project_function({exact, });
 
