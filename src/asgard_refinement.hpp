@@ -41,9 +41,21 @@ public:
   void refine(connection_patterns const &conns, term_manager<P> const &terms,
               std::vector<P> const &state, strategy mode, sparse_grid &grid) const
   {
+    expect(not weights_.is_gpu());
     if (atol != -1)
       refine_(conns, terms, state, mode, grid);
   }
+
+  #ifdef ASGARD_USE_GPU
+  //! refine the sparse_grid using GPU data
+  void refine(connection_patterns const &conns, term_manager<P> const &terms,
+              gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
+  {
+    expect(not weights_.is_gpu());
+    if (atol != -1)
+      refine_(conns, terms, state, mode, grid);
+  }
+  #endif
 
   //! returns true if a refinement tolerance has been set
   operator bool() const { return (atol > 0 or rtol > 0); }
@@ -57,6 +69,12 @@ private:
   //! if no-refinement is set, the public method will have an inline if-statement
   void refine_(connection_patterns const &conns, term_manager<P> const &terms,
                std::vector<P> const &state, strategy mode, sparse_grid &grid) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! if no-refinement is set, the public method will have an inline if-statement
+  void refine_(connection_patterns const &conns, term_manager<P> const &terms,
+               gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const;
+  #endif
 
   //! absolute tolerance, -1 indicates not using refinement
   P atol = -1;
@@ -81,14 +99,35 @@ private:
       expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
       std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
     }
+    //! interpolation weights on the gpu using only the field
+    void interp(int64_t const num, P t, P const x[], P const f[], P vals[]) const {
+      expect(std::holds_alternative<md_gpu_func_f<P>>(interp_));
+      std::get<md_gpu_func_f<P>>(interp_)(num, t, x, f, vals);
+    }
+    //! interpolation weights on the gpu using the field and moments
+    void interp(int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
+                P const f[], P vals[]) const {
+      expect(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
+      std::get<md_gpu_mom_func_f<P>>(interp_)(num, t, x, moments, f, vals);
+    }
     //! indicates whether the weights use moments
-    bool uses_moment() const {
-      return std::holds_alternative<md_mom_func_f<P>>(interp_);
+    bool is_moment() const {
+      return std::visit([](auto const &v) -> bool {
+          using current_type = std::decay_t<decltype(v)>;
+          return uses_moments<current_type>;
+        }, interp_);
+    }
+    //! indicates whether the weights use moments
+    bool is_gpu() const {
+      return std::visit([](auto const &v) -> bool {
+          using current_type = std::decay_t<decltype(v)>;
+          return uses_gpu<current_type>;
+        }, interp_);
     }
     //! indicates whether a refinement weight was set
     operator bool () const { return (not std::holds_alternative<std::monostate>(interp_)); }
     //! holds the interpolation weight variant
-    std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> interp_;
+    md_field_func<P> interp_;
   };
 
   interp_weights weights_;

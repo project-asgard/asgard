@@ -96,14 +96,14 @@ void refinement_manager<P>::refine_(
 
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
-    if (not weights_.uses_moment()) {
+    if (not weights_.is_moment()) {
       iplan.use_moments(false);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
                    1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
 
-    if (weights_.uses_moment()) {
+    if (weights_.is_moment()) {
       terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
       iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
@@ -114,6 +114,23 @@ void refinement_manager<P>::refine_(
 
   grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
 }
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void refinement_manager<P>::refine_(
+    connection_patterns const &conns, term_manager<P> const &terms,
+    gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
+{
+  ignore(conns);
+  ignore(terms);
+  ignore(state);
+  ignore(grid);
+  ignore(mode);
+
+  // TODO: handle the GPU interpolation moment calculations
+  //       - later add an option to do this without the function values, i.e., using source signatures
+}
+#endif
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class refinement_manager<double>;

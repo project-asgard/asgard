@@ -1615,6 +1615,8 @@ public:
   }
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_gpu_func<P> smd) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU source requires a GPU backend enabled with eithe CUDA or ROCM");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
@@ -1639,6 +1641,8 @@ public:
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU source requires a GPU backend enabled with eithe CUDA or ROCM");
     rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
@@ -1759,7 +1763,27 @@ public:
     ref_interp_ = std::move(func);
   }
   //! set an interpolation function for adaptivity
+  void set_adapt_weight(md_gpu_func_f<P> func) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU adapt weight requires a GPU backend enabled with eithe CUDA or ROCM");
+    has_interp_funcs = true;
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    ref_interp_ = std::move(func);
+  }
+  //! set an interpolation function for adaptivity
   void set_adapt_weight(md_mom_func_f<P> func, std::vector<moment_id> moments) {
+    rassert(not moments.empty(), "moment function requires moments");
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    has_interp_funcs = true;
+    ref_interp_  = std::move(func);
+    ref_moments_ = std::move(moments);
+  }
+  //! set an interpolation function for adaptivity
+  void set_adapt_weight(md_gpu_mom_func_f<P> func, std::vector<moment_id> moments) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU adapt weight requires a GPU backend enabled with eithe CUDA or ROCM");
     rassert(not moments.empty(), "moment function requires moments");
     rassert(std::holds_alternative<std::monostate>(ref_interp_),
             "set_adapt_weight() already called, cannot set two different adapt weights");
@@ -1806,9 +1830,8 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  //std::vector<md_source_var<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
-  std::vector<md_source_func<P>> sources_md_; // TODO: rename to sources_md_
+  std::vector<md_source_func<P>> sources_md_;
   std::vector<std::vector<moment_id>> sources_moments_;
 
   int current_term_group = -1;
@@ -1821,7 +1844,7 @@ private:
   std::vector<moments_list> mom_groups;
   moments_list mlist;
 
-  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> ref_interp_;
+  md_field_func<P> ref_interp_;
   std::vector<moment_id> ref_moments_;
 };
 
