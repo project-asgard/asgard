@@ -521,7 +521,7 @@ class sparse_grid
 {
 public:
   //! marks the status of a sparse grid multi-index (cell)
-  enum class istatus {
+  enum class istatus : int {
     //! keep this index
     keep,
     //! refine this index, i.e., include the hierarchical descendants
