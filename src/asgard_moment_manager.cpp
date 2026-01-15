@@ -766,18 +766,8 @@ void moment_manager<P>::set_moment_distribution(
 }
 
 template<typename P>
-void moment_manager<P>::compute_moments(
-    group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &kwork, std::array<gpu::vector<P>, max_num_gpus> &work1,
-    std::array<gpu::vector<P>, max_num_gpus> &work2, gpu::vector<P> const &state) const
+void moment_manager<P>::prepare_pos_grid_gpu(group_id group, sparse_grid const &grid) const
 {
-  static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
-  // when doing multiple GPUs, spread the state before computing moments
-  // which will also allow to avoid the spread when doing term-apply
-
-  tools::time_event performance_((group == group_id::all()) ?
-      "compute moments gpu" : "compute moments (" + std::to_string(group()) + ") gpu");
-
   if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
     switch (pos_grid.num_dims()) {
     case 1:
@@ -805,6 +795,19 @@ void moment_manager<P>::compute_moments(
       }
     }
   }
+}
+
+template<typename P>
+void moment_manager<P>::compute_moments(
+    group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+    kronmult::workspace<P> &kwork, std::array<gpu::vector<P>, max_num_gpus> &work1,
+    std::array<gpu::vector<P>, max_num_gpus> &work2, gpu::vector<P> const &state) const
+{
+  static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
+  // when doing multiple GPUs, spread the state before computing moments
+  // which will also allow to avoid the spread when doing term-apply
+
+  prepare_pos_grid_gpu(group, grid);
 
   int64_t const num_entries = pos_block * pos_grid.num_indexes();
 
@@ -878,6 +881,68 @@ void moment_manager<P>::compute_moments(
 
       if (im->interp_on_cpu()) res.copy_to_host(interps[im->mid]);
     }
+  }
+}
+
+template<typename P>
+void moment_manager<P>::compute_moments(
+    std::vector<moment_id> const &mids, sparse_grid const &grid,
+    interpolation_manager<P> const &interp, kronmult::workspace<P> &kwork,
+    std::array<gpu::vector<P>, max_num_gpus> &work1,
+    std::array<gpu::vector<P>, max_num_gpus> &work2,
+    gpu::vector<P> const &state, bool result_to_cpu) const
+{
+  static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
+  // when doing multiple GPUs, spread the state before computing moments
+  // which will also allow to avoid the spread when doing term-apply
+
+  prepare_pos_grid_gpu(group_id::all(), grid);
+
+  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+
+  compute->set_device(gpu::device{0});
+  expect(work1[0].size() >= num_entries);
+  // using work[g] as workspace without resizing
+  gpu::wrap_array<P> w1(work1[0].data(), num_entries);
+
+  // perform work for all moments from im to iend
+  for (auto im : mids)
+  {
+    moment const mom = mlist[im]; // using this to get the necessary powers
+
+    std::array<P const *, max_mom_dims> itg =
+      {gpu_integ[0][0].data() + mom.pows[0] * integ[0].stride(), nullptr, nullptr};
+    for (int i = 1; i < num_vel_; i++)
+      itg[i] = gpu_integ[0][i].data() + mom.pows[i] * integ[i].stride();
+
+    bool allzero = all_levels_zero;
+    std::array<bool, max_mom_dims> lzero;
+    if (not allzero) {
+      for (int d = 0; d < max_mom_dims; d++)
+        lzero[d] = (pdof > mom[d]);
+      allzero = lzero[0] and lzero[1] and lzero[2]; // assuming only 3 entries
+    }
+
+    if (allzero) {
+      moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[0],
+                         itg, state, w1.vec);
+    } else {
+      moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
+                    lzero, grid.gpu_indexes(), reduce_ij[0], itg, state, w1.vec);
+    }
+
+    // now we have to compute the interpolation
+    expect(work2[0].size() >= num_entries);
+    gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+
+    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+
+    gpu::vector<P> &res = gpu_interps[0][im];
+    res.resize(full_block * grid.num_indexes());
+
+    moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+
+    if (result_to_cpu) res.copy_to_host(interps[im]);
   }
 }
 #endif

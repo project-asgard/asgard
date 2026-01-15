@@ -155,6 +155,13 @@ public:
   {
     compute_moments(group_id::all(), grid, interp, kwork, work1, work2, state);
   }
+  //! load the given moments into the data-structures at device 0
+  void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
+                       interpolation_manager<P> const &interp,
+                       kronmult::workspace<P> &kwork,
+                       std::array<gpu::vector<P>, max_num_gpus> &work1,
+                       std::array<gpu::vector<P>, max_num_gpus> &work2,
+                       gpu::vector<P> const &state, bool result_to_cpu = false) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation
@@ -208,6 +215,11 @@ protected:
    */
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! prepare the position grid and optionally set the interpolation dsort
+  void prepare_pos_grid_gpu(group_id group, sparse_grid const &grid) const;
+  #endif
 
   //! returns an iterator to the first entry of the given group using serialized vector
   template<typename vector_like>

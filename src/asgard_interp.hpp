@@ -415,13 +415,14 @@ public:
   /*!
    * \brief Performs the interpolation of the function func
    */
+  template<typename tmd_type>
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments,
        momentset_gpu<P> const &gpu_moments,
        P time, P const state[], std::vector<P> const &ifield,
        gpu::vector<P> const &gpu_ifield,
-       P alpha, term_md<P> const &tmd, P beta, P y[],
+       P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2,
        gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
   {

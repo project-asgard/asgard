@@ -1,5 +1,9 @@
 #include "asgard_refinement.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_tensors.hpp"
+#endif
+
 namespace asgard
 {
 
@@ -10,11 +14,11 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     atol = static_cast<P>(options.adapt_threshold.value_or(0));
     rtol = static_cast<P>(options.adapt_relative.value_or(0));
 
-    weights_.interp_ = std::move(pde.ref_interp_);
+    iweights_.interp_ = std::move(pde.ref_interp_);
 
     moments_ = std::move(pde.ref_moments_);
 
-    if (weights_) {
+    if (iweights_) {
       iplan.enable();
       iplan.stop_hier();
     }
@@ -96,18 +100,18 @@ void refinement_manager<P>::refine_(
 
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
-    if (not weights_.is_moment()) {
+    if (not iweights_.is_moment()) {
       iplan.use_moments(false);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
 
-    if (weights_.is_moment()) {
+    if (iweights_.is_moment()) {
       terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
       iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, weights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
       update_stats(terms.t1);
     }
   }
@@ -121,14 +125,42 @@ void refinement_manager<P>::refine_(
     connection_patterns const &conns, term_manager<P> const &terms,
     gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
 {
-  ignore(conns);
-  ignore(terms);
-  ignore(state);
-  ignore(grid);
-  ignore(mode);
+  int64_t const num_indexes = grid.num_indexes();
+  int64_t const block_size  = fm::ipow(terms.basis.pdof, grid.num_dims());
 
-  // TODO: handle the GPU interpolation moment calculations
-  //       - later add an option to do this without the function values, i.e., using source signatures
+  P wmax = 0;
+  gpu::compute_l2_weights<P>(block_size, num_indexes, state, gweight, wmax);
+
+  P const tol = rtol * std::sqrt(wmax) + atol;
+  gstats.resize(num_indexes);
+  gpu::set_istatus(num_indexes, tol, gweight, gstats);
+
+  if (iplan.is_enabled())
+  {
+    if (iweights_.is_moment()) {
+      iplan.use_moments(true);
+
+      terms.moms.compute_moments(moments_, grid, terms.interp, terms.kwork,
+                                 terms.gpu_it1, terms.gpu_it2, state, not iweights_.is_gpu());
+    } else {
+      iplan.use_moments(false);
+    }
+
+    terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms.get_cached_interps(),
+                 terms.moms.get_cached_interps(gpu::device{0}), 0, state.data(), {}, {},
+                 1, iweights_, 0, gweight.data(), terms.kwork, terms.it1, terms.it2,
+                 terms.gpu_it1[0], terms.gpu_it2[0]);
+
+    gpu::compute_max_weights<P>(block_size, num_indexes, state, gweight, wmax);
+
+    P const ctol = rtol * std::sqrt(wmax) + atol;
+    gpu::update_istatus(num_indexes, ctol, gweight, gstats);
+  }
+
+  gstats.copy_to_host(stats);
+  grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
+
+  // - later add an option to do this without the function values, i.e., using source signatures
 }
 #endif
 

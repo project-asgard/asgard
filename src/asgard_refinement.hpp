@@ -41,7 +41,7 @@ public:
   void refine(connection_patterns const &conns, term_manager<P> const &terms,
               std::vector<P> const &state, strategy mode, sparse_grid &grid) const
   {
-    expect(not weights_.is_gpu());
+    expect(not iweights_.is_gpu());
     if (atol != -1)
       refine_(conns, terms, state, mode, grid);
   }
@@ -51,7 +51,7 @@ public:
   void refine(connection_patterns const &conns, term_manager<P> const &terms,
               gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
   {
-    expect(not weights_.is_gpu());
+    expect(not iweights_.is_gpu());
     if (atol != -1)
       refine_(conns, terms, state, mode, grid);
   }
@@ -71,6 +71,10 @@ private:
                std::vector<P> const &state, strategy mode, sparse_grid &grid) const;
 
   #ifdef ASGARD_USE_GPU
+  //! gpu reginement weights
+  mutable gpu::vector<P> gweight;
+  //! gpu stats
+  mutable gpu::vector<istatus> gstats;
   //! if no-refinement is set, the public method will have an inline if-statement
   void refine_(connection_patterns const &conns, term_manager<P> const &terms,
                gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const;
@@ -130,7 +134,7 @@ private:
     md_field_func<P> interp_;
   };
 
-  interp_weights weights_;
+  interp_weights iweights_;
 
   std::vector<moment_id> moments_;
 
