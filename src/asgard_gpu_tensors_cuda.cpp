@@ -612,8 +612,6 @@ void compute_nrm_tmpl(int block_size, int num_indexes, gpu::vector<P> const &sta
     kernel_weights<P, use_l2, 4, max_threads><<<launch_blocks, launch_grid, 4 * (max_threads + num_teams) * sizeof(P)>>>(
         num_indexes, state.data(), weights.data());
 
-  gpu::debug_sync();
-
   gpu::memcopy_dev2host(1, weights.data() + num_indexes, &l2);
 }
 

@@ -468,9 +468,7 @@ public:
           tmd.interp(time, nodes(grid), nodal, t2);
         }
       }
-      gpu::debug_sync();
       gpu_t1 = t2;
-      gpu::debug_sync();
       if (plan.uses_hier())
         nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
       else
