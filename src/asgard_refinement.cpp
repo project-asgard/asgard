@@ -128,16 +128,12 @@ void refinement_manager<P>::refine_(
   int64_t const num_indexes = grid.num_indexes();
   int64_t const block_size  = fm::ipow(terms.basis.pdof, grid.num_dims());
 
-  std::cout << " ref\n";
   P wmax = 0;
   gpu::compute_l2_weights<P>(block_size, num_indexes, state, gweight, wmax);
 
-std::cout << " l2\n";
   P const tol = rtol * std::sqrt(wmax) + atol;
   gstats.resize(num_indexes);
   gpu::set_istatus(num_indexes, tol, gweight, gstats);
-
-  std::cout << " set1\n";
 
   if (iplan.is_enabled())
   {
@@ -152,16 +148,13 @@ std::cout << " l2\n";
 
     iplan.use_gpu_func(iweights_.is_gpu());
 
-    std::cout << " interping\n";
-
+    ghier.resize(state.size());
     terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms.get_cached_interps(),
                  terms.moms.get_cached_interps(gpu::device{0}), 0, state.data(), {}, {},
-                 1, iweights_, 0, gweight.data(), terms.kwork, terms.it1, terms.it2,
+                 1, iweights_, 0, ghier.data(), terms.kwork, terms.it1, terms.it2,
                  terms.gpu_it1[0], terms.gpu_it2[0]);
 
-    std::cout << " done interp\n";
-
-    gpu::compute_max_weights<P>(block_size, num_indexes, state, gweight, wmax);
+    gpu::compute_max_weights<P>(block_size, num_indexes, ghier, gweight, wmax);
 
     P const ctol = rtol * std::sqrt(wmax) + atol;
     gpu::update_istatus(num_indexes, ctol, gweight, gstats);

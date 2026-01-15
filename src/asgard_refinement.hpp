@@ -71,6 +71,8 @@ private:
                std::vector<P> const &state, strategy mode, sparse_grid &grid) const;
 
   #ifdef ASGARD_USE_GPU
+  //! (TODO: this should be another vector) hierarchical coefficients on the GPU
+  mutable gpu::vector<P> ghier;
   //! gpu reginement weights
   mutable gpu::vector<P> gweight;
   //! gpu stats

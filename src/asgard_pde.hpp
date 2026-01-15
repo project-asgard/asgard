@@ -1028,13 +1028,19 @@ struct source {
   //! make an interpolation source
   source(md_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation source using a GPU device data
-  source(md_gpu_func<P> s) : func_(std::move(s)) {}
+  source(md_gpu_func<P> s) : func_(std::move(s)) {
+    static_assert(has_gpu_enabled<source<P>>,
+                  "cannot set a GPU source function without CUDA or ROCM enabled");
+  }
   //! make an interpolation moment source
   source(md_mom_func<P> s, std::vector<moment_id> mids)
     : func_(std::move(s)), mids_(std::move(mids)) {}
   //! make an interpolation moment source using a GPU device data
   source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
-    : func_(std::move(s)), mids_(std::move(mids)) {}
+    : func_(std::move(s)), mids_(std::move(mids)) {
+    static_assert(has_gpu_enabled<source<P>>,
+                  "cannot set a GPU moment source function without CUDA or ROCM enabled");
+  }
 
   //! variant holding all permissible function types
   std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
@@ -1665,12 +1671,15 @@ public:
   pde_scheme<P> & operator += (source<P> src) {
     std::visit([&, this](auto &&s) {
           using current_type = std::decay_t<decltype(s)>;
-          if constexpr (uses_moments<current_type>)
-            this->set_source(std::move(s), std::move(src.mids_));
-          else if constexpr (std::is_same_v<current_type, separable_func<P>>)
+          if constexpr (uses_moments<current_type>) {
+            if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
+              this->set_source(std::move(s), std::move(src.mids_));
+          } else if constexpr (std::is_same_v<current_type, separable_func<P>>) {
             this->add_source(std::move(s));
-          else
-            this->set_source(std::move(s));
+          } else {
+            if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
+              this->set_source(std::move(s));
+          }
         }, std::move(src.func_));
     return *this;
   }

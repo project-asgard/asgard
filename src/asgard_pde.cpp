@@ -558,10 +558,15 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template class pde_scheme<double>;
+// template class pde_scheme<double>;
+template pde_scheme<double> &pde_scheme<double>::operator += (operators::lenard_bernstein_collisions);
+template pde_scheme<double> &pde_scheme<double>::operator += (operators::simple_bgk_collisions);
+template void pde_scheme<double>:: update_deps(term_md<double> &tmd);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template class pde_scheme<float>;
+template pde_scheme<float> &pde_scheme<float>::operator += (operators::lenard_bernstein_collisions);
+template pde_scheme<float> &pde_scheme<float>::operator += (operators::simple_bgk_collisions);
+template void pde_scheme<float>:: update_deps(term_md<float> &tmd);
 #endif
 } // namespace asgard

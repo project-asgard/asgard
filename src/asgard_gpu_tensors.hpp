@@ -163,4 +163,17 @@ void set_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
 template<typename P>
 void update_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
                     gpu::vector<sparse_grid::istatus> &status);
+
+/*!
+ * \brief Remap by copying the old tensors into the new data
+ *
+ * \tparam P is float or double
+ *
+ * \param block_size is the number of indexes in the tensor block
+ * \param map contains the indexed of the old tensor that need to be copied, -1 means fill with zeros
+ * \param state will be overwritten
+ */
+template<typename P>
+void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &state);
+
 }

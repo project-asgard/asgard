@@ -898,9 +898,9 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
   //     if (manager.is_leader()) next.copy_to_host(cpu_next);
   //   };
 
-  auto refine_to_gpu = [&]() -> void {
-      if (manager.is_leader()) next = cpu_next;
-    };
+  // auto refine_to_gpu = [&]() -> void {
+  //     if (manager.is_leader()) next = cpu_next;
+  //   };
 
   #else
 
@@ -927,7 +927,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   auto resync_gpu = [&]() -> void {};
   // auto refine_to_cpu = [&]() -> void {};
-  auto refine_to_gpu = [&]() -> void {};
+  // auto refine_to_gpu = [&]() -> void {};
   #endif
 
   auto accept_next = [&]() -> void {
@@ -964,7 +964,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
       if (grid.generation() != gen) {
         if (manager.is_leader())
-          grid.remap(manager.hier.block_size(), cpu_next);
+          grid.remap(manager.hier.block_size(), next);
         manager.terms.prapare_kron_workspace(grid);
         if (manager.poisson)
           manager.poisson.update_level(grid.current_level(0));
@@ -972,7 +972,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::refine;
         }
-        refine_to_gpu();
+        // refine_to_gpu();
       }
     }
 
