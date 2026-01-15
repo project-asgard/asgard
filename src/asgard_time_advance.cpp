@@ -894,9 +894,9 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         manager.state.resize(manager.num_dof());
     };
 
-  auto refine_to_cpu = [&]() -> void {
-      if (manager.is_leader()) next.copy_to_host(cpu_next);
-    };
+  // auto refine_to_cpu = [&]() -> void {
+  //     if (manager.is_leader()) next.copy_to_host(cpu_next);
+  //   };
 
   auto refine_to_gpu = [&]() -> void {
       if (manager.is_leader()) next = cpu_next;
@@ -926,7 +926,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     };
 
   auto resync_gpu = [&]() -> void {};
-  auto refine_to_cpu = [&]() -> void {};
+  // auto refine_to_cpu = [&]() -> void {};
   auto refine_to_gpu = [&]() -> void {};
   #endif
 
@@ -956,9 +956,10 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     }
 
     if (manager.refinement) {
-      refine_to_cpu();
+      // refine_to_cpu();
       int const gen = grid.generation();
-      manager.refine(grid_strategy, cpu_next);
+      // manager.refine(grid_strategy, cpu_next);
+      manager.refine(grid_strategy, next);
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
 
       if (grid.generation() != gen) {

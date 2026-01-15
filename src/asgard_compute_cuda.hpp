@@ -88,7 +88,9 @@ void copy_to_device(std::vector<T> const &x, T y[]) {
 inline void device_synchronize() { cudaDeviceSynchronize();  }
 
 template<typename P>
-void fill_zeros(int64_t num, P x[]) { asgard_cuda_check_error( cudaMemset(x, 0, num * sizeof(P)) ); }
+void fill_zeros(int64_t num, P x[]) {
+    std::cout << " zeros: " << num << "  " << x << "  " << sizeof(P) << "\n";
+    asgard_cuda_check_error( cudaMemset(x, 0, num * sizeof(P)) ); }
 
 class blas_engine
 {

@@ -455,23 +455,28 @@ public:
           if (plan.uses_field()) {
             return ifield;
           } else {
+              std::cout << " wav2nodal\n";
             wav2nodal(dev, grid, state, gpu_t1.data(), work);
             gpu_t1.copy_to_host(t1);
             return t1;
           }
         }();
       {
+          std::cout << " interp f\n";
         tools::time_event perf_("interpolation func");
         if (plan.uses_moments()) {
+            std::cout << " -- interp func w. moment\n";
           tmd.interp(time, nodes(grid), moments, nodal, t2);
         } else {
+            std::cout << " -- interp func no moment\n";
           tmd.interp(time, nodes(grid), nodal, t2);
         }
       }
       gpu_t1 = t2;
-      if (plan.uses_hier())
+      if (plan.uses_hier()) { std::cout << " nodal2hier: " << y << "  " << gpu_t1.data() << "\n";
         nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-      else
+          std::cout << " done nodal\n";
+      } else
         nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
     }
   }
