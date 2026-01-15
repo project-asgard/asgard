@@ -51,7 +51,6 @@ public:
   void refine(connection_patterns const &conns, term_manager<P> const &terms,
               gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
   {
-    expect(not iweights_.is_gpu());
     if (atol != -1)
       refine_(conns, terms, state, mode, grid);
   }

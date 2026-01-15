@@ -375,12 +375,18 @@ void discretization_manager<precision>::set_initial_condition()
     }
 
     if (refinement) {
+        std::cout << " doing refinement " << std::endl;
       // on the first iteration, do both refine and coarsen with a full-adapt
       // on follow-on iteration, only add more nodes for stability and to avoid stagnation
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();
+      #ifdef ASGARD_USE_GPU
+      gpu::vector<precision> gstate = state;
+      refine(mode, gstate);
+      #else
       refine(mode, state);
+      #endif
 
       // if the grid remained the same, there's nothing to do
       keep_refining = (gid != grid.generation());

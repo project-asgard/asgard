@@ -289,17 +289,16 @@ asgard::pde_scheme<P> make_burgers_pde(asgard::prog_opts options) {
         vals[i] = (f[i] < 0) ? f[i] * f[i] : 0;
       }
     };
-
-  #endif
-
-  auto f2cpu = [=](P, asgard::vector2d<P> const &,
+  auto f2 = [=](P, asgard::vector2d<P> const &,
                 std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       for (size_t i = 0; i < f.size(); i++) {
         vals[i] = f[i] * f[i];
       }
     };
-  pde.set_adapt_weight(f2cpu);
+  #endif
+
+  pde.set_adapt_weight(f2);
 
   // setting up multidimensional volume term that uses interpolated coefficient
   // the signature of the f2p and f2n functions determine whether to use the CPU
