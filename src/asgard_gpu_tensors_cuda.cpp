@@ -555,7 +555,7 @@ __global__ void kernel_weights(int num_indexes, P const state[], P weights[])
           data[nd * threadIdx.y + threadIdx.x] += data[nd * threadIdx.y + threadIdx.x + r];
       } else {
         if (threadIdx.x + r < num) {
-          P const v = data[threadIdx.x + r];
+          P const v = data[nd * threadIdx.y + threadIdx.x + r];
           if (data[nd * threadIdx.y + threadIdx.x] < v) data[nd * threadIdx.y + threadIdx.x] = v;
         }
       }

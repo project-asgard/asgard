@@ -883,8 +883,6 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   current = manager.state;
 
-  std::vector<P> cpu_next;
-
   auto found_bad = [&]() -> int { return gpu::num_non_finite(next); };
 
   auto resync_gpu = [&]() -> void {
@@ -906,7 +904,6 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
   std::vector<P> &current = manager.state;
   std::vector<P> next;
-  std::vector<P> &cpu_next = next;
 
   auto found_bad = [&]()
     -> size_t {
