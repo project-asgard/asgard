@@ -1684,9 +1684,15 @@ public:
     return *this;
   }
   //! add collision operator
-  pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  pde_scheme<P> &operator += (operators::lenard_bernstein_collisions lbc) {
+    process<term_md<P>>(lbc);
+    return *this;
+  }
   //! add collision operator
-  pde_scheme<P> & operator += (operators::simple_bgk_collisions bgkc);
+  pde_scheme<P> &operator += (operators::simple_bgk_collisions bgkc) {
+    process<term_md<P>>(bgkc);
+    return *this;
+  }
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
@@ -1801,6 +1807,15 @@ public:
     ref_moments_ = std::move(moments);
   }
 
+  //! adds adaptive weight corresponding to the operator
+  void set_adapt_weight(operators::lenard_bernstein_collisions lbc) {
+    process<source<P>>(lbc);
+  }
+  //! adds adaptive weight corresponding to the operator
+  void set_adapt_weight(operators::simple_bgk_collisions bgkc) {
+    process<source<P>>(bgkc);
+  }
+
   //! allows writer to save/load the pde and options
   friend class h5manager<P>;
   //! allows the term_manager to access the terms
@@ -1826,6 +1841,13 @@ private:
   }
   //! updates the moment dependence based on the term just added
   void update_deps(term_md<P> &tmd);
+
+  //! process the operator, opmode is either term_md or source for operator or adapt weight
+  template<typename opmode>
+  void process(operators::lenard_bernstein_collisions lbc);
+  //! process the operator, opmode is either term_md or source for operator or adapt weight
+  template<typename opmode>
+  void process(operators::simple_bgk_collisions bgk);
 
   prog_opts options_;
   pde_domain<P> domain_;

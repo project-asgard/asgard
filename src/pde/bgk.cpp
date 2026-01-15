@@ -238,6 +238,7 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     // Using the CPU callable function fbgk is allowed, but it will result in
     // data back-forth between the CPU/GPU and will result in slower performance.
     pde += asgard::operators::simple_bgk_collisions{nu};
+    asgard::ignore(fbgk);
     #else
     // If GPU capabilities are not enabled, the builtin BGK operator is identical
     // to the one implemented in this example.
@@ -245,14 +246,15 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     pde += asgard::source<P>(fbgk, {im0, im1, im2});
     #endif
 
-    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
-    };
+    // auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
+    //                 asgard::momentset<P> const &moments, std::vector<P> const &,
+    //                 std::vector<P> &vals)
+    // {
+    //   fbgk(time, nodes, moments, vals);
+    // };
+    // pde.set_adapt_weight(abgk, {im0, im1, im2});
 
-    pde.set_adapt_weight(abgk, {im0, im1, im2});
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
 
   } else if (dims == 2) {
 

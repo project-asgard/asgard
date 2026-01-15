@@ -8,8 +8,11 @@ namespace asgard
 {
 
 template<typename P>
-pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collisions lbc)
+template<typename opmode>
+void pde_scheme<P>::process(operators::lenard_bernstein_collisions lbc)
 {
+  static_assert(std::is_same_v<opmode, source<P>> or std::is_same_v<opmode, term_md<P>>);
+
   rassert(domain_.num_pos() > 0, "cannot set lenard_bernstein_collisions operator for a pde_domain with no position dimensions");
   rassert(domain_.num_vel() > 0, "cannot set lenard_bernstein_collisions operator for a pde_domain with no velocity dimensions");
   rassert(domain_.num_pos() <= 3, "cannot set lenard_bernstein_collisions operator for a pde_domain with more than 3 position dimensions");
@@ -35,6 +38,11 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
                                     term_grad<P>{1, flux_type::upwind, boundary_type::bothsides}});
 
   int const num_pos = domain_.num_pos();
+
+  if constexpr (std::is_same_v<opmode, source<P>>) {
+    if (num_pos == 1) // separable case has no weight
+      return;
+  }
 
   switch(domain_.num_vel())
   {
@@ -89,14 +97,18 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
         };
       #endif
 
-      if (num_pos == 2) {
-        *this += term_md<P>({I, I, divv_nuv});
-        *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
-        *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+      if constexpr (std::is_same_v<opmode, source<P>>) {
+        this->set_adapt_weight(theta, {m0, m1, m2});
       } else {
-        *this += term_md<P>({I, I, I, divv_nuv});
-        *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
-        *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+        if (num_pos == 2) {
+          *this += term_md<P>({I, I, divv_nuv});
+          *this += term_md<P>{term_md<P>{I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
+          *this += term_md<P>{term_md<P>{I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+        } else {
+          *this += term_md<P>({I, I, I, divv_nuv});
+          *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m1over0, {m0, m1}}};
+          *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m1, m2}}};
+        }
       }
     }
     break;
@@ -174,24 +186,28 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
         };
       #endif
 
-      if (num_pos == 2) {
-        *this += term_md<P>({I, I, divv_nuv, I});
-        *this += term_md<P>({I, I, I, divv_nuv});
-
-        *this += term_md<P>{term_md<P>{I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
-        *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
-
-        *this += term_md<P>{term_md<P>{I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
-        *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+      if constexpr (std::is_same_v<opmode, source<P>>) {
+        this->set_adapt_weight(theta, {m0, m10, m01, m20, m02});
       } else {
-        *this += term_md<P>({I, I, I, divv_nuv, I});
-        *this += term_md<P>({I, I, I, I, divv_nuv});
+        if (num_pos == 2) {
+          *this += term_md<P>({I, I, divv_nuv, I});
+          *this += term_md<P>({I, I, I, divv_nuv});
 
-        *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
+          *this += term_md<P>{term_md<P>{I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
+          *this += term_md<P>{term_md<P>{I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
 
-        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+          *this += term_md<P>{term_md<P>{I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+          *this += term_md<P>{term_md<P>{I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+        } else {
+          *this += term_md<P>({I, I, I, divv_nuv, I});
+          *this += term_md<P>({I, I, I, I, divv_nuv});
+
+          *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m10over0, {m0, m10}}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m01over0, {m0, m01}}};
+
+          *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, {m0, m10, m01, m20, m02}}};
+        }
       }
     }
     break;
@@ -291,30 +307,34 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
 
       std::vector<moment_id> theta_deps = {m0, m100, m010, m001, m200, m020, m002};
 
-      if (num_pos == 2) {
-        *this += term_md<P>({I, I, divv_nuv, I, I});
-        *this += term_md<P>({I, I, I, divv_nuv, I});
-        *this += term_md<P>({I, I, I, I, divv_nuv});
-
-        *this += term_md<P>{term_md<P>{I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
-        *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
-
-        *this += term_md<P>{term_md<P>{I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
-        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+      if constexpr (std::is_same_v<opmode, source<P>>) {
+        this->set_adapt_weight(theta, theta_deps);
       } else {
-        *this += term_md<P>({I, I, I, divv_nuv, I, I});
-        *this += term_md<P>({I, I, I, I, divv_nuv, I});
-        *this += term_md<P>({I, I, I, I, I, divv_nuv});
+        if (num_pos == 2) {
+          *this += term_md<P>({I, I, divv_nuv, I, I});
+          *this += term_md<P>({I, I, I, divv_nuv, I});
+          *this += term_md<P>({I, I, I, I, divv_nuv});
 
-        *this += term_md<P>{term_md<P>{I, I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
+          *this += term_md<P>{term_md<P>{I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
+          *this += term_md<P>{term_md<P>{I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
 
-        *this += term_md<P>{term_md<P>{I, I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
-        *this += term_md<P>{term_md<P>{I, I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+          *this += term_md<P>{term_md<P>{I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
+          *this += term_md<P>{term_md<P>{I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+        } else {
+          *this += term_md<P>({I, I, I, divv_nuv, I, I});
+          *this += term_md<P>({I, I, I, I, divv_nuv, I});
+          *this += term_md<P>({I, I, I, I, I, divv_nuv});
+
+          *this += term_md<P>{term_md<P>{I, I, I, div, I, I}, term_interp<P>{m100over0, {m0, m100}}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div, I}, term_interp<P>{m010over0, {m0, m010}}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, I, div}, term_interp<P>{m001over0, {m0, m001}}};
+
+          *this += term_md<P>{term_md<P>{I, I, I, div_grad, I, I}, term_interp<P>{theta, theta_deps}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, div_grad, I}, term_interp<P>{theta, theta_deps}};
+          *this += term_md<P>{term_md<P>{I, I, I, I, I, div_grad}, term_interp<P>{theta, theta_deps}};
+        }
       }
     }
     break;
@@ -322,13 +342,14 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::lenard_bernstein_collision
     // unreachable
     break;
   };
-
-  return *this;
 }
 
 template<typename P>
-pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc)
+template<typename opmode>
+void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 {
+  static_assert(std::is_same_v<opmode, source<P>> or std::is_same_v<opmode, term_md<P>>);
+
   rassert(domain_.num_pos() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no position dimensions");
   rassert(domain_.num_vel() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no velocity dimensions");
   rassert(domain_.num_pos() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 position dimensions");
@@ -337,7 +358,7 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
 
   P const nu = static_cast<P>(bgkc.nu);
 
-  {
+  if constexpr (std::is_same_v<opmode, term_md<P>>) {
     std::vector<asgard::term_1d<P>> nuI(domain_.num_dims(), asgard::term_identity{});
     nuI[0] = asgard::term_volume<P>{nu};
     *this += asgard::term_md<P>(nuI);
@@ -356,6 +377,10 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
     {
       gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
+    };
+    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
+    {
+      fbgk(num, time, nodes, moments, vals);
     };
     #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
@@ -379,9 +404,19 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d * d / t);
       }
     };
+    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
+                    std::vector<P> &vals)
+    {
+      fbgk(time, nodes, moments, vals);
+    };
     #endif
 
-    this->set_source(fbgk, {im0, im1, im2});
+    if constexpr (std::is_same_v<opmode, term_md<P>>) {
+      this->set_source(fbgk, {im0, im1, im2});
+    } else {
+      this->set_adapt_weight(wbgk, {im0, im1, im2});
+    }
   }
   break;
   case 2: {
@@ -398,6 +433,10 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     {
       gpu::bgk_vel2(nu, num_pos, nodes, moments[im0], moments[im10], moments[im01],
                     moments[im20], moments[im02], vals);
+    };
+    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
+    {
+      fbgk(num, time, nodes, moments, vals);
     };
     #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
@@ -424,9 +463,19 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d / t);
       }
     };
+    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
+                    std::vector<P> &vals)
+    {
+      fbgk(time, nodes, moments, vals);
+    };
     #endif
 
-    this->set_source(fbgk, mids);
+    if constexpr (std::is_same_v<opmode, term_md<P>>) {
+      this->set_source(fbgk, mids);
+    } else {
+      this->set_adapt_weight(wbgk, mids);
+    }
   }
   break;
   case 3: {
@@ -445,6 +494,10 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
     {
       gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
                     moments[im001], moments[im200], moments[im020], moments[im002], vals);
+    };
+    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
+    {
+      fbgk(num, time, nodes, moments, vals);
     };
     #else
     auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
@@ -476,17 +529,25 @@ pde_scheme<P> &pde_scheme<P>::operator += (operators::simple_bgk_collisions bgkc
         vals[i] *= std::exp(- P{0.5} * d / t);
       }
     };
+    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
+                    std::vector<P> &vals)
+    {
+      fbgk(time, nodes, moments, vals);
+    };
     #endif
 
-    this->set_source(fbgk, mids);
+    if constexpr (std::is_same_v<opmode, term_md<P>>) {
+      this->set_source(fbgk, mids);
+    } else {
+      this->set_adapt_weight(wbgk, mids);
+    }
   }
   break;
   default:
     // unreachable
     break;
   };
-
-  return *this;
 }
 
 template<typename P>
@@ -558,15 +619,18 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-// template class pde_scheme<double>;
-template pde_scheme<double> &pde_scheme<double>::operator += (operators::lenard_bernstein_collisions);
-template pde_scheme<double> &pde_scheme<double>::operator += (operators::simple_bgk_collisions);
+template void pde_scheme<double>::process<source<double>>(operators::lenard_bernstein_collisions);
+template void pde_scheme<double>::process<term_md<double>>(operators::lenard_bernstein_collisions);
+template void pde_scheme<double>::process<source<double>>(operators::simple_bgk_collisions);
+template void pde_scheme<double>::process<term_md<double>>(operators::simple_bgk_collisions);
 template void pde_scheme<double>:: update_deps(term_md<double> &tmd);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template pde_scheme<float> &pde_scheme<float>::operator += (operators::lenard_bernstein_collisions);
-template pde_scheme<float> &pde_scheme<float>::operator += (operators::simple_bgk_collisions);
+template void pde_scheme<float>::process<source<float>>(operators::lenard_bernstein_collisions);
+template void pde_scheme<float>::process<term_md<float>>(operators::lenard_bernstein_collisions);
+template void pde_scheme<float>::process<source<float>>(operators::simple_bgk_collisions);
+template void pde_scheme<float>::process<term_md<float>>(operators::simple_bgk_collisions);
 template void pde_scheme<float>:: update_deps(term_md<float> &tmd);
 #endif
 } // namespace asgard
