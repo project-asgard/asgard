@@ -515,7 +515,8 @@ __global__ void kernel_weights(int num_indexes, P const state[], P weights[])
                 "CUDA does not provide 'atomicMax' operation and integer max is used instead, "
                 "but this works only if the sizes of float/double match int32_t/int64_t");
 
-  extern __shared__ P data[];
+  extern __shared__ double2 mem_[];
+  P *data = reinterpret_cast<P *>(mem_);
 
   int const team_size = blockDim.x;
 
