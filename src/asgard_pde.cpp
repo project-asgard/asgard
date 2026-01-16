@@ -383,7 +383,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
+    auto fbgk = [=](P, vector2d<P> const &nodes,
                     momentset<P> const &moments, std::vector<P> &vals)
     {
       std::vector<P> const &m0 = moments[im0];
@@ -439,7 +439,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
+    auto fbgk = [=](P, vector2d<P> const &nodes,
                     momentset<P> const &moments, std::vector<P> &vals)
     {
       std::vector<P> const &m0 = moments[im0];
@@ -623,7 +623,7 @@ template void pde_scheme<double>::process<source<double>>(operators::lenard_bern
 template void pde_scheme<double>::process<term_md<double>>(operators::lenard_bernstein_collisions);
 template void pde_scheme<double>::process<source<double>>(operators::simple_bgk_collisions);
 template void pde_scheme<double>::process<term_md<double>>(operators::simple_bgk_collisions);
-template void pde_scheme<double>:: update_deps(term_md<double> &tmd);
+template void pde_scheme<double>::update_deps(term_md<double> &tmd);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -631,6 +631,6 @@ template void pde_scheme<float>::process<source<float>>(operators::lenard_bernst
 template void pde_scheme<float>::process<term_md<float>>(operators::lenard_bernstein_collisions);
 template void pde_scheme<float>::process<source<float>>(operators::simple_bgk_collisions);
 template void pde_scheme<float>::process<term_md<float>>(operators::simple_bgk_collisions);
-template void pde_scheme<float>:: update_deps(term_md<float> &tmd);
+template void pde_scheme<float>::update_deps(term_md<float> &tmd);
 #endif
 } // namespace asgard

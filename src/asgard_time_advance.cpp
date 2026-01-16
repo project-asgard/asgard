@@ -892,14 +892,6 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         manager.state.resize(manager.num_dof());
     };
 
-  // auto refine_to_cpu = [&]() -> void {
-  //     if (manager.is_leader()) next.copy_to_host(cpu_next);
-  //   };
-
-  // auto refine_to_gpu = [&]() -> void {
-  //     if (manager.is_leader()) next = cpu_next;
-  //   };
-
   #else
 
   std::vector<P> &current = manager.state;
@@ -923,8 +915,6 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
     };
 
   auto resync_gpu = [&]() -> void {};
-  // auto refine_to_cpu = [&]() -> void {};
-  // auto refine_to_gpu = [&]() -> void {};
   #endif
 
   auto accept_next = [&]() -> void {
@@ -952,10 +942,9 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       }
     }
 
-    if (manager.refinement) {
-      // refine_to_cpu();
+    if (manager.refinement)
+    {
       int const gen = grid.generation();
-      // manager.refine(grid_strategy, cpu_next);
       manager.refine(grid_strategy, next);
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
 
@@ -969,7 +958,6 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::refine;
         }
-        // refine_to_gpu();
       }
     }
 
