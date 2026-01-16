@@ -44,6 +44,8 @@ inline void set_device(int id) { asgard_cuda_check_error( cudaSetDevice(id) ); }
 
 inline void memfree(void *p) { cudaFree(p); }
 
+inline void debug_sync() { asgard_cuda_check_error( cudaDeviceSynchronize() ); asgard_cuda_check_error( cudaPeekAtLastError() ); }
+
 template<typename T>
 inline T* memalloc(int64_t num) {
   T *data = nullptr;

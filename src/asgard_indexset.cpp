@@ -1,5 +1,9 @@
 #include "asgard_indexset.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_tensors.hpp"
+#endif
+
 namespace asgard
 {
 
@@ -623,6 +627,16 @@ void sparse_grid::remap(int block_size, std::vector<P> &state) const
   state = std::move(snew);
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void sparse_grid::remap(int block_size, gpu::vector<P> &state) const
+{
+  // on-the-fly copy map_ to the GPU and discard the result
+  // does not keep the gpu-map due to the need for another generation index
+  gpu::remap_state(block_size, map_, state);
+}
+#endif
+
 void sparse_grid::print_stats(std::ostream &os) const {
   os << "sparse grid:\n";
   os << "      levels  ";
@@ -709,5 +723,10 @@ template indexset sparse_grid::make_level_set<grid_type::mixed>(std::vector<int>
 
 template void sparse_grid::remap<double>(int, std::vector<double> &) const;
 template void sparse_grid::remap<float>(int, std::vector<float> &) const;
+
+#ifdef ASGARD_USE_GPU
+template void sparse_grid::remap<double>(int, gpu::vector<double> &) const;
+template void sparse_grid::remap<float>(int, gpu::vector<float> &) const;
+#endif
 
 } // namespace asgard

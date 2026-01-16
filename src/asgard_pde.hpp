@@ -1028,13 +1028,19 @@ struct source {
   //! make an interpolation source
   source(md_func<P> s) : func_(std::move(s)) {}
   //! make an interpolation source using a GPU device data
-  source(md_gpu_func<P> s) : func_(std::move(s)) {}
+  source(md_gpu_func<P> s) : func_(std::move(s)) {
+    static_assert(has_gpu_enabled<source<P>>,
+                  "cannot set a GPU source function without CUDA or ROCM enabled");
+  }
   //! make an interpolation moment source
   source(md_mom_func<P> s, std::vector<moment_id> mids)
     : func_(std::move(s)), mids_(std::move(mids)) {}
   //! make an interpolation moment source using a GPU device data
   source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
-    : func_(std::move(s)), mids_(std::move(mids)) {}
+    : func_(std::move(s)), mids_(std::move(mids)) {
+    static_assert(has_gpu_enabled<source<P>>,
+                  "cannot set a GPU moment source function without CUDA or ROCM enabled");
+  }
 
   //! variant holding all permissible function types
   std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
@@ -1615,6 +1621,8 @@ public:
   }
   //! set non-separable right-hand-source, can have only one per term-group
   void set_source(md_gpu_func<P> smd) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU source requires a GPU backend enabled with eithe CUDA or ROCM");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
     rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
@@ -1639,6 +1647,8 @@ public:
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU source requires a GPU backend enabled with eithe CUDA or ROCM");
     rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
@@ -1661,19 +1671,28 @@ public:
   pde_scheme<P> & operator += (source<P> src) {
     std::visit([&, this](auto &&s) {
           using current_type = std::decay_t<decltype(s)>;
-          if constexpr (uses_moments<current_type>)
-            this->set_source(std::move(s), std::move(src.mids_));
-          else if constexpr (std::is_same_v<current_type, separable_func<P>>)
+          if constexpr (uses_moments<current_type>) {
+            if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
+              this->set_source(std::move(s), std::move(src.mids_));
+          } else if constexpr (std::is_same_v<current_type, separable_func<P>>) {
             this->add_source(std::move(s));
-          else
-            this->set_source(std::move(s));
+          } else {
+            if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
+              this->set_source(std::move(s));
+          }
         }, std::move(src.func_));
     return *this;
   }
   //! add collision operator
-  pde_scheme<P> & operator += (operators::lenard_bernstein_collisions lbc);
+  pde_scheme<P> &operator += (operators::lenard_bernstein_collisions lbc) {
+    process<term_md<P>>(lbc);
+    return *this;
+  }
   //! add collision operator
-  pde_scheme<P> & operator += (operators::simple_bgk_collisions bgkc);
+  pde_scheme<P> &operator += (operators::simple_bgk_collisions bgkc) {
+    process<term_md<P>>(bgkc);
+    return *this;
+  }
   //! returns the separable sources
   std::vector<separable_func<P>> const &source_sep() const { return sources_sep_; }
   //! returns the i-th separable sources
@@ -1759,6 +1778,15 @@ public:
     ref_interp_ = std::move(func);
   }
   //! set an interpolation function for adaptivity
+  void set_adapt_weight(md_gpu_func_f<P> func) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU adapt weight requires a GPU backend enabled with eithe CUDA or ROCM");
+    has_interp_funcs = true;
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    ref_interp_ = std::move(func);
+  }
+  //! set an interpolation function for adaptivity
   void set_adapt_weight(md_mom_func_f<P> func, std::vector<moment_id> moments) {
     rassert(not moments.empty(), "moment function requires moments");
     rassert(std::holds_alternative<std::monostate>(ref_interp_),
@@ -1766,6 +1794,26 @@ public:
     has_interp_funcs = true;
     ref_interp_  = std::move(func);
     ref_moments_ = std::move(moments);
+  }
+  //! set an interpolation function for adaptivity
+  void set_adapt_weight(md_gpu_mom_func_f<P> func, std::vector<moment_id> moments) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU adapt weight requires a GPU backend enabled with eithe CUDA or ROCM");
+    rassert(not moments.empty(), "moment function requires moments");
+    rassert(std::holds_alternative<std::monostate>(ref_interp_),
+            "set_adapt_weight() already called, cannot set two different adapt weights");
+    has_interp_funcs = true;
+    ref_interp_  = std::move(func);
+    ref_moments_ = std::move(moments);
+  }
+
+  //! adds adaptive weight corresponding to the operator
+  void set_adapt_weight(operators::lenard_bernstein_collisions lbc) {
+    process<source<P>>(lbc);
+  }
+  //! adds adaptive weight corresponding to the operator
+  void set_adapt_weight(operators::simple_bgk_collisions bgkc) {
+    process<source<P>>(bgkc);
   }
 
   //! allows writer to save/load the pde and options
@@ -1794,6 +1842,13 @@ private:
   //! updates the moment dependence based on the term just added
   void update_deps(term_md<P> &tmd);
 
+  //! process the operator, opmode is either term_md or source for operator or adapt weight
+  template<typename opmode>
+  void process(operators::lenard_bernstein_collisions lbc);
+  //! process the operator, opmode is either term_md or source for operator or adapt weight
+  template<typename opmode>
+  void process(operators::simple_bgk_collisions bgk);
+
   prog_opts options_;
   pde_domain<P> domain_;
   int max_level_ = 1;
@@ -1806,9 +1861,8 @@ private:
   mass_md<P> mass_;
   std::vector<term_md<P>> terms_;
 
-  //std::vector<md_source_var<P>> sources_md_;
   std::vector<separable_func<P>> sources_sep_;
-  std::vector<md_source_func<P>> sources_md_; // TODO: rename to sources_md_
+  std::vector<md_source_func<P>> sources_md_;
   std::vector<std::vector<moment_id>> sources_moments_;
 
   int current_term_group = -1;
@@ -1821,7 +1875,7 @@ private:
   std::vector<moments_list> mom_groups;
   moments_list mlist;
 
-  std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>> ref_interp_;
+  md_field_func<P> ref_interp_;
   std::vector<moment_id> ref_moments_;
 };
 

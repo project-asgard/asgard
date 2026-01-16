@@ -521,7 +521,7 @@ class sparse_grid
 {
 public:
   //! marks the status of a sparse grid multi-index (cell)
-  enum class istatus {
+  enum class istatus : int {
     //! keep this index
     keep,
     //! refine this index, i.e., include the hierarchical descendants
@@ -585,6 +585,12 @@ public:
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>
   void remap(int block_size, std::vector<P> &state) const;
+
+  #ifdef ASGARD_USE_GPU
+  //! gpu remap, good for single remap, not good for multiple remaps in a row
+  template<typename P>
+  void remap(int block_size, gpu::vector<P> &state) const;
+  #endif
 
   //! returns the internal set of cells
   std::vector<int> const &get_cells() const { return iset_.indexes(); }
@@ -712,7 +718,7 @@ private:
   std::array<int, max_num_dimensions> level_;
   std::array<int, max_num_dimensions> max_index_;
 
-  std::vector<int64_t> map_;
+  std::vector<int> map_;
   #ifdef ASGARD_USE_MPI
   std::vector<int> mpimeta;
   #endif

@@ -62,6 +62,8 @@ class pde_snapshot:
         if self.verbose:
             print(' -- reading from: %s' % filename)
 
+        assert os.path.isfile(filename), f"invalid filename {filename}"
+
         with h5py.File(filename, "r") as fdata:
             # keep this for reference of the keys that we may need
             self.params = {} # extra parameters
@@ -243,7 +245,7 @@ class pde_snapshot:
         return aux
 
     def get_moment(self, lpows):
-        assert len(lpows) == self.num_velocity
+        assert len(lpows) == self.num_velocity, "invalid number of moment powers, must match num_velocity"
         name = "__moment_"
         for p in lpows:
             name += f"{p}"
@@ -493,8 +495,9 @@ def plot_with_args(argv = None):
         print(" -view                       : adjust the view plane")
         print(" -fig                        : figure name to save to file")
         print(" -aux                        : auxilary field id")
-        print(" -mom                        : plot a moment, must be pre-registered in the pde-scheme")
+        print(" -mom                        : plot a moment, must be registered in the pde-scheme")
         print('                               the format is -mom "0 1" or -mom "0:1" ')
+        print(" -cmap                       : set the matplotlib colormap, see Matplotlib docs")
         print("")
         print("no file and no option provided, shows the version of the")
         print("")
@@ -536,15 +539,15 @@ def plot_with_args(argv = None):
             asgplot.show()
 
     else:
-        shot = pde_snapshot(argv[1])
-        print("\n", shot)
-
         # we are plotting, consider extra options
         plotview = None
         savefig  = None
         auxfield = None
         moment   = None
         addgrid  = False
+        colormap = "turbo"
+        cmaps = {"-jet" : "jet", "-vir" : "viridis", "-hot" : "hot", "-cool" : "coolwarm",
+                 "-gray" : "gist_gray", "-plasma" : "plasma", "-spec" : "Spectral_r"}
         if len(argv) > 2:
             i = 2
             n = len(argv)
@@ -573,9 +576,17 @@ def plot_with_args(argv = None):
                 elif argv[i] == "-grid" or argv[i] == "-g":
                     addgrid = True
                     i += 1
-                else:
-                    savefig = argv[i]
+                elif argv[i] == "-cmap":
+                    colormap = argv[i + 1] if i + 1 < n else "turbo"
+                    i += 2
+                elif argv[i] in cmaps:
+                    colormap = cmaps[argv[i]]
                     i += 1
+                else:
+                    raise BadValueError(f"  -- invalid  command line parameter {argv[i]}")
+
+        shot = pde_snapshot(argv[1])
+        print(f"\n{shot}")
 
         if auxfield is not None:
             shot = shot.get_aux_field(auxfield)
@@ -638,7 +649,7 @@ def plot_with_args(argv = None):
                 ymax = shot.dimension_max[dims[1]]
 
                 #p = asgplot.pcolor(x, y, z, cmap='jet')
-                p = asgplot.imshow(np.flipud(z), cmap='jet', extent=[xmin, xmax, ymin, ymax])
+                p = asgplot.imshow(np.flipud(z), cmap=colormap, extent=[xmin, xmax, ymin, ymax])
 
                 asgplot.colorbar(p, orientation='vertical')
 

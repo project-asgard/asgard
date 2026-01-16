@@ -238,12 +238,18 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     // Using the CPU callable function fbgk is allowed, but it will result in
     // data back-forth between the CPU/GPU and will result in slower performance.
     pde += asgard::operators::simple_bgk_collisions{nu};
+    // The adapt weight should reflect all interpolation terms of the pde_scheme
+    // thus, the weight is not automatically set with the simple BGK operator.
+    // If the scheme has multiple interpolatory terms then a different weight is needed,
+    // but in this case, we can use the default builtin weight.
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
+
+    std::ignore = fbgk; // ignore the variable above, suppresses compiler warning
     #else
     // If GPU capabilities are not enabled, the builtin BGK operator is identical
     // to the one implemented in this example.
     pde += asgard::term_md<P>(nuI);
     pde += asgard::source<P>(fbgk, {im0, im1, im2});
-    #endif
 
     auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
@@ -251,8 +257,8 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     {
       fbgk(time, nodes, moments, vals);
     };
-
     pde.set_adapt_weight(abgk, {im0, im1, im2});
+    #endif
 
   } else if (dims == 2) {
 
@@ -292,10 +298,11 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     #ifdef ASGARD_USE_GPU
     // see the 1x1v case
     pde += asgard::operators::simple_bgk_collisions{nu};
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
+    std::ignore = fbgk;
     #else
     pde += asgard::term_md<P>(nuI);
     pde.set_source(fbgk, mids);
-    #endif
 
     auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
@@ -305,12 +312,14 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
     };
 
     pde.set_adapt_weight(abgk, mids);
+    #endif
 
   } else /* if (dims == 3) */ {
 
     // the simple for of the BGK operator (shows above) is built into the ASGarD library
     // it can be used for any combination of position/velocity dimensions 1 - 3
     pde += asgard::operators::simple_bgk_collisions{nu};
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
   }
 
   // set the implicit and explicit operator groups

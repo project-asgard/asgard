@@ -380,13 +380,20 @@ void discretization_manager<precision>::set_initial_condition()
       sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
                                                      : sparse_grid::strategy::refine;
       int const gid = grid.generation();
+      #ifdef ASGARD_USE_GPU
+      gpu::vector<precision> gstate = state;
+      refine(mode, gstate);
+      #else
       refine(mode, state);
+      #endif
 
       // if the grid remained the same, there's nothing to do
       keep_refining = (gid != grid.generation());
 
-      if (keep_refining) // should only do this if using interpolation, otherwise just do at the end
+      if (keep_refining) { // should only do this if using interpolation, otherwise just do at the end
+        grid.gpu_sync();
         terms.prapare_kron_workspace(grid);
+      }
 
     } else { // no refinement set, use the grid as-is
       keep_refining = false;

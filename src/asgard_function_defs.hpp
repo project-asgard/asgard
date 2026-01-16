@@ -195,6 +195,9 @@ using md_gpu_mom_func_f = std::function<void(int64_t const num, P t, P const x[]
 //! variant holding any of the possible multidimensional source functions
 template<typename P>
 using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>>;
+//! variant holding any of the possible multidimensional field functions
+template<typename P>
+using md_field_func = std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>>;
 
 //! trait type that indicates if a function signature uses moments
 template<typename F> struct uses_mom_trait : std::false_type {};
@@ -217,6 +220,13 @@ template<typename P> struct uses_gpu_trait<md_gpu_mom_func_f<P>> : std::true_typ
 template<typename F> constexpr bool uses_gpu = uses_gpu_trait<F>::value;
 
 template<typename> constexpr bool is_valid_call = false;
+
+#ifdef ASGARD_USE_GPU
+template<typename> constexpr bool has_gpu_enabled = true;
+#else
+template<typename> constexpr bool has_gpu_enabled = false;
+#endif
+
 #endif
 
 }

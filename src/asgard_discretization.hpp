@@ -758,6 +758,15 @@ protected:
       return;
     refinement.refine(conn, terms, f, mode, grid);
   }
+  #ifdef ASGARD_USE_GPU
+  //! refines the sparse grid using the given strategy and
+  void refine(sparse_grid::strategy mode, gpu::vector<precision> const &f)
+  {
+    if (not is_leader())
+      return;
+    refinement.refine(conn, terms, f, mode, grid);
+  }
+  #endif
 
   #ifdef ASGARD_USE_MPI
   //! worker iteration apply

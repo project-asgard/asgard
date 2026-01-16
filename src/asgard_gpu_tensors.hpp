@@ -103,4 +103,77 @@ template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
                    gpu::vector<P> const &pos_data, gpu::vector<P> &vals);
 
+/*!
+ * \brief Compute the l2-weights for each block in the given state
+ *
+ * \tparam P is float or double
+ *
+ * \param block_size is the number of entries in each block, e.g., (order + 1)^num_dims
+ * \param num_indexes is the number of blocks in the state vector
+ * \param state has size block_size * num_indexes
+ * \param weights will have size num_indexes + 1, the last entry will be the l2^2
+ * \param l2 is the l2 norm of the state vector, the reference sits on the CPU
+ */
+template<typename P>
+void compute_l2_weights(int block_size, int num_indexes, gpu::vector<P> const &state,
+                        gpu::vector<P> &weights, P &l2);
+
+/*!
+ * \brief Compute the max-weights for each block in the given state
+ *
+ * \tparam P is float or double
+ *
+ * \param block_size is the number of entries in each block, e.g., (order + 1)^num_dims
+ * \param num_indexes is the number of blocks in the state vector
+ * \param state has size block_size * num_indexes
+ * \param weights will have size num_indexes + 1, the last entry will be the max norm for all blocks
+ * \param wmax is the max norm of the state vector, the reference sits on the CPU
+ */
+template<typename P>
+void compute_max_weights(int block_size, int num_indexes, gpu::vector<P> const &state,
+                         gpu::vector<P> &weights, P &wmax);
+
+/*!
+ * \brief Sets the keep/clear flags by comparing the tolerance to the weights
+ *
+ * \tparam P is float or double
+ *
+ * \param num_indexes is the number of indexes in weights that will be considered
+ * \param tolerance is the comparison threshold
+ * \param weights has size at least num_indexes (could be more) and the first num_entries
+ *        will be used in the comparison
+ * \param status will be set to either refine or clear
+ */
+template<typename P>
+void set_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
+                 gpu::vector<sparse_grid::istatus> &status);
+
+/*!
+ * \brief For entries marked as clear, set them to refine if they fail the weight comparison
+ *
+ * \tparam P is float or double
+ *
+ * \param num_indexes is the number of indexes in weights that will be considered
+ * \param tolerance is the comparison threshold
+ * \param weights has size at least num_indexes (could be more) and the first num_entries
+ *        will be used in the comparison
+ * \param status will be updated with clear entries will be reset to refine if the corresponding
+ *        weights exceed the tolerance
+ */
+template<typename P>
+void update_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
+                    gpu::vector<sparse_grid::istatus> &status);
+
+/*!
+ * \brief Remap by copying the old tensors into the new data
+ *
+ * \tparam P is float or double
+ *
+ * \param block_size is the number of indexes in the tensor block
+ * \param map contains the indexed of the old tensor that need to be copied, -1 means fill with zeros
+ * \param state will be overwritten
+ */
+template<typename P>
+void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &state);
+
 }
