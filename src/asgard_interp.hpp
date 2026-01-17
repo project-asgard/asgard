@@ -415,11 +415,10 @@ public:
   /*!
    * \brief Performs the interpolation of the function func
    */
-  template<typename tmd_type>
+  template<typename tmd_type, typename mom_type>
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments,
-       momentset_gpu<P> const &gpu_moments,
+       connection_patterns const &conn, mom_type const &moms,
        P time, P const state[], std::vector<P> const &ifield,
        gpu::vector<P> const &gpu_ifield,
        P alpha, tmd_type const &tmd, P beta, P y[],
@@ -444,7 +443,8 @@ public:
       {
         tools::time_event perf_("interpolation func-gpu");
         if (plan.uses_moments()) {
-          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), gpu_moments, nodal.data(), gpu_t2.data());
+          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), moms.get_cached_interps(dev),
+                     nodal.data(), gpu_t2.data());
         } else {
           tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), nodal.data(), gpu_t2.data());
         }
@@ -467,7 +467,7 @@ public:
       {
         tools::time_event perf_("interpolation func");
         if (plan.uses_moments()) {
-          tmd.interp(time, nodes(grid), moments, nodal, t2);
+          tmd.interp(time, nodes(grid), moms.get_cached_interps(), nodal, t2);
         } else {
           tmd.interp(time, nodes(grid), nodal, t2);
         }

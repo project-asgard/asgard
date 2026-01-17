@@ -349,8 +349,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(),
-             moms.get_cached_interps(dev), 0, x, {}, {}, alpha, tme.tmd, beta, y, kwork);
+      interp(dev, tme.interplan, grid, conns, moms, 0, x, {}, {}, alpha, tme.tmd, beta, y, kwork);
     } else {
       block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                 alpha, x, beta, y, kwork, tme.coeffs);
