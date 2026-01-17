@@ -575,7 +575,7 @@ void moment_manager<P>::make_nodal(
     kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
 {
   if (dsort_generation != pos_grid.generation()) {
-    pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+    pos_grid.dsort_ = dimension_sort(pos_grid.iset_);
     bool constexpr skip_indexes = true; // already loaded in reduce_grid()
     pos_grid.gpu_sync<skip_indexes>();
     dsort_generation = pos_grid.generation();
@@ -602,34 +602,34 @@ template<typename P>
 void moment_manager<P>::compute_interps(
     std::vector<moment_id> const &ids, sparse_grid const &grid,
     std::vector<P> const &state, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    kronmult::workspace<P> &work) const
 {
-  size_t const num_entries = workspace.size();
+  size_t const num_entries = interp.it1.size();
   for (auto const &id : ids) {
     cache_moment(id, grid, state);
-    make_nodal(id, interp, work, workspace);
+    make_nodal(id, interp, work, interp.it1);
   }
-  workspace.resize(num_entries);
+  interp.it1.resize(num_entries);
 }
 
 template<typename P>
 void moment_manager<P>::load_interp(
     group_id group, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    kronmult::workspace<P> &work) const
 {
-  size_t const num_entries = workspace.size();
+  size_t const num_entries = interp.it1.size();
   if (group == group_id::all()) {
     for (auto mid : interp_moments_) {
       if (mid != moment_id::unset())
-        make_nodal(mid, interp, work, workspace);
+        make_nodal(mid, interp, work, interp.it1);
     }
   } else {
     for (auto mid = first_in(group, interp_moments_);
          *mid != moment_id::unset(); mid++) {
-      make_nodal(*mid, interp, work, workspace);
+      make_nodal(*mid, interp, work, interp.it1);
     }
   }
-  workspace.resize(num_entries);
+  interp.it1.resize(num_entries);
 }
 
 template<typename P>

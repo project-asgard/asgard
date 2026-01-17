@@ -62,7 +62,7 @@ void term_manager<P>::apply_tmpl(
     -> void {
       if (tme.is_interpolatory()) {
         interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, in, ifield,
-               al, tme.tmd, be, out, kwork, it1, it2);
+               al, tme.tmd, be, out, kwork);
       } else {
         block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                   al, in, be, out, kwork);
@@ -529,8 +529,8 @@ void term_manager<P>::print_bytes(std::ostream &os) const {
   c += t;
   t = 0;
   t += ifield.size() * sizeof(P);
-  t += t1.size() * sizeof(P) + t2.size() * sizeof(P);
-  t += it1.size() * sizeof(P) + it2.size() * sizeof(P);
+  t += (t1.size() + t2.size()) * sizeof(P);
+  t += (interp.it1.size() + interp.it2.size()) * sizeof(P);
   t += swork.size() * sizeof(P) + sweights.size() * sizeof(P);
   os << "  workspace " << MB(t);
   os << "  total     " << MB(c);

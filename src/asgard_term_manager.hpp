@@ -126,7 +126,6 @@ struct term_manager
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
-  mutable std::vector<P> it1, it2; // used for interpolation
   mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
   mutable std::vector<P> cpu_s1; // used for sources on the CPU
@@ -256,8 +255,8 @@ struct term_manager
     t2.resize(num_entries);
 
     if (interp) {
-      it1.resize(num_entries);
-      it2.resize(num_entries);
+      interp.it1.resize(num_entries);
+      interp.it2.resize(num_entries);
     }
 
     #ifdef ASGARD_USE_GPU
@@ -328,7 +327,7 @@ struct term_manager
   {
     if (tme.is_interpolatory()) {
       interp(tme.interplan, grid, conns, moms.get_cached_interps(),
-             0, x.data(), {}, alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
+             0, x.data(), {}, alpha, tme.tmd, beta, y.data(), kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -340,7 +339,7 @@ struct term_manager
   {
     if (tme.is_interpolatory()) {
       interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {},
-             alpha, tme.tmd, beta, y, kwork, it1, it2);
+             alpha, tme.tmd, beta, y, kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);

@@ -301,7 +301,7 @@ void discretization_manager<precision>::compute_moments_local(
     group_id gid, std::vector<precision> const &f) const
 {
   terms.moms.cache_moments(gid, grid, f);
-  terms.moms.load_interp(gid, terms.interp, terms.kwork, terms.it1);
+  terms.moms.load_interp(gid, terms.interp, terms.kwork);
   compute_poisson(gid);
   terms.rebuild_moment_terms(gid, grid, conn, hier);
 }
@@ -361,7 +361,7 @@ void discretization_manager<precision>::set_initial_condition()
                        momentset<precision> const &, std::vector<precision> &vals)
                        -> void {
                          initial_md_(t, x, vals);
-                   }, 0, state, terms.kwork, terms.it1, terms.it2);
+                   }, 0, state, terms.kwork);
     else
       std::fill(state.begin(), state.end(), precision{0});
 

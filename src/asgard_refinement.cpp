@@ -103,15 +103,15 @@ void refinement_manager<P>::refine_(
     if (not iweights_.is_moment()) {
       iplan.use_moments(false);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     }
 
     if (iweights_.is_moment()) {
-      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
+      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork);
       iplan.use_moments(true);
       terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+                   1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     }
   }
