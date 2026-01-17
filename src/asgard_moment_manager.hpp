@@ -143,24 +143,18 @@ public:
   //! load all moments into the data-structures
   void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state) const;
   //! load all moments into the data-structures
   void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state) const
   {
-    compute_moments(group_id::all(), grid, interp, kwork, work1, work2, state);
+    compute_moments(group_id::all(), grid, interp, kwork, state);
   }
   //! load the given moments into the data-structures at device 0
   void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
                        interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
   #endif
   /*!

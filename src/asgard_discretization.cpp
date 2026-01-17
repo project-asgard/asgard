@@ -721,8 +721,7 @@ void discretization_manager<precision>::compute_moments_local_gpu(
   {
     // const-cast is safe here, since wf is only used as "const" in the call
     gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, grid, terms.interp, terms.kwork,
-                               terms.gpu_it1, terms.gpu_it2, wf.vec);
+    terms.moms.compute_moments(gid, grid, terms.interp, terms.kwork, wf.vec);
   }
   compute_poisson(gid);
   terms.rebuild_moment_terms(gid, grid, conn, hier);

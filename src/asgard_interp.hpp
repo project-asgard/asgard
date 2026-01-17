@@ -423,9 +423,13 @@ public:
        P time, P const state[], std::vector<P> const &ifield,
        gpu::vector<P> const &gpu_ifield,
        P alpha, tmd_type const &tmd, P beta, P y[],
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
+    std::vector<P> &t1 = cpu_it1[dev()];
+    std::vector<P> &t2 = cpu_it2[dev()];
+    gpu::vector<P> &gpu_t1 = gpu_it1[dev()];
+    gpu::vector<P> &gpu_t2 = gpu_it2[dev()];
+
     expect(plan.is_enabled());
     if (plan.uses_gpu_func()) {
       gpu::vector<P> const &nodal = [&]() -> gpu::vector<P> const &
@@ -486,16 +490,14 @@ public:
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       std::vector<P> &t1,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("source func");
-      func(time, nodes(grid), moments, t1);
+      func(time, nodes(grid), moments, cpu_it1[dev()]);
     }
-    gpu_t1 = t1;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    gpu_it1[dev()] = cpu_it1[dev()];
+    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
   /*!
    * \brief Computes the interpolation function on the GPU
@@ -507,15 +509,17 @@ public:
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset_gpu<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("source func (gpu)");
-      func(gpu_t1.size(), time, gpu_nodes(dev, grid), moments, gpu_t1.data());
+      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, gpu_it1[dev()].data());
     }
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
+
+  mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
   //! computes approximate memory usage by the object

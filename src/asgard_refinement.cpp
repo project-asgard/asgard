@@ -141,7 +141,7 @@ void refinement_manager<P>::refine_(
       iplan.use_moments(true);
 
       terms.moms.compute_moments(moments_, grid, terms.interp, terms.kwork,
-                                 terms.gpu_it1, terms.gpu_it2, state, not iweights_.is_gpu());
+                                 state, not iweights_.is_gpu());
     } else {
       iplan.use_moments(false);
     }
@@ -151,8 +151,7 @@ void refinement_manager<P>::refine_(
     ghier.resize(state.size());
     terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms.get_cached_interps(),
                  terms.moms.get_cached_interps(gpu::device{0}), 0, state.data(), {}, {},
-                 1, iweights_, 0, ghier.data(), terms.kwork, terms.it1, terms.it2,
-                 terms.gpu_it1[0], terms.gpu_it2[0]);
+                 1, iweights_, 0, ghier.data(), terms.kwork);
 
     gpu::compute_max_weights<P>(block_size, num_indexes, ghier, gweight, wmax);
 

@@ -800,12 +800,14 @@ void moment_manager<P>::prepare_pos_grid_gpu(group_id group, sparse_grid const &
 template<typename P>
 void moment_manager<P>::compute_moments(
     group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &kwork, std::array<gpu::vector<P>, max_num_gpus> &work1,
-    std::array<gpu::vector<P>, max_num_gpus> &work2, gpu::vector<P> const &state) const
+    kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
 {
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
   // which will also allow to avoid the spread when doing term-apply
+
+  std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+  std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
 
   prepare_pos_grid_gpu(group, grid);
 
@@ -888,10 +890,11 @@ template<typename P>
 void moment_manager<P>::compute_moments(
     std::vector<moment_id> const &mids, sparse_grid const &grid,
     interpolation_manager<P> const &interp, kronmult::workspace<P> &kwork,
-    std::array<gpu::vector<P>, max_num_gpus> &work1,
-    std::array<gpu::vector<P>, max_num_gpus> &work2,
     gpu::vector<P> const &state, bool result_to_cpu) const
 {
+  std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+  std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
+
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
   // which will also allow to avoid the spread when doing term-apply

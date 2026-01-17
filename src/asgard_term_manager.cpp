@@ -209,12 +209,12 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
     kwork.gpu_w2[g].resize(num_entries);
 
     if (interp) {
-      cpu_it1[g].resize(num_entries);
-      cpu_it2[g].resize(num_entries);
+      interp.cpu_it1[g].resize(num_entries);
+      interp.cpu_it2[g].resize(num_entries);
     }
     if (interp or moms) {
-      gpu_it1[g].resize(num_entries);
-      gpu_it2[g].resize(num_entries);
+      interp.gpu_it1[g].resize(num_entries);
+      interp.gpu_it2[g].resize(num_entries);
     }
   }
 }
@@ -261,8 +261,7 @@ void term_manager<P>::apply_tmpl_gpu(
       if (tme.is_interpolatory()) {
         interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(),
                moms.get_cached_interps(dev),
-               0, in, ifield, gpu_ifield, al, tme.tmd, be, out, kwork,
-               cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+               0, in, ifield, gpu_ifield, al, tme.tmd, be, out, kwork);
       } else {
         block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                   al, in, be, out, kwork, tme.coeffs);
@@ -328,13 +327,13 @@ void term_manager<P>::apply_tmpl_gpu(
 
     if (not gpu_ifield.empty()) {
       // TODO: multi-GPU logic here
-      gpu_ifield.resize(gpu_it1[0].size());
+      gpu_ifield.resize(interp.gpu_it1[0].size());
       interp.wav2nodal(gpu::device{0}, grid, xpntr, gpu_ifield.data(), kwork);
       if (not ifield.empty())
         gpu_ifield.copy_to_host(ifield);
     } else if (not ifield.empty()) {
-      interp.wav2nodal(gpu::device{0}, grid, xpntr, gpu_it1[0].data(), kwork);
-      gpu_it1[0].copy_to_host(ifield);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.gpu_it1[0].copy_to_host(ifield);
     }
 
     bool term_found = false; // does this GPU have at least 1 term

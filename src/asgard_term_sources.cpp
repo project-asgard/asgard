@@ -495,17 +495,17 @@ void term_manager<P>::apply_sources_gpu(
       if (src.is_gpu()) {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           interp(gpu::device{0}, grid, conns, moms.get_cached_interps(gpu::device{0}), time,
-                 1, src, 1, y, kwork, gpu_it1[0], gpu_it2[0]);
+                 1, src, 1, y, kwork);
         else
           interp(gpu::device{0}, grid, conns, moms.get_cached_interps(gpu::device{0}), time,
-                 alpha, src, 1, y, kwork, gpu_it1[0], gpu_it2[0]);
+                 alpha, src, 1, y, kwork);
       } else {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
-                 1, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+                 1, src, 1, y, kwork);
         else
           interp(gpu::device{0}, grid, conns, moms.get_cached_interps(), time,
-                 alpha, src, 1, y, kwork, cpu_it1[0], gpu_it1[0], gpu_it2[0]);
+                 alpha, src, 1, y, kwork);
       }
     };
 
