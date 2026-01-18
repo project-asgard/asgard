@@ -117,12 +117,6 @@ struct term_manager
   moment_manager<P> moms;
   //! interpolation data
   interpolation_manager<P> interp;
-  //! values for the interpolation field, allows reuse for several interp ops
-  mutable std::vector<P> ifield;
-  #ifdef ASGARD_USE_GPU
-  //! field value sitting on the GPU
-  mutable gpu::vector<P> gpu_ifield;
-  #endif
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
@@ -325,7 +319,7 @@ struct term_manager
   {
     if (tme.is_interpolatory()) {
       interp(tme.interplan, grid, conns, moms.get_cached_interps(),
-             0, x.data(), {}, alpha, tme.tmd, beta, y.data(), kwork);
+             0, x.data(), alpha, tme.tmd, beta, y.data(), kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -336,7 +330,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {},
+      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x,
              alpha, tme.tmd, beta, y, kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
@@ -349,7 +343,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(dev, tme.interplan, grid, conns, moms, 0, x, {}, {}, alpha, tme.tmd, beta, y, kwork);
+      interp(dev, tme.interplan, grid, conns, moms, 0, x, alpha, tme.tmd, beta, y, kwork);
     } else {
       block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                 alpha, x, beta, y, kwork, tme.coeffs);

@@ -228,8 +228,7 @@ public:
   void operator ()
       (interpolation_plan const &plan, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments,
-       P time, P const state[], std::vector<P> const &ifield,
-       P alpha, tmd_type const &tmd, P beta, P y[],
+       P time, P const state[], P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
     expect(plan.is_enabled());
@@ -418,9 +417,7 @@ public:
   template<typename tmd_type, typename mom_type>
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, mom_type const &moms,
-       P time, P const state[], std::vector<P> const &ifield,
-       gpu::vector<P> const &gpu_ifield,
+       connection_patterns const &conn, mom_type const &moms, P time, P const state[],
        P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
@@ -518,6 +515,8 @@ public:
     nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
 
+  //! field value sitting on the GPU
+  mutable gpu::vector<P> gpu_ifield;
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
@@ -528,8 +527,12 @@ public:
               + nodes1d_.size() * sizeof(P) + (it1.size() + it2.size()) * sizeof(P);
     return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
   }
-
-  mutable std::vector<P> it1, it2; // used for interpolation
+  //! values for the interpolation field, allows reuse for several interp ops
+  mutable std::vector<P> ifield;
+  //! temporary workspace vector
+  mutable std::vector<P> it1;
+  //! temporary workspace vector
+  mutable std::vector<P> it2;
 
 private:
   int num_dims = 0;
