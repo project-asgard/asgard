@@ -505,6 +505,7 @@ def plot_with_args(argv = None):
         if len(argv) < 3:
             print("stats summary option requires a filename")
         else:
+            print(f"{argv[0]}  {argv[1]}  {argv[2]}")
             shot = pde_snapshot(argv[2])
             print("\n", shot, shot.timer_report)
     elif argv[1] in ("-ss", "-vv"):
