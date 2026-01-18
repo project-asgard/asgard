@@ -80,6 +80,7 @@ class pde_snapshot:
             assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
+            self.default_cmap = fdata['default_cmap'][()].decode("utf-8") if 'default_cmap' in fdata else 'turbo'
 
             # problem dimensions
             self.num_dimensions = fdata['num_dims'][()]
@@ -578,7 +579,7 @@ def plot_with_args(argv = None):
                     addgrid = True
                     i += 1
                 elif argv[i] == "-cmap":
-                    colormap = argv[i + 1] if i + 1 < n else "turbo"
+                    colormap = argv[i + 1] if i + 1 < n else "asg_default"
                     i += 2
                 elif argv[i] in cmaps:
                     colormap = cmaps[argv[i]]
@@ -650,6 +651,8 @@ def plot_with_args(argv = None):
                 ymax = shot.dimension_max[dims[1]]
 
                 #p = asgplot.pcolor(x, y, z, cmap='jet')
+                if colormap == "asg_default":
+                    colormap = shot.default_cmap
                 p = asgplot.imshow(np.flipud(z), cmap=colormap, extent=[xmin, xmax, ymin, ymax])
 
                 asgplot.colorbar(p, orientation='vertical')
