@@ -81,6 +81,8 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
   options.default_degree = default_degree;
   options.default_start_levels = {7, 7};
 
+  options.default_plotter_colormap = "viridis";
+
   // the CFL is more complicated, it depends both on the polynomial degree
   // and on the maximum number of cells (TODO: add more here)
   int const k = options.degree.value_or(default_degree);

@@ -80,7 +80,7 @@ class pde_snapshot:
             assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
-            self.default_cmap = fdata['default_cmap'][()].decode("utf-8") if 'default_cmap' in fdata else 'turbo'
+            self.default_cmap = fdata['default_plotter_colormap'][()].decode("utf-8") if 'default_plotter_colormap' in fdata else 'turbo'
 
             # problem dimensions
             self.num_dimensions = fdata['num_dims'][()]
@@ -547,9 +547,10 @@ def plot_with_args(argv = None):
         auxfield = None
         moment   = None
         addgrid  = False
-        colormap = "turbo"
+        colormap = "asg_default"
         cmaps = {"-jet" : "jet", "-vir" : "viridis", "-hot" : "hot", "-cool" : "coolwarm",
-                 "-gray" : "gist_gray", "-plasma" : "plasma", "-spec" : "Spectral_r"}
+                 "-gray" : "gist_gray", "-plasma" : "plasma", "-spec" : "Spectral_r",
+                 "-turbo" : "turbo"}
         if len(argv) > 2:
             i = 2
             n = len(argv)

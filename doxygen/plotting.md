@@ -117,13 +117,16 @@ used by ASGarD is `turbo` which gives good contrast from low dark-blue values to
 However, other colormaps can be used depending on the preferences:
 ```
   <prefix>/share/asgard/pde/two_stream -a 1.E-4 -t 20 -of twostr.h5
-  asgardplot.sh twostr.h5
-  asgardplot.sh twostr.h5 -vir
-  asgardplot.sh twostr.h5 -hot
-  asgardplot.sh twostr.h5 -cool
-  asgardplot.sh twostr.h5 -gray
-  asgardplot.sh twostr.h5 -plasma
-  asgardplot.sh twostr.h5 -spec
+  asgardplot.sh twostr.h5            # using the default, either turbo
+                                     # or options.default_plotter_colormap
+  asgardplot.sh twostr.h5 -turbo     # colormap turbo
+  asgardplot.sh twostr.h5 -vir       # colormap viridis
+  asgardplot.sh twostr.h5 -jet       # colormap jet
+  asgardplot.sh twostr.h5 -hot       # colormap hot
+  asgardplot.sh twostr.h5 -cool      # colormap coolwarm
+  asgardplot.sh twostr.h5 -gray      # colormap gist_gray
+  asgardplot.sh twostr.h5 -plasma    # colormap plasma
+  asgardplot.sh twostr.h5 -spec      # colormap Spectral_r
   asgardplot.sh twostr.h5 -cmap <cmap-name>
 ```
 The `cmap` option can take any of the over 30 matplotlib maps available,

@@ -619,6 +619,8 @@ struct prog_opts
 
   //! sets default view for the plotter
   std::string default_plotter_view;
+  //! sets default colormap for the plotter
+  std::string default_plotter_colormap;
   //! allows overriding the verbosity level
   std::optional<verbosity_level> verbosity;
   //! on each time-step, rejects the step if it contains inf or nan
