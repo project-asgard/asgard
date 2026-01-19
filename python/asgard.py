@@ -81,6 +81,8 @@ class pde_snapshot:
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
             self.default_cmap = fdata['default_plotter_colormap'][()].decode("utf-8") if 'default_plotter_colormap' in fdata else 'turbo'
+            if self.default_cmap == "":
+                self.default_cmap = 'turbo'
 
             # problem dimensions
             self.num_dimensions = fdata['num_dims'][()]
@@ -203,6 +205,7 @@ class pde_snapshot:
         aux.cells    = self.aux_fields[idnum]['grid']
 
         aux.default_view = self.default_view
+        aux.default_cmap = self.default_cmap
 
         aux.num_dimensions = self.aux_fields[idnum]['dims']
         if aux.num_dimensions == self.num_dimensions:
