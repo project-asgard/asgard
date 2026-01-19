@@ -246,7 +246,7 @@ if (ASGARD_USE_PYTHON)
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
     endforeach()
-    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py)
+    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py bgk.py)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
                            COMMAND "${CMAKE_COMMAND}"
                            ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
