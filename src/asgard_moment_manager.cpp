@@ -575,7 +575,7 @@ void moment_manager<P>::make_nodal(
     kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
 {
   if (dsort_generation != pos_grid.generation()) {
-    pos_grid.dsort_  = dimension_sort(pos_grid.iset_);
+    pos_grid.dsort_ = dimension_sort(pos_grid.iset_);
     bool constexpr skip_indexes = true; // already loaded in reduce_grid()
     pos_grid.gpu_sync<skip_indexes>();
     dsort_generation = pos_grid.generation();
@@ -602,34 +602,34 @@ template<typename P>
 void moment_manager<P>::compute_interps(
     std::vector<moment_id> const &ids, sparse_grid const &grid,
     std::vector<P> const &state, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    kronmult::workspace<P> &work) const
 {
-  size_t const num_entries = workspace.size();
+  size_t const num_entries = interp.it1.size();
   for (auto const &id : ids) {
     cache_moment(id, grid, state);
-    make_nodal(id, interp, work, workspace);
+    make_nodal(id, interp, work, interp.it1);
   }
-  workspace.resize(num_entries);
+  interp.it1.resize(num_entries);
 }
 
 template<typename P>
 void moment_manager<P>::load_interp(
     group_id group, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &work, std::vector<P> &workspace) const
+    kronmult::workspace<P> &work) const
 {
-  size_t const num_entries = workspace.size();
+  size_t const num_entries = interp.it1.size();
   if (group == group_id::all()) {
     for (auto mid : interp_moments_) {
       if (mid != moment_id::unset())
-        make_nodal(mid, interp, work, workspace);
+        make_nodal(mid, interp, work, interp.it1);
     }
   } else {
     for (auto mid = first_in(group, interp_moments_);
          *mid != moment_id::unset(); mid++) {
-      make_nodal(*mid, interp, work, workspace);
+      make_nodal(*mid, interp, work, interp.it1);
     }
   }
-  workspace.resize(num_entries);
+  interp.it1.resize(num_entries);
 }
 
 template<typename P>
@@ -800,12 +800,14 @@ void moment_manager<P>::prepare_pos_grid_gpu(group_id group, sparse_grid const &
 template<typename P>
 void moment_manager<P>::compute_moments(
     group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &kwork, std::array<gpu::vector<P>, max_num_gpus> &work1,
-    std::array<gpu::vector<P>, max_num_gpus> &work2, gpu::vector<P> const &state) const
+    kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
 {
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
   // which will also allow to avoid the spread when doing term-apply
+
+  std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+  std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
 
   prepare_pos_grid_gpu(group, grid);
 
@@ -888,10 +890,11 @@ template<typename P>
 void moment_manager<P>::compute_moments(
     std::vector<moment_id> const &mids, sparse_grid const &grid,
     interpolation_manager<P> const &interp, kronmult::workspace<P> &kwork,
-    std::array<gpu::vector<P>, max_num_gpus> &work1,
-    std::array<gpu::vector<P>, max_num_gpus> &work2,
     gpu::vector<P> const &state, bool result_to_cpu) const
 {
+  std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+  std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
+
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
   // which will also allow to avoid the spread when doing term-apply

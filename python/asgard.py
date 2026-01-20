@@ -80,6 +80,9 @@ class pde_snapshot:
             assert 'num_dims' in fdata, f"'{filename}' doesn't appear to be a valid asgard file"
 
             self.default_view = fdata['default_plotter_view'][()].decode("utf-8")
+            self.default_cmap = fdata['default_plotter_colormap'][()].decode("utf-8") if 'default_plotter_colormap' in fdata else 'turbo'
+            if self.default_cmap == "":
+                self.default_cmap = 'turbo'
 
             # problem dimensions
             self.num_dimensions = fdata['num_dims'][()]
@@ -202,6 +205,7 @@ class pde_snapshot:
         aux.cells    = self.aux_fields[idnum]['grid']
 
         aux.default_view = self.default_view
+        aux.default_cmap = self.default_cmap
 
         aux.num_dimensions = self.aux_fields[idnum]['dims']
         if aux.num_dimensions == self.num_dimensions:
@@ -505,6 +509,7 @@ def plot_with_args(argv = None):
         if len(argv) < 3:
             print("stats summary option requires a filename")
         else:
+            print(f"{argv[0]}  {argv[1]}  {argv[2]}")
             shot = pde_snapshot(argv[2])
             print("\n", shot, shot.timer_report)
     elif argv[1] in ("-ss", "-vv"):
@@ -545,9 +550,10 @@ def plot_with_args(argv = None):
         auxfield = None
         moment   = None
         addgrid  = False
-        colormap = "turbo"
+        colormap = "asg_default"
         cmaps = {"-jet" : "jet", "-vir" : "viridis", "-hot" : "hot", "-cool" : "coolwarm",
-                 "-gray" : "gist_gray", "-plasma" : "plasma", "-spec" : "Spectral_r"}
+                 "-gray" : "gist_gray", "-plasma" : "plasma", "-spec" : "Spectral_r",
+                 "-turbo" : "turbo"}
         if len(argv) > 2:
             i = 2
             n = len(argv)
@@ -577,7 +583,7 @@ def plot_with_args(argv = None):
                     addgrid = True
                     i += 1
                 elif argv[i] == "-cmap":
-                    colormap = argv[i + 1] if i + 1 < n else "turbo"
+                    colormap = argv[i + 1] if i + 1 < n else "asg_default"
                     i += 2
                 elif argv[i] in cmaps:
                     colormap = cmaps[argv[i]]
@@ -649,6 +655,8 @@ def plot_with_args(argv = None):
                 ymax = shot.dimension_max[dims[1]]
 
                 #p = asgplot.pcolor(x, y, z, cmap='jet')
+                if colormap == "asg_default":
+                    colormap = shot.default_cmap
                 p = asgplot.imshow(np.flipud(z), cmap=colormap, extent=[xmin, xmax, ymin, ymax])
 
                 asgplot.colorbar(p, orientation='vertical')

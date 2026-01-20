@@ -110,10 +110,10 @@ public:
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
-                       kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+                       kronmult::workspace<P> &work) const;
   //! load the inteprolatory moments, specified group
   void load_interp(group_id group, interpolation_manager<P> const &interp,
-                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
+                   kronmult::workspace<P> &work) const;
 
   //! computes approximate memory usage by the object
   size_t used_bytes() const;
@@ -143,24 +143,18 @@ public:
   //! load all moments into the data-structures
   void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state) const;
   //! load all moments into the data-structures
   void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state) const
   {
-    compute_moments(group_id::all(), grid, interp, kwork, work1, work2, state);
+    compute_moments(group_id::all(), grid, interp, kwork, state);
   }
   //! load the given moments into the data-structures at device 0
   void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
                        interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
-                       std::array<gpu::vector<P>, max_num_gpus> &work1,
-                       std::array<gpu::vector<P>, max_num_gpus> &work2,
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
   #endif
   /*!

@@ -320,7 +320,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         if (t.tmd.is_gpu_interpolatory()) {
           t.interplan.use_gpu_func();
           if (t.interplan.uses_field() and resources.owns(t.rec))
-            gpu_ifield.resize(1);
+            interp.gpu_ifield.resize(1);
         }
         #else
         rassert(not t.tmd.is_gpu_interpolatory(), "cannot use GPU interpolation without CUDA or ROCM enabled");
@@ -352,7 +352,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
     if (has_field_interp)
-      ifield.resize(1);
+      interp.ifield.resize(1);
 
     // handle the moment dependencies, identify regular and interp moments for each group
     // respect the MPI and GPU distributions

@@ -131,7 +131,7 @@ endif()
 # the documentation PDEs are going to be installed and the string will be used
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
-set (_asgard_doc_pdes "continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers bgk")
+set (_asgard_doc_pdes "continuity_2d inputs_1d continuity diffusion spherical_diffusion elliptic robin_bc sinwav two_stream vplb sod_shock burgers bgk")
 set (_asgard_gpu_pdes "burgers_gpu")
 set (_asgard_int_pdes bound_internal interp_internal relaxation_internal varcoeff_internal misc_internal)
 
@@ -246,7 +246,7 @@ if (ASGARD_USE_PYTHON)
                            COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
         list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
     endforeach()
-    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py)
+    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py bgk.py)
         add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
                            COMMAND "${CMAKE_COMMAND}"
                            ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
@@ -666,13 +666,24 @@ if (ASGARD_BUILD_TESTS)
   # human-readable output is used a lot, any issues should be easy to catch
   add_test (NAME asgard-help    COMMAND asgard --help)
   add_test (NAME asgard-version COMMAND asgard --version)
-  add_test (NAME asgard-example-continuity-2d COMMAND example_continuity_2d)
 
   # add the pdes and set the MPI tests
   foreach( _asg_pde ${_asgard_pdes})
-      add_test (NAME asgard-pde-${_asg_pde}-test
-                COMMAND ${_asg_pde} -test
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+      if ("${_asg_pde}" STREQUAL "continuity_2d" OR "${_asg_pde}" STREQUAL "inputs_1d")
+          if ("${_asg_pde}" STREQUAL "continuity_2d")
+              add_test (NAME asgard-pde-${_asg_pde}-test
+                        COMMAND ${_asg_pde}
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+          else ()
+              add_test (NAME asgard-pde-${_asg_pde}-test
+                        COMMAND ${_asg_pde} -if inputs_1d_1.txt
+                        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+          endif()
+      else ()
+          add_test (NAME asgard-pde-${_asg_pde}-test
+                    COMMAND ${_asg_pde} -test
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+      endif()
 
       if (ASGARD_TEST_OMP_NUM_THREADS)
           set_tests_properties (asgard-pde-${_asg_pde}-test PROPERTIES
@@ -729,14 +740,6 @@ if (ASGARD_BUILD_TESTS)
   message(STATUS "")
 
 endif ()
-
-#-------------------------------------------------------------------------------
-# Building the examples to make sure they build but will not run here
-#-------------------------------------------------------------------------------
-foreach(_exfile continuity_2d inputs_1d)
-  add_executable(example_${_exfile} "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_exfile}.cpp")
-  target_link_libraries(example_${_exfile} libasgard)
-endforeach()
 
 #-------------------------------------------------------------------------------
 # Installing the library as stand-alone

@@ -228,9 +228,8 @@ public:
   void operator ()
       (interpolation_plan const &plan, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments,
-       P time, P const state[], std::vector<P> const &ifield,
-       P alpha, tmd_type const &tmd, P beta, P y[],
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+       P time, P const state[], P alpha, tmd_type const &tmd, P beta, P y[],
+       kronmult::workspace<P> &work) const
   {
     expect(plan.is_enabled());
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
@@ -238,22 +237,22 @@ public:
         if (plan.uses_field()) {
           return ifield;
         } else {
-          wav2nodal(grid, state, t1.data(), work);
-          return t1;
+          wav2nodal(grid, state, it1.data(), work);
+          return it1;
         }
       }();
     {
       tools::time_event perf_("interpolation func");
       if (plan.uses_moments()) {
-        tmd.interp(time, nodes(grid), moments, nodal, t2);
+        tmd.interp(time, nodes(grid), moments, nodal, it2);
       } else {
-        tmd.interp(time, nodes(grid), nodal, t2);
+        tmd.interp(time, nodes(grid), nodal, it2);
       }
     }
     if (plan.uses_hier())
-      nodal2hier(grid, conn, t2.data(), y, work);
+      nodal2hier(grid, conn, it2.data(), y, work);
     else
-      nodal2wav(grid, conn, alpha, t2.data(), beta, y, work, t1);
+      nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -271,13 +270,13 @@ public:
   void operator ()
       (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
        P time, P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+       kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("source func");
-      func(time, nodes(grid), moments, t1);
+      func(time, nodes(grid), moments, it1);
     }
-    nodal2wav(grid, conn, alpha, t1.data(), beta, y, work, t2);
+    nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -288,13 +287,13 @@ public:
   void operator ()
       (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
        P time, P alpha, tmd_type const &func, P beta, std::vector<P> &y,
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2) const
+       kronmult::workspace<P> &work) const
   {
     if (beta == 0)
-      y.resize(t1.size());
+      y.resize(it1.size());
     else
-      expect(y.size() == t1.size());
-    (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work, t1, t2);
+      expect(y.size() == it1.size());
+    (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work);
   }
 
   //! indicates whether the manager has been initialized
@@ -415,17 +414,18 @@ public:
   /*!
    * \brief Performs the interpolation of the function func
    */
-  template<typename tmd_type>
+  template<typename tmd_type, typename mom_type>
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments,
-       momentset_gpu<P> const &gpu_moments,
-       P time, P const state[], std::vector<P> const &ifield,
-       gpu::vector<P> const &gpu_ifield,
+       connection_patterns const &conn, mom_type const &moms, P time, P const state[],
        P alpha, tmd_type const &tmd, P beta, P y[],
-       kronmult::workspace<P> &work, std::vector<P> &t1, std::vector<P> &t2,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
+    std::vector<P> &t1 = cpu_it1[dev()];
+    std::vector<P> &t2 = cpu_it2[dev()];
+    gpu::vector<P> &gpu_t1 = gpu_it1[dev()];
+    gpu::vector<P> &gpu_t2 = gpu_it2[dev()];
+
     expect(plan.is_enabled());
     if (plan.uses_gpu_func()) {
       gpu::vector<P> const &nodal = [&]() -> gpu::vector<P> const &
@@ -440,7 +440,8 @@ public:
       {
         tools::time_event perf_("interpolation func-gpu");
         if (plan.uses_moments()) {
-          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), gpu_moments, nodal.data(), gpu_t2.data());
+          tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), moms.get_cached_interps(dev),
+                     nodal.data(), gpu_t2.data());
         } else {
           tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), nodal.data(), gpu_t2.data());
         }
@@ -463,7 +464,7 @@ public:
       {
         tools::time_event perf_("interpolation func");
         if (plan.uses_moments()) {
-          tmd.interp(time, nodes(grid), moments, nodal, t2);
+          tmd.interp(time, nodes(grid), moms.get_cached_interps(), nodal, t2);
         } else {
           tmd.interp(time, nodes(grid), nodal, t2);
         }
@@ -486,16 +487,14 @@ public:
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       std::vector<P> &t1,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("source func");
-      func(time, nodes(grid), moments, t1);
+      func(time, nodes(grid), moments, cpu_it1[dev()]);
     }
-    gpu_t1 = t1;
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    gpu_it1[dev()] = cpu_it1[dev()];
+    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
   /*!
    * \brief Computes the interpolation function on the GPU
@@ -507,23 +506,33 @@ public:
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset_gpu<P> const &moments, P time,
        P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work,
-       gpu::vector<P> &gpu_t1, gpu::vector<P> &gpu_t2) const
+       kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("source func (gpu)");
-      func(gpu_t1.size(), time, gpu_nodes(dev, grid), moments, gpu_t1.data());
+      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, gpu_it1[dev()].data());
     }
-    nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
+
+  //! field value sitting on the GPU
+  mutable gpu::vector<P> gpu_ifield;
+  mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
+  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   #endif
 
   //! computes approximate memory usage by the object
   size_t used_bytes() const {
     size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
-              + nodes1d_.size() * sizeof(P);
+              + nodes1d_.size() * sizeof(P) + (it1.size() + it2.size()) * sizeof(P);
     return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
   }
+  //! values for the interpolation field, allows reuse for several interp ops
+  mutable std::vector<P> ifield;
+  //! temporary workspace vector
+  mutable std::vector<P> it1;
+  //! temporary workspace vector
+  mutable std::vector<P> it2;
 
 private:
   int num_dims = 0;

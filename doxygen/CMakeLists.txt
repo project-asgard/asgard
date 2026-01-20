@@ -60,8 +60,8 @@ doxygen_add_docs(asgard_doxygen
                  src/asgard_momentset.hpp
                  src/asgard_domain.hpp
                  src/asgard_pde.hpp
-                 examples/continuity_2d.cpp
-                 examples/inputs_1d.cpp
+                 src/pde/continuity_2d.cpp
+                 src/pde/inputs_1d.cpp
                  src/pde/continuity.cpp
                  src/pde/diffusion.cpp
                  src/pde/elliptic.cpp

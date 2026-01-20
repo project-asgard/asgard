@@ -53,6 +53,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
   H5Easy::dump(file, "title", options.title);
   H5Easy::dump(file, "subtitle", options.subtitle);
   H5Easy::dump(file, "default_plotter_view", options.default_plotter_view);
+  H5Easy::dump(file, "default_plotter_colormap", options.default_plotter_colormap);
 
   H5Easy::dump(file, "num_dims", domain.num_dims_);
   H5Easy::dump(file, "degree", degree);
@@ -217,7 +218,11 @@ void h5manager<P>::read(std::string const &filename, bool silent,
   std::string subtitle = H5Easy::load<std::string>(file, "subtitle");
   if (options.subtitle.empty()) // if user has new subtitle, keep it, else set from file
     options.subtitle = H5Easy::load<std::string>(file, "subtitle");
-  options.default_plotter_view = H5Easy::load<std::string>(file, "default_plotter_view");
+  options.default_plotter_view     = H5Easy::load<std::string>(file, "default_plotter_view");
+  if (file.exist("default_plotter_colormap"))
+    options.default_plotter_colormap = H5Easy::load<std::string>(file, "default_plotter_colormap");
+  else
+    options.default_plotter_colormap = "";
 
   options.degree = H5Easy::load<int>(file, "degree");
 

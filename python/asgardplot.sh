@@ -25,11 +25,15 @@ if [[ "$1" == "-plt" ]]; then
     exit 0;
 fi
 
-
-if [ ! -f $1 ]; then
+if [[ "$1" == "-stat" ]] || [[ "$1" == "-s" ]]; then
+    if [ ! -f $2 ]; then
+        echo "cannot find file '$2'"
+        exit 1
+    fi
+    @Python_EXECUTABLE@ -m asgard "$@"
+elif [ ! -f $1 ]; then
     echo "cannot find file '$1'"
     exit 1
+else
+    @Python_EXECUTABLE@ -m asgard "$@"
 fi
-
-@Python_EXECUTABLE@ -m asgard "$@"
-

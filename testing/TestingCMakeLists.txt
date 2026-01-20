@@ -9,11 +9,22 @@ find_package(asgard @asgard_VERSION@ PATHS "@__asgard_install_prefix@")
 
 add_subdirectory("@__asgard_install_prefix@/share/asgard/examples" examples_cxx)
 
-add_test(continuity_2d  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/continuity_2d")
-add_test(input_1d       "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/inputs_1d" "-if" "examples_cxx/inputs_1d_1.txt")
-
 foreach (_example @_asgard_doc_pdes_str@)
-    add_test(${_example}  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -test)
+
+    if ("${_example}" STREQUAL "continuity_2d" OR "${_example}" STREQUAL "inputs_1d")
+        if ("${_example}" STREQUAL "continuity_2d")
+            add_test (NAME ${_example}
+                      COMMAND "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}"
+                      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        else ()
+            add_test (NAME ${_example}
+                      COMMAND "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -if "examples_cxx/inputs_1d_1.txt"
+                      WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+        endif()
+    else()
+        add_test(${_example}  "${CMAKE_CURRENT_BINARY_DIR}/examples_cxx/${_example}" -test)
+    endif()
+
 endforeach()
 
 if ("@ASGARD_USE_CUDA@" OR "@ASGARD_USE_ROCM@")

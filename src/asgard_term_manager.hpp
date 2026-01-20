@@ -117,24 +117,15 @@ struct term_manager
   moment_manager<P> moms;
   //! interpolation data
   interpolation_manager<P> interp;
-  //! values for the interpolation field, allows reuse for several interp ops
-  mutable std::vector<P> ifield;
-  #ifdef ASGARD_USE_GPU
-  //! field value sitting on the GPU
-  mutable gpu::vector<P> gpu_ifield;
-  #endif
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
-  mutable std::vector<P> it1, it2; // used for interpolation
   mutable std::vector<P> swork, sweights; // source workspace and time weights
   #ifdef ASGARD_USE_GPU
   mutable std::vector<P> cpu_s1; // used for sources on the CPU
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_t1, gpu_t2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   // for both multi-gpu support and interpolation evals on the CPU/GPU
-  mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
-  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
@@ -256,8 +247,8 @@ struct term_manager
     t2.resize(num_entries);
 
     if (interp) {
-      it1.resize(num_entries);
-      it2.resize(num_entries);
+      interp.it1.resize(num_entries);
+      interp.it2.resize(num_entries);
     }
 
     #ifdef ASGARD_USE_GPU
@@ -328,7 +319,7 @@ struct term_manager
   {
     if (tme.is_interpolatory()) {
       interp(tme.interplan, grid, conns, moms.get_cached_interps(),
-             0, x.data(), {}, alpha, tme.tmd, beta, y.data(), kwork, it1, it2);
+             0, x.data(), alpha, tme.tmd, beta, y.data(), kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
@@ -339,8 +330,8 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x, {},
-             alpha, tme.tmd, beta, y, kwork, it1, it2);
+      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x,
+             alpha, tme.tmd, beta, y, kwork);
     } else {
       block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
@@ -352,9 +343,7 @@ struct term_manager
                  term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(dev, tme.interplan, grid, conns, moms.get_cached_interps(),
-             moms.get_cached_interps(dev), 0, x, {}, {}, alpha, tme.tmd, beta, y, kwork,
-             cpu_it1[dev.id], cpu_it2[dev.id], gpu_it1[dev.id], gpu_it2[dev.id]);
+      interp(dev, tme.interplan, grid, conns, moms, 0, x, alpha, tme.tmd, beta, y, kwork);
     } else {
       block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
                 alpha, x, beta, y, kwork, tme.coeffs);

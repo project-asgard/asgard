@@ -102,16 +102,16 @@ void refinement_manager<P>::refine_(
   if (iplan.is_enabled()) {
     if (not iweights_.is_moment()) {
       iplan.use_moments(false);
-      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(),
+                   1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     }
 
     if (iweights_.is_moment()) {
-      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork, terms.t1);
+      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork);
       iplan.use_moments(true);
-      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(), {},
-                   1, iweights_, 0, terms.t1.data(), terms.kwork, terms.it1, terms.it2);
+      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(),
+                   1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     }
   }
@@ -141,7 +141,7 @@ void refinement_manager<P>::refine_(
       iplan.use_moments(true);
 
       terms.moms.compute_moments(moments_, grid, terms.interp, terms.kwork,
-                                 terms.gpu_it1, terms.gpu_it2, state, not iweights_.is_gpu());
+                                 state, not iweights_.is_gpu());
     } else {
       iplan.use_moments(false);
     }
@@ -149,10 +149,8 @@ void refinement_manager<P>::refine_(
     iplan.use_gpu_func(iweights_.is_gpu());
 
     ghier.resize(state.size());
-    terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms.get_cached_interps(),
-                 terms.moms.get_cached_interps(gpu::device{0}), 0, state.data(), {}, {},
-                 1, iweights_, 0, ghier.data(), terms.kwork, terms.it1, terms.it2,
-                 terms.gpu_it1[0], terms.gpu_it2[0]);
+    terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms, 0, state.data(),
+                 1, iweights_, 0, ghier.data(), terms.kwork);
 
     gpu::compute_max_weights<P>(block_size, num_indexes, ghier, gweight, wmax);
 
