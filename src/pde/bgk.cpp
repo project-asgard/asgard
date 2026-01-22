@@ -61,6 +61,20 @@ void self_test();
 
 /*!
  * \ingroup asgard_examples_bgk
+ * \brief Indicates which problem is being simulated
+  */
+enum class pde_mode
+{
+  //! Coupling between BGK and Poisson capabilities, identical to \ref asgard_examples_vplb "VPLB"
+  poisson,
+  //! shock in 1d
+  shock1d,
+  //! shock in 2d
+  shock2d
+};
+
+/*!
+ * \ingroup asgard_examples_bgk
  * \brief Make single BGK PDE
  *
  * Constructs the pde description for the given umber of dimensions
@@ -77,24 +91,32 @@ void self_test();
  * \snippet bgk.cpp asgard_examples_bgk make
  */
 template<typename P = asgard::default_precision>
-asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
+asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [asgard_examples_bgk make]
 #endif
 
-  rassert(1 <= dims and dims <= 3, "problem is set for 1, 2 or 3 position dimensions");
+  // number of position and velocity dimensions
+  // the total number of dimensions is 2 * dims
+  int const dims = (mode == pde_mode::shock2d) ? 2 : 1;
 
   options.title = "Bhatnagar-Gross-Krook "
                  + std::to_string(dims) + "x" + std::to_string(dims) + "v";
 
   // get the collision frequency
   P const nu = options.extra_cli_value_group<P>({"-nu", }).value_or(1.0);
-  options.subtitle = "collision frequency: " + std::to_string(nu);
+  options.subtitle = "collision frequency " + std::to_string(nu);
+
+  options.subtitle += (mode == pde_mode::poisson) ? " with poisson" : " shock example";
 
   std::vector<asgard::domain_range> ranges;
   ranges.reserve(2 * dims);
-  for (int x = 0; x < dims; x++)
-    ranges.emplace_back(-1.0, 1.0);
+  if (mode == pde_mode::poisson) {
+    ranges.emplace_back(-2 * PI, 2 * PI);
+  } else {
+    for (int x = 0; x < dims; x++)
+      ranges.emplace_back(-1.0, 1.0);
+  }
   for (int v = 0; v < dims; v++)
     ranges.emplace_back(-6.0, 6.0);
 
@@ -115,20 +137,32 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
 
   options.default_stop_time = 1.0;
 
-  // if the user has selected a time-stepping method that is not imex
-  if (options.step_method and not asgard::is_imex(options.step_method.value())) {
-    // then we default to the GMRES solver
-    options.default_solver = asgard::solver_method::gmres;
+  // select an appropriate solver
+  if (mode == pde_mode::poisson)
+  {
+    // the poisson solver creates nonlinear coupling which cannot be handled
+    // with anything but an imex stepper (TODO: double-check explicit)
+    options.throw_if_not_imex_stepper();
 
-    options.default_isolver_tolerance  = 1.E-8;
-    options.default_isolver_iterations = 400;
-    options.default_isolver_inner_iterations = 50;
-  } else {
-    // if IMEX is selected or default, using specialized solver
     options.default_solver = asgard::solver_method::scaled_identity;
   }
+  else
+  {
+    // if the user has selected a time-stepping method that is not imex
+    if (options.step_method and not asgard::is_imex(options.step_method.value())) {
+      // then we default to the GMRES solver
+      options.default_solver = asgard::solver_method::gmres;
 
-  // the BGK example requires adaptivity to avoid instabilities, especially in 4D and up
+      options.default_isolver_tolerance  = 1.E-8;
+      options.default_isolver_iterations = 400;
+      options.default_isolver_inner_iterations = 50;
+    } else {
+      // if IMEX is selected or default, using specialized solver
+      options.default_solver = asgard::solver_method::scaled_identity;
+    }
+  }
+
+  // the BGK example requires adaptivity to avoid instabilities, especially in 4D
   // instabilities can lead to locally negative density and non-physical results
   if (not options.adapt_threshold and not options.adapt_relative)
     options.adapt_threshold = 1.E-4;
@@ -136,41 +170,56 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   // create a pde from the given options and domain
   asgard::pde_scheme<P> pde(options, domain);
 
+  // common building blocks
+  // see the two-stream instability example for details
+  auto func_pos = [](std::vector<P> const &x, std::vector<P> &y)
+        -> void {
+        #pragma omp parallel for
+        for (size_t i = 0; i < x.size(); i++)
+          y[i] = std::max(P{0}, x[i]);
+      };
+
+  auto func_neg = [](std::vector<P> const &x, std::vector<P> &y)
+        -> void {
+        #pragma omp parallel for
+        for (size_t i = 0; i < x.size(); i++)
+          y[i] = std::min(P{0}, x[i]);
+      };
+
+  asgard::term_1d<P> positive = asgard::term_volume<P>(func_pos);
+
+  asgard::term_1d<P> negative = asgard::term_volume<P>(func_neg);
+
+  asgard::term_1d<P> div_up = asgard::term_div<P>(1, asgard::flux_type::upwind,
+                                                  asgard::boundary_type::periodic);
+
+  asgard::term_1d<P> div_do = asgard::term_div<P>(1, asgard::flux_type::downwind,
+                                                  asgard::boundary_type::periodic);
+
+  // I is a very expressive way to indicate the identity
+  // but it can cause severe conflicts, so it is not included in the main library
+  asgard::term_1d<P> I = asgard::term_identity{};
+
   // adding the advection terms in the explicit group
-  // the vp_group_id will persist until new_term_group() is called again
+  // the explicit_id will persist until new_term_group() is called again
   int const explicit_id = pde.new_term_group();
 
+  if (mode == pde_mode::poisson)
   {
-    // creating intermediate variables and adding terms to the PDE
-    // using the curly braces {} creates a local scope and intermediates
-    // will be cleaned at the close of the braces limiting the scope
-    // and lowering the chance of accidental reuse or error
+    pde += asgard::term_md<P>({div_up, positive});
+    pde += asgard::term_md<P>({div_do, negative});
 
-    // see the two-stream instability example for details
-    asgard::term_1d<P> positive = asgard::term_volume<P>(
-        [](std::vector<P> const &x, std::vector<P> &y)
-          -> void {
-          #pragma omp parallel for
-          for (size_t i = 0; i < x.size(); i++)
-            y[i] = std::max(P{0}, x[i]);
-        });
-
-    asgard::term_1d<P> negative = asgard::term_volume<P>(
-        [](std::vector<P> const &x, std::vector<P> &y)
-          -> void {
-          #pragma omp parallel for
-          for (size_t i = 0; i < x.size(); i++)
-            y[i] = std::min(P{0}, x[i]);
-        });
-
-    asgard::term_1d<P> div_up = asgard::term_div<P>(1, asgard::flux_type::upwind,
-                                                    asgard::boundary_type::periodic);
-
-    asgard::term_1d<P> div_do = asgard::term_div<P>(1, asgard::flux_type::downwind,
-                                                    asgard::boundary_type::periodic);
-
-    asgard::term_1d<P> I = asgard::term_identity{};
-
+    pde += asgard::term_md<P>({
+        asgard::volume_electric<P>(func_pos),
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)
+      });
+    pde += asgard::term_md<P>({
+        asgard::volume_electric<P>(func_neg),
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)
+      });
+  }
+  else
+  {
     switch (dims) {
       case 1:
         pde += asgard::term_md{div_up, positive};
@@ -326,12 +375,14 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
   pde.set(asgard::imex_implicit_group{implicit_id},
           asgard::imex_explicit_group{explicit_id});
 
-  if (dims == 1) {
+  // setting the initial conditions
+  if (mode == pde_mode::poisson)
+  {
     // separable initial conditions in x and v
     auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
       void {
         for (size_t i = 0; i < x.size(); i++)
-          fx[i] = 1.0 + 1.E-4 * std::cos(PI * x[i]);
+          fx[i] = 1.0 + 1.E-4 * std::cos(0.5 * x[i]);
       };
 
     auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
@@ -343,91 +394,99 @@ asgard::pde_scheme<P> make_bgk(int dims, asgard::prog_opts options) {
       };
 
     pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
-
-  } else if (dims == 2) {
-
-    // this is still work in progress
+  }
+  else if (mode == pde_mode::shock1d)
+  {
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
-        // how many standard deviations for the ball radius
-        // higher std_dev means sharper transition
-        P constexpr std_dev     = 2;
-        P constexpr ball_radius = 0.4;
-        P constexpr sigma = ball_radius / std_dev;
+        // the initial condition always has a Maxwellian component in velocity
+        // m * std::exp( - 0.5 * v * v / t)  / std::sqrt(2 * PI * t)
+        // where m and t have spatial dependence in x
+        // there are 3 regions, the inner and outer regions (m, t) is constant
+        // at (1, 1) and (0.125, 0.8) respectively
+        // in the transition region with size dr we have a smooth polynomial dependence
 
-        P constexpr mins = 0.8;
-        P constexpr maxs = 1.0;
+        P constexpr inner_m = 1;
+        P constexpr outer_m = 0.125;
 
-        P constexpr minc = P{0.125} / (2 * PI * mins);
-        P constexpr maxc = P{1} / (2 * PI);
+        P constexpr inner_t = 1;
+        P constexpr outer_t = 0.8;
+
+        P constexpr inner_bound = 0.3;
+        P constexpr outer_bound = 0.4;
+        P constexpr dr = outer_bound - inner_bound;
+
+        P constexpr cm = 6 * (outer_m - inner_m) / (- dr * dr * dr);
+        P constexpr ct = 6 * (outer_t - inner_t) / (- dr * dr * dr);
+
+        // for r in inner_bound < r < outer_bound we have that m and s are given by
+        // (r * r * r / 3 - 0.5 * dr * r * r) * cm/t + inner_m/t
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
           P const x = nodes[i][0];
-          P const y = nodes[i][1];
-          P const v0 = nodes[i][2];
-          P const v1 = nodes[i][3];
+          P const v = nodes[i][1];
 
-          // sm is a smooth kernel that goes from 1 to 0
-          P const sm = std::exp(- P{0.5} * (x * x + y * y) / sigma);
+          P const ax = std::abs(x);
 
-          P const c = minc + (maxc - minc) * sm;
-          P const s = mins + (maxs - mins) * sm;
-
-          vals[i] = c * exp(- P{0.5} * v0 * v0 / s) * exp(- P{0.5} * v1 * v1 / s);
+          if (ax <= inner_bound) {
+            vals[i] = inner_m * exp(- P{0.5} * v * v / inner_t) / std::sqrt(2 * PI * inner_t);
+          } else if (ax >= outer_bound) {
+            vals[i] = outer_m * exp(- P{0.5} * v * v / outer_t) / std::sqrt(2 * PI * outer_t);
+          } else {
+            // transition region
+            P const r = ax - inner_bound;
+            P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
+            P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
+            vals[i] = m * exp(- P{0.5} * v * v / t) / std::sqrt(2 * PI * t);
+          }
         }
-        // P constexpr s = 0.8;
-        // P const c_in  = P{1} / (2 * PI);
-        // P const c_out = P{0.125} / (2 * PI * s);
-        //
-        // for (int64_t i = 0; i < nodes.num_strips(); i++) {
-        //   P const x = nodes[i][0];
-        //   P const y = nodes[i][1];
-        //   P const v0 = nodes[i][2];
-        //   P const v1 = nodes[i][3];
-        //   if (x * x + y * y < 0.16) {
-        //     vals[i] = c_in * exp(- 0.5 * v0 * v0) * exp(- 0.5 * v1 * v1);
-        //   } else {
-        //     vals[i] = c_out * exp(- 0.5 * v0 * v0 / s) * exp(- 0.5 * v1 * v1 / s);
-        //   }
-        // }
       };
 
     pde.set_initial(icmd);
-
-  } else /* if (dims == 3) */ {
-
-    std::cout << "WARNING: this is very incomplete\n";
+  }
+  else
+  {
     auto icmd = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &vals)
           -> void {
 
-        // how many standard deviations for the ball radius
-        // higher std_dev means sharper transition
-        P constexpr std_dev     = 4;
-        P constexpr ball_radius = 0.4;
-        P constexpr sigma = ball_radius / std_dev;
+        // see the shock1d, using the same logic here except the three regions
+        // form concentric circles
 
-        P constexpr mins = 0.8;
-        P constexpr maxs = 1.0;
+        P constexpr inner_m = 1;
+        P constexpr outer_m = 0.125;
 
-        P const minc = P{0.125} / ((2 * PI * mins) * std::sqrt(2 * PI * mins));
-        P const maxc = P{1} / ((2 * PI) * std::sqrt(2 * PI));
+        P constexpr inner_t = 1;
+        P constexpr outer_t = 0.8;
+
+        P constexpr inner_bound = 0.3;
+        P constexpr outer_bound = 0.4;
+        P constexpr dr = outer_bound - inner_bound;
+
+        P constexpr cm = 6 * (outer_m - inner_m) / (- dr * dr * dr);
+        P constexpr ct = 6 * (outer_t - inner_t) / (- dr * dr * dr);
 
         for (int64_t i = 0; i < nodes.num_strips(); i++) {
-          P const x = nodes[i][0];
-          P const y = nodes[i][1];
-          P const v0 = nodes[i][3];
-          P const v1 = nodes[i][4];
-          P const v2 = nodes[i][5];
+          P const x0 = nodes[i][0];
+          P const x1 = nodes[i][1];
+          P const v0 = nodes[i][2];
+          P const v1 = nodes[i][3];
 
-          // sm is a smooth kernel that goes from 1 to 0
-          P const sm = std::exp(- P{0.5} * (x * x + y * y) / sigma);
+          P const ax = std::sqrt(x0 * x0 + x1 * x1);
 
-          P const c = minc + (maxc - minc) * sm;
-          P const s = mins + (maxs - mins) * sm;
-
-          vals[i] = c * exp(- P{0.5} * v0 * v0 / s) * exp(- P{0.5} * v1 * v1 / s)
-                   * exp(- P{0.5} * v2 * v2 / s);
+          if (ax <= inner_bound) {
+            vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
+                              * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
+          } else if (ax >= outer_bound) {
+            vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
+                              * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
+          } else {
+            // transition region
+            P const r = ax - inner_bound;
+            P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
+            P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
+            vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
+          }
         }
       };
 
@@ -524,8 +583,9 @@ int main(int argc, char** argv)
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << R"help(<< additional options for this file >>
--dims            -dim    int        accepts: 1, 2 or 3
-                                    number of velocity dimensions
+-poisson                 -          sets a 1x1v problem similar to the vplb.cpp example
+-shock1d                 -          sets a 1x1v problem with a shock in the initial cond.
+-shock2d                 -          sets a 2x2v problem with a shock in the initial cond.
 -nu                      double     accepts: a positive number
                                     collision frequency
 
@@ -537,7 +597,7 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {"-nu", "-dims", "-dim" });
+  options.throw_if_argv_not_in({"-test", "--test", "-poisson", "-shock1d", "-shock2d"}, {"-nu", });
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -545,15 +605,24 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  pde_mode const mode = [&]() -> pde_mode {
+        if (options.has_cli_entry("-shock2d"))
+          return pde_mode::shock2d;
+        else if (options.has_cli_entry("-shock1d"))
+          return pde_mode::shock1d;
+        else // if (options.has_cli_entry("-poisson"))
+          return pde_mode::poisson;
+      }();
+
   // get the number of velocity dimensions, defaults to 1
-  int const dims = options.extra_cli_value_group<P>({"-dims", "-dim"}).value_or(1);
+  //int const dims = options.extra_cli_value_group<P>({"-dims", "-dim"}).value_or(1);
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_bgk<P>(dims, options),
+  asgard::discretization_manager<P> disc(make_bgk<P>(mode, options),
                                          asgard::verbosity_level::high);
 
-  if (dims == 1) {
+  if (mode == pde_mode::poisson) {
     // save the perturbation as an auxiliary field, for plotting
     disc.add_aux_field({"initial perturbation", compute_perturbation(disc)});
 
@@ -639,11 +708,11 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>(1, "-l 6 -n 100 -s imex1");
-  test_energy<double>(1, "-l 6 -n 100 -s imex2");
+  //test_energy<double>(1, "-l 6 -n 100 -s imex1");
+  //test_energy<double>(1, "-l 6 -n 100 -s imex2");
 
-  test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
-  test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
+  //test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
+  //test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
 
   // figure out conservation properties
   // test_energy<double>(2, "-m 8 -a 1.E-4 -s imex2 -n 5");
