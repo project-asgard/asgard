@@ -15,34 +15,133 @@ if __name__ == '__main__':
 
     snapshot = asgard.pde_snapshot(filename)
 
-    if snapshot.num_dimensions == 2:
-        # 1x1v case
+    # get the boundaries for the domain, this is needed to set the correct size
+    # for the matplotlib imshow command
+    xmin = snapshot.dimension_min[0]
+    ymin = snapshot.dimension_min[1]
+    xmax = snapshot.dimension_max[0]
+    ymax = snapshot.dimension_max[1]
+
+    if "poisson" in snapshot.subtitle:
+        # 1x1v case, poisson
+        # plotting the initial and final perturbations, i.e., aux fields
+
+        assert snapshot.num_position == 1 and snapshot.num_velocity == 1
+
+        # the aux fields can be requested either by name or by index,
+        # e.g., init_pert  = snapshot.get_aux_field(0)
+        init_pert  = snapshot.get_aux_field("initial perturbation")
+        final_pert = snapshot.get_aux_field("final perturbation")
+
+        # generating two 2D plots
+        z0, x, y = init_pert.plot_data2d(((), ()), num_points = 128)
+        z1, x, y = final_pert.plot_data2d(((), ()), num_points = 128)
+
+        fig, (ax0, ax1) = plt.subplots(1, 2)
+
+        fig.suptitle(snapshot.title)
+
+        ax0.set_title(init_pert.title + ", t = 0")
+        img0 = ax0.imshow(np.flipud(z0), cmap='turbo', extent=[xmin, xmax, ymin, ymax])
+        ax0.set_xlabel("x", fontsize = 'large')
+        ax0.set_ylabel("v", fontsize = 'large')
+        fig.colorbar(img0, ax=ax0, orientation='vertical')
+
+        ax1.set_title(final_pert.title + f", t = {final_pert.time:.4f}")
+        img1 = ax1.imshow(np.flipud(z1), cmap='turbo', extent=[xmin, xmax, ymin, ymax])
+        ax1.set_xlabel("x", fontsize = 'large')
+        ax1.set_ylabel("v", fontsize = 'large')
+        fig.colorbar(img1, ax=ax1, orientation='vertical')
+
+        plt.show()
+
+    elif snapshot.num_dimensions == 2:
+        # 1x1v case, shock1d
+
+        assert snapshot.num_position == 1 and snapshot.num_velocity == 1
+
+        # obtaining the auxiliary fields associated with the moments
+        # the 3 variables are another instances of the snapshot class
         m0sh = snapshot.get_moment((0, ))
         m1sh = snapshot.get_moment((1, ))
         m2sh = snapshot.get_moment((2, ))
 
-        m0, x = m0sh.plot_data1d(((), ), num_points = 64)
-        m1, x = m1sh.plot_data1d(((), ), num_points = 64)
-        m2, x = m2sh.plot_data1d(((), ), num_points = 64)
+        m0, x = m0sh.plot_data1d(((), ), num_points = 128)
+        m1, x = m1sh.plot_data1d(((), ), num_points = 128)
+        m2, x = m2sh.plot_data1d(((), ), num_points = 128)
 
-        plt.figure(1)
-        fig, (ax1, ax2) = plt.subplots(1, 2)
+        fig, (ax0, ax1) = plt.subplots(1, 2)
 
-        ax1.plot(x, m0, 'b', label = 'mass')
+        fig.suptitle(snapshot.title + f" ({snapshot.subtitle})")
+
+        # instead of plotting the "raw" moment, we compute the fluid variables
+        # density, velocity and temperature
+        ax0.set_title("fluid variables")
+        ax0.plot(x, m0, 'b', label = 'density')
         u = m1 / m0
-        ax1.plot(x, u, 'g', label = 'avg. speed')
-        ax1.plot(x, m2 / m0 - u * u, 'r', label = 'temperature')
+        ax0.plot(x, u, 'g', label = 'avg. velocity')
+        ax0.plot(x, m2 / m0 - u * u, 'r', label = 'temperature')
+        ax0.set_xlabel("x", fontsize = 'large')
+        ax0.set_ylabel("value", fontsize = 'large')
 
-        ax1.legend()
+        ax0.legend()
 
         z, x, y = snapshot.plot_data2d(((), ()), num_points = 128)
 
-        xmin = snapshot.dimension_min[0]
-        ymin = snapshot.dimension_min[1]
-        xmax = snapshot.dimension_max[0]
-        ymax = snapshot.dimension_max[1]
+        ax1.set_title(f"solution at t = {snapshot.time:.4f}")
+        img1 = ax1.imshow(np.flipud(z), cmap='viridis', extent=[xmin, xmax, ymin, ymax])
+        ax1.set_xlabel("x", fontsize = 'large')
+        ax1.set_ylabel("v", fontsize = 'large')
+        fig.colorbar(img1, ax=ax1, orientation='vertical')
 
-        comp = ax2.imshow(np.flipud(z), cmap='turbo', extent=[xmin, xmax, ymin, ymax])
+        plt.show()
+
+    elif snapshot.num_dimensions == 4:
+        # 2x2v case, shock2d
+
+        assert snapshot.num_position == 2 and snapshot.num_velocity == 2
+
+        # the moments are now defined by 2D tuples
+        m0sh = snapshot.get_moment((0, 0))
+        m10sh = snapshot.get_moment((1, 0))
+        m01sh = snapshot.get_moment((0, 1))
+        m20sh = snapshot.get_moment((2, 0))
+        m02sh = snapshot.get_moment((0, 2))
+
+        m0, x, y = m0sh.plot_data2d(((), ()), num_points = 128)
+        m10, x, y = m10sh.plot_data2d(((), ()), num_points = 128)
+        m01, x, y = m01sh.plot_data2d(((), ()), num_points = 128)
+        m20, x, y = m20sh.plot_data2d(((), ()), num_points = 128)
+        m02, x, y = m02sh.plot_data2d(((), ()), num_points = 128)
+
+
+        fig, (ax0, ax1, ax2) = plt.subplots(1, 3)
+
+        fig.suptitle(snapshot.title + f" ({snapshot.subtitle})")
+
+        # instead of plotting the "raw" moment, we compute the fluid variables
+        # density, velocity and temperature
+        ax0.set_title("density")
+        img0 = ax0.imshow(np.flipud(m0), cmap='viridis', extent=[xmin, xmax, ymin, ymax])
+        fig.colorbar(img0, ax=ax0, orientation='vertical')
+        ax0.set_xlabel("x1", fontsize = 'large')
+        ax0.set_ylabel("x2", fontsize = 'large')
+
+        ax1.set_title("avg. speed")
+        u0 = m10 / m0
+        u1 = m01 / m0
+        aspd = np.sqrt(u0 * u0 + u1 * u1)
+        img1 = ax1.imshow(np.flipud(aspd), cmap='turbo', extent=[xmin, xmax, ymin, ymax])
+        fig.colorbar(img1, ax=ax1, orientation='vertical')
+        ax1.set_xlabel("x1", fontsize = 'large')
+        ax1.set_ylabel("x2", fontsize = 'large')
+
+        ax2.set_title("temperature")
+        temp = 0.5 * (m20 + m02) / m0 - u0 * u0 - u1 * u1
+        img2 = ax2.imshow(np.flipud(temp), cmap='coolwarm', extent=[xmin, xmax, ymin, ymax])
+        fig.colorbar(img2, ax=ax2, orientation='vertical')
+        ax2.set_xlabel("x1", fontsize = 'large')
+        ax2.set_ylabel("x2", fontsize = 'large')
 
         plt.show()
 
