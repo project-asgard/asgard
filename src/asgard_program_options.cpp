@@ -130,6 +130,7 @@ Options          Short   Value      Description
 -time            -t      double     accepts: positive number (zero for no stepping)
                                     Final time for integration (v2 pdes only)
 -num-steps       -n      int        Positive integer indicating the number of time steps to take.
+                                    If used with -restart, -n sets the additional time steps.
 -dt                      double     Fixed time step to use (must be positive).
 -safe-step       -sstep  -          Checks every time step and if it contains inf or nan
                                     then the time-advance method will not accept the step

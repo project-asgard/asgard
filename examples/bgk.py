@@ -10,7 +10,30 @@ import asgard
 
 if __name__ == '__main__':
 
+    # most of the code in this file is related to Python matplotlib
+    # the most notable ASGarD methods are
+    #     run_with_args()
+    #     pde_snapshot()
+    #     get_aux_field()
+    #     get_moment()
+    #     plot_data2d()
+
     filename = "bgk_run.h5"
+    # the "run_with_args" method will the provided executable file with the provided
+    # string with arguments and it will also append all arguments used in the call
+    # to this python script, e.g.,
+    #     python3 -m bgk.py -m 8 -a 1.E-6 -n 20
+    # will result in a call
+    #     ./bgk -of bgk_run.h5 -m 8 -a 1.E-6 -n 20
+    #
+    # run_with_args() accepts an additional list of arguments, e.g., modified list of sys.argv
+    # for example:
+    #     python3 -m bgk.py run -m 8
+    # then modify the code:
+    #     mylist = sys.argv
+    #     mylist.remove("run") if "run" in mylist else None
+    #     asgard.run_with_args("./bgk", f"-of {filename}", mylist) # runs ./bgk -of bgk_run.h5 -m 8
+    #
     asgard.run_with_args("./bgk", f"-of {filename}")
 
     snapshot = asgard.pde_snapshot(filename)
@@ -98,6 +121,12 @@ if __name__ == '__main__':
 
     elif snapshot.num_dimensions == 4:
         # 2x2v case, shock2d
+
+        # This is NOT the proper way to manage the 2D BGK example.
+        # Even on a good machine, running the 2D problem can take in order of hours,
+        # thus, it is better to separate the running and plotting logic.
+        # Such split is beyond the scope of this example,
+        # but look at the comment related to run_with_args() and custom arguments.
 
         assert snapshot.num_position == 2 and snapshot.num_velocity == 2
 

@@ -17,30 +17,45 @@
  * \addtogroup asgard_examples_bgk Example: Bhatnagar-Gross-Krook (BGK)
  *
  * \par Bhatnagar-Gross-Krook
- * Solves the BGK model
- *
- * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) =
- *  \nu ( M(f) - f) \f]
- * where the collision operator has a source term that depends on the moments
- * of the field
+ * The (simple) BGK collision operator used here is defined as
+ * \f[ \mathcal{C}_{sBGK}[f](x, v, t) = \nu ( M(f) - f) \f]
+ * with
  * \f[ M(f)(x, v) = \frac{n(x)}{\sqrt{2\pi \theta(x)}} \exp \left( - \frac{|v - u(x)|^2}{2 \theta(x)} \right) \f]
  * where
  * \f[ n(x) = \int_v f dv, \qquad u(x) = (u_1, u_2, u_3), \quad u_i(x) = \frac{1}{n(x)} \int_v v_i f dv \f]
  * and
  * \f[ \theta(x) = \frac{1}{3 n(x)} \int_v |v|^2 f dv - \frac{1}{3} \| u(x) \|^2  \f]
+ * Implementing the moment requires moment dependence in the source term.
  *
- * This file implements 2 examples, a 1x1v (2D) example with simple initial conditions
- * that is just a perturbation of a Maxwellian and a more complex "explosion" problem
- * borrowed from
+ * This example uses three different sub-problems.
+ *
+ * \par Poisson problem
+ * The same problem as the \ref asgard_examples_vplb "Vlasov-Poisson-Lenard-Bernstein" example
+ * but with the BGK operator in place of Lenard-Bernstein:
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) =
+ *  \mathcal{C}_{sBGK}[f](x, v, t) \f]
+ * The definition of the electric field E(x, t) and the initial conditions is the same.
+ * This problem corresponds to pde_mode::poisson
+ *
+ * \par The 1D shock problem
+ * Using a variation of the problem borrowed from
  * <a href="https://link.springer.com/book/10.1007/b79761">
  * E. F. Toro. "Riemann Solvers and Numerical Methods for Fluid Dynamics" </a>,
  * page 586, section 17.1.
- *
- * In the above equation, M has only implicit dependence on f through the moments,
- * which means that it appears as a moment source term in the equation.
+ * The problem contains a large mass in the middle of the domain and at each position point
+ * the initial condition is Maxwellian in the velocity dimension.
+ * The solution spreads like an "explosion" and creates a staircase pattern for the mass distribution.
+ * The example presented here is a simplified version of the one provided in the paper,
+ * namely, the initial condition features a sharp but continuous jump, as opposed to being
+ * a pure step function.
  *
  * \par
- * The focus of this example is to show the usage of asgard::moment_source and
+ * The equation also omits the terms for the electric field
+ * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) = \nu ( M(f) - f) \f]
+ *
+ *
+ * \par
+ * The focus of this example is to show the usage of the moment dependence in the sources and
  * the specialized solver asgard::solver_method::scaled_identity that is designed
  * for problems where the operator is a scaled identity and therefore trivial to invert.
  *
@@ -459,7 +474,7 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
         P constexpr inner_t = 1;
         P constexpr outer_t = 0.8;
 
-        P constexpr inner_bound = 0.3;
+        P constexpr inner_bound = 0.36;
         P constexpr outer_bound = 0.4;
         P constexpr dr = outer_bound - inner_bound;
 
@@ -559,6 +574,11 @@ std::vector<P> compute_perturbation(asgard::discretization_manager<P> const &dis
  * The main() processes the command line arguments and calls make_two_stream().
  *
  * \snippet bgk.cpp asgard_examples_bgk main
+ *
+ * This example also comes with a Python driver that show how to plot the moments of the stored
+ * solution.
+ *
+ * \snippet bgk.py bgk_py python
  */
 int main(int argc, char** argv)
 {
@@ -656,50 +676,46 @@ int main(int argc, char** argv)
 using namespace asgard;
 
 template<typename P>
-void test_energy(int const dims, std::string const &opt_str) {
+void test_energy(pde_mode const mode, std::string const &opt_str) {
+  int const dims = (mode == pde_mode::shock2d) ? 2 : 1;
   current_test<P> test_(opt_str, 2 * dims);
   // analytic solution is not available, hence we use energy conservation for
   // the test quantity in place of an L^2 error
 
   prog_opts const options = make_opts(opt_str);
 
-  auto pde = make_bgk<P>(dims, options);
+  auto pde = make_bgk<P>(mode, options);
   moment_id const m0 = (dims == 1) ? pde.register_moment({0}) : pde.register_moment({0, 0});
 
   moment_id const m2 = (dims == 1) ? pde.register_moment({2}) : moment_id::unset();
 
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
-  double mass0   = 0; // initial total mass
-  double energy0 = 0; // initial total energy
-
   int64_t const n = disc.remaining_steps();
 
-  P constexpr tol = (std::is_same_v<P, double>) ? 5.E-7 : 5.E-3;
+  P constexpr tol = (is_double<P>) ? 5.E-7 : 5.E-3;
+
+  // std::cout << std::scientific;
+  // std::cout.precision(6);
+
+  P const mass0   = disc.get_moment(m0)[0]; // initial total moments
+  P const energy0 = disc.get_moment(m2)[0];
 
   for (int64_t i = 0; i < n; i++)
   {
     tassert( disc.advance_time(1) );
 
-    double const mass = disc.get_moment(m0)[0];
-    if (i == 0)
-      mass0 = mass;
+    P const mass = disc.get_moment(m0)[0];
 
+    // std::cout << std::abs(mass - mass0) << "  " << mass << "  " << mass0 << "\n";
     tassert(std::abs(mass - mass0) < tol);
 
     if (dims == 1) {
-      double const energy = disc.get_moment(m2)[0];
-      if (i == 0)
-        energy0 = energy;
+      P const energy = disc.get_moment(m2)[0];
 
-      ignore(energy0);
-      // tassert(std::abs(energy - energy0) < tol);
-
-      // std::cout << " delta-mass: " << std::abs(mass - mass0)
-      //           << "    " << std::abs(energy - energy0) << '\n';
+      // std::cout << std::abs(energy - energy0) << "  " << energy << "  " << energy0 << "\n";
+      tassert(std::abs(energy - energy0) < tol);
     }
-
-    // std::cout << " delta-mass: " << std::abs(mass - mass0) << '\n';
   }
 }
 
@@ -708,20 +724,14 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  //test_energy<double>(1, "-l 6 -n 100 -s imex1");
-  //test_energy<double>(1, "-l 6 -n 100 -s imex2");
-
-  //test_energy<double>(1, "-l 5 -t 0.5 -s imex2");
-  //test_energy<double>(1, "-l 6 -t 0.25 -s imex2");
-
-  // figure out conservation properties
-  // test_energy<double>(2, "-m 8 -a 1.E-4 -s imex2 -n 5");
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex1");
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex2");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  test_energy<float>(1, "-l 5");
+  test_energy<float>(pde_mode::poisson, "-m 8 -n 100 -s imex2");
 
 #endif
 }
