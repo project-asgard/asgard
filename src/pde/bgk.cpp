@@ -148,15 +148,15 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   options.default_step_method = asgard::time_method::imex2;
 
   // cfl condition for the explicit component
-  options.default_dt = 0.01 * domain.min_cell_size(options.max_level());
+  options.default_dt = 0.0128 * domain.min_cell_size(options.max_level());
 
   options.default_stop_time = 1.0;
 
   // select an appropriate solver
   if (mode == pde_mode::poisson)
   {
-    // the poisson solver creates nonlinear coupling which cannot be handled
-    // with anything but an imex stepper (TODO: double-check explicit)
+    // the poisson solver creates nonlinear coupling
+    // using an imex stepper is the proper way to do this problem
     options.throw_if_not_imex_stepper();
 
     options.default_solver = asgard::solver_method::scaled_identity;
@@ -474,8 +474,8 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
         P constexpr inner_t = 1;
         P constexpr outer_t = 0.8;
 
-        P constexpr inner_bound = 0.36;
-        P constexpr outer_bound = 0.4;
+        P constexpr inner_bound = 0.38;
+        P constexpr outer_bound = 0.42;
         P constexpr dr = outer_bound - inner_bound;
 
         P constexpr cm = 6 * (outer_m - inner_m) / (- dr * dr * dr);
