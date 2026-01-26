@@ -487,20 +487,51 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
           P const v0 = nodes[i][2];
           P const v1 = nodes[i][3];
 
-          P const ax = std::sqrt(x0 * x0 + x1 * x1);
+          //P const ax = std::sqrt(x0 * x0 + x1 * x1);
+          P const ax = std::abs(x0);
+          P const ay = std::abs(x1);
 
-          if (ax <= inner_bound) {
-            vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
-                              * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
-          } else if (ax >= outer_bound) {
+          if (ax >= outer_bound or ay >= outer_bound) {
+            // std::cout << " (" << x0 << ", " << x1 << ")  (" << ax << ", " << ay << ")  - inside\n";
             vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
                               * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
+            continue;
+          }
+
+          // std::cout << " (" << x0 << ", " << x1 << ")  (" << ax << ", " << ay << ")  - outside\n";
+
+          if (ax <= inner_bound) {
+            // vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
+            //                   * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
+            vals[i] = inner_m * std::exp(- P{0.5} * v0 * v0 / inner_t) / std::sqrt(2 * PI * inner_t);
+          } else if (ax >= outer_bound) {
+            // vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
+            //                   * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
+            vals[i] = std::sqrt(outer_m) * std::exp(- P{0.5} * v0 * v0 / outer_t) / std::sqrt(2 * PI * outer_t);
           } else {
             // transition region
             P const r = ax - inner_bound;
             P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
             P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
-            vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
+            // vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
+            vals[i] = std::sqrt(m) * std::exp(- P{0.5} * v0 * v0 / t) / std::sqrt(2 * PI * t);
+          }
+
+          if (ay <= inner_bound) {
+            // vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
+            //                   * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
+            vals[i] *= inner_m * std::exp(- P{0.5} * v1 * v1 / inner_t) / std::sqrt(2 * PI * inner_t);
+          } else if (ay >= outer_bound) {
+            // vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
+            //                   * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
+            vals[i] *= std::sqrt(outer_m) * std::exp(- P{0.5} * v1 * v1 / outer_t) / std::sqrt(2 * PI * outer_t);
+          } else {
+            // transition region
+            P const r = ay - inner_bound;
+            P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
+            P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
+            // vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
+            vals[i] *= std::sqrt(m) * std::exp(- P{0.5} * v1 * v1 / t) / std::sqrt(2 * PI * t);
           }
         }
       };
