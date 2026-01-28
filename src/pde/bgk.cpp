@@ -179,8 +179,25 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
 
   // the BGK example requires adaptivity to avoid instabilities, especially in 4D
   // instabilities can lead to locally negative density and non-physical results
-  if (not options.adapt_threshold and not options.adapt_relative)
-    options.adapt_threshold = 1.E-4;
+  // the following code ensures that adaptivity is enabled by default
+  if (not options.restarting()) {
+    // the adaptive tolerance is stored in the restart file
+    // if no adaptivity is specified, that will be used by default
+
+    // if not restating and no adaptivity is specified
+    // note that this will always respect the adaptive thresholds specified at runtime
+    if (not options.adapt_threshold and not options.adapt_relative)
+    {
+      if (mode == pde_mode::poisson) {
+        // the perturbation is at a low scale
+        // needs tight tolerance threshold
+        options.adapt_threshold = 1.E-6;
+      } else {
+        // coarser tolerance is permissible here
+        options.adapt_threshold = 5.E-5;
+      }
+    }
+  }
 
   // create a pde from the given options and domain
   asgard::pde_scheme<P> pde(options, domain);
@@ -362,7 +379,10 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
     #ifdef ASGARD_USE_GPU
     // see the 1x1v case
     pde += asgard::operators::simple_bgk_collisions{nu};
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
+    // using square initial condition and with weight divided by 10
+    // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
+    // add default adaptivity (??) think about it
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{1.0});
     std::ignore = fbgk;
     #else
     pde += asgard::term_md<P>(nuI);

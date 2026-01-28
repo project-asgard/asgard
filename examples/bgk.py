@@ -49,6 +49,9 @@ if __name__ == '__main__':
         # 1x1v case, poisson
         # plotting the initial and final perturbations, i.e., aux fields
 
+        # Try running this with the following:
+        #   python3 bgk.py -poisson -m 9 -a 1.E-6 -t 2
+
         assert snapshot.num_position == 1 and snapshot.num_velocity == 1
 
         # the aux fields can be requested either by name or by index,
@@ -81,6 +84,11 @@ if __name__ == '__main__':
     elif snapshot.num_dimensions == 2:
         # 1x1v case, shock1d
 
+        # When using high collision frequency, the density develops a stair-case pattern.
+        #
+        # Try running this with:
+        #   python3 bgk.py -shock1d -nu 1000 -m 8 -a 1.E-5 -n 2000
+
         assert snapshot.num_position == 1 and snapshot.num_velocity == 1
 
         # obtaining the auxiliary fields associated with the moments
@@ -102,8 +110,8 @@ if __name__ == '__main__':
         ax0.set_title("fluid variables")
         ax0.plot(x, m0, 'b', label = 'density')
         u = m1 / m0
-        ax0.plot(x, u, 'g', label = 'avg. velocity')
-        ax0.plot(x, m2 / m0 - u * u, 'r', label = 'temperature')
+        ax0.plot(x, u, 'g:', label = 'avg. velocity')
+        ax0.plot(x, m2 / m0 - u * u, 'r-.', label = 'temperature')
         ax0.set_xlabel("x", fontsize = 'large')
         ax0.set_ylabel("value", fontsize = 'large')
 
@@ -127,6 +135,13 @@ if __name__ == '__main__':
         # thus, it is better to separate the running and plotting logic.
         # Such split is beyond the scope of this example,
         # but look at the comment related to run_with_args() and custom arguments.
+
+        # example command:
+        #   python3 bgk.py -shock2d -nu 100 -m 8 -a 5.E-5 -n 2000
+        #
+        # This is nice visual example but also takes a while to compute.
+        # It requires up to 90 million degrees of freedom and minimum 16GB GPU
+        # or 32GB of system RAM. On a workstation Nvidia GPU this takes little over 2 hours.
 
         assert snapshot.num_position == 2 and snapshot.num_velocity == 2
 
