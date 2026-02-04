@@ -72,8 +72,8 @@ struct moment
  * Wrapper around an int that can be used to access a specific moment from asgard::momentset
  * and asgard::momentset_gpu
  *
- * The moment-id is obtained by calling pde_scheme::register_moment and should be used or created
- * directly from an int.
+ * The moment-id is obtained by calling pde_scheme::register_moment and should not be created
+ * directly from an int, let ASGarD do the correct initialization.
  */
 class moment_id {
 public:

@@ -382,7 +382,7 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
     // using square initial condition and with weight divided by 10
     // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
     // add default adaptivity (??) think about it
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{1.0});
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{0.1});
     std::ignore = fbgk;
     #else
     pde += asgard::term_md<P>(nuI);
