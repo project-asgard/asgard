@@ -194,7 +194,7 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
         options.adapt_threshold = 1.E-6;
       } else {
         // coarser tolerance is permissible here
-        options.adapt_threshold = 5.E-5;
+        options.adapt_threshold = 1.E-5;
       }
     }
   }
@@ -280,6 +280,8 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   // setting the nu * f term
   std::vector<asgard::term_1d<P>> nuI(2 * dims, asgard::term_identity{});
   nuI[0] = asgard::term_volume<P>{nu};
+
+  double const dt = options.dt.value_or(options.default_dt.value());
 
   if (dims == 1) {
     asgard::moment_id im0 = pde.register_moment(asgard::moment(0));
@@ -376,26 +378,21 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
       }
     };
 
+    P const adapt_scale = 10.0 * nu * dt;
+
     #ifdef ASGARD_USE_GPU
     // see the 1x1v case
     pde += asgard::operators::simple_bgk_collisions{nu};
     // using square initial condition and with weight divided by 10
     // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
     // add default adaptivity (??) think about it
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{0.1});
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
     std::ignore = fbgk;
     #else
     pde += asgard::term_md<P>(nuI);
     pde.set_source(fbgk, mids);
 
-    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
-    };
-
-    pde.set_adapt_weight(abgk, mids);
+    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
     #endif
 
   } else /* if (dims == 3) */ {
