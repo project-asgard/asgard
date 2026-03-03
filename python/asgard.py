@@ -238,7 +238,7 @@ class pde_snapshot:
         else:
             aux.double_precision = False
 
-            aux.recsol = libasgard.asgard_make_freconstruct_solution_v2(
+            aux.recsol = libasgard.asgard_make_freconstruct_solution(
                 aux.num_dimensions, aux.num_cells, np.ctypeslib.as_ctypes(aux.cells.reshape(-1,)),
                 self.degree, np.ctypeslib.as_ctypes(aux.state.reshape(-1,)))
 
@@ -412,9 +412,15 @@ class pde_snapshot:
             s += "  num-dimensions: %d\n" % self.num_dimensions
         else: # have position/velocity dimensions
             s += f"  num-dimensions: {self.num_dimensions}  ({self.num_position}x{self.num_velocity}v)\n"
-        s += "  degree:         %d\n" % self.degree
-        s += "  num-indexes:    %d\n" % self.num_cells
-        s += "  state size:     %d\n" % self.state.size
+
+        snum_cells  = f"{self.num_cells:,}"  # convert 1663557 to 1,663,557
+        sstate_size = f"{self.state.size:,}"
+
+        padspaces = ' ' * (len(sstate_size) - len(snum_cells))  # pre-pad with spaces
+
+        s += f"  degree:         {self.degree}\n"
+        s += f"  state size:     {sstate_size}\n"
+        s += f"  grid-indexes:   {padspaces}{snum_cells}\n"
         s += "  time:           %f\n" % self.time
         return s
 
