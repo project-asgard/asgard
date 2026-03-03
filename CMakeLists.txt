@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.19)
 
 project (asgard VERSION 0.9.0 LANGUAGES CXX)
 
-set(ASGARD_RELEASE_INFO "(beta) ${asgard_VERSION}b1") # sync with pip-installer setup.py
+set(ASGARD_RELEASE_INFO "${asgard_VERSION}") # sync with pip-installer setup.py
 
 include(FetchContent)   # getting external dependencies
 include(GNUInstallDirs) # allows management of install paths
