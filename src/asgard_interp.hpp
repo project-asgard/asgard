@@ -117,7 +117,7 @@ public:
       }();
     tools::time_event performance_("wavelet-to-nodal", flops);
     #else
-    tools::time_event performance_("wavelet-to-nodal");
+    // tools::time_event performance_("wavelet-to-nodal");
     #endif
     block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
   }
@@ -145,7 +145,7 @@ public:
       }();
     tools::time_event performance_("position-to-nodal", flops);
     #else
-    tools::time_event performance_("position-to-nodal");
+    // tools::time_event performance_("position-to-nodal");
     #endif
     block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
   }
@@ -175,7 +175,7 @@ public:
       }();
     tools::time_event performance_("nodal-to-hier", flops);
     #else
-    tools::time_event performance_("nodal-to-hier");
+    // tools::time_event performance_("nodal-to-hier");
     #endif
     block_cpu(pdof, grid, conn, perm_low, nodal2hier_, P{1}, f, P{0}, hier, work);
   }
@@ -196,7 +196,7 @@ public:
       }();
     tools::time_event performance_("nodal-to-wavelet", flops);
     #else
-    tools::time_event performance_("nodal-to-wavelet");
+    // tools::time_event performance_("nodal-to-wavelet");
     #endif
     block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
               P{1}, f, P{0}, t1.data(), work);
@@ -231,6 +231,7 @@ public:
        P time, P const state[], P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    tools::time_event perf_("interpolation term");
     expect(plan.is_enabled());
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
@@ -242,7 +243,7 @@ public:
         }
       }();
     {
-      tools::time_event perf_("interpolation func");
+      // tools::time_event perf_("interpolation func");
       if (plan.uses_moments()) {
         tmd.interp(time, nodes(grid), moments, nodal, it2);
       } else {
@@ -273,7 +274,7 @@ public:
        kronmult::workspace<P> &work) const
   {
     {
-      tools::time_event perf_("source func");
+      tools::time_event perf_("interpolation source");
       func(time, nodes(grid), moments, it1);
     }
     nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
@@ -336,7 +337,7 @@ public:
       }();
     tools::time_event performance_("wavelet-to-nodal-gpu", flops);
     #else
-    tools::time_event performance_("wavelet-to-nodal-gpu");
+    // tools::time_event performance_("wavelet-to-nodal-gpu");
     #endif
     grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
@@ -358,7 +359,7 @@ public:
       }();
     tools::time_event performance_("position-to-nodal-gpu", flops);
     #else
-    tools::time_event performance_("position-to-nodal-gpu");
+    // tools::time_event performance_("position-to-nodal-gpu");
     #endif
     grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
@@ -382,7 +383,7 @@ public:
       }();
     tools::time_event performance_("nodal-to-hier-gpu", flops);
     #else
-    tools::time_event performance_("nodal-to-hier-gpu");
+    // tools::time_event performance_("nodal-to-hier-gpu");
     #endif
     block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, vals, work, nodal2hier_);
@@ -404,7 +405,7 @@ public:
       }();
     tools::time_event performance_("nodal-to-wavelet-gpu", flops);
     #else
-    tools::time_event performance_("nodal-to-wavelet-gpu");
+    // tools::time_event performance_("nodal-to-wavelet-gpu");
     #endif
     block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
@@ -421,6 +422,7 @@ public:
        P alpha, tmd_type const &tmd, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    tools::time_event perf_("interpolation term-gpu");
     std::vector<P> &t1 = cpu_it1[dev()];
     std::vector<P> &t2 = cpu_it2[dev()];
     gpu::vector<P> &gpu_t1 = gpu_it1[dev()];
@@ -438,7 +440,7 @@ public:
           }
         }();
       {
-        tools::time_event perf_("interpolation func-gpu");
+        // tools::time_event perf_("interpolation func-gpu");
         if (plan.uses_moments()) {
           tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), moms.get_cached_interps(dev),
                      nodal.data(), gpu_t2.data());
@@ -462,7 +464,7 @@ public:
           }
         }();
       {
-        tools::time_event perf_("interpolation func");
+        // tools::time_event perf_("interpolation func");
         if (plan.uses_moments()) {
           tmd.interp(time, nodes(grid), moms.get_cached_interps(), nodal, t2);
         } else {
@@ -489,8 +491,9 @@ public:
        P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    tools::time_event perf_("interpolation source-gpu");
     {
-      tools::time_event perf_("source func");
+      // tools::time_event perf_("source func");
       func(time, nodes(grid), moments, cpu_it1[dev()]);
     }
     gpu_it1[dev()] = cpu_it1[dev()];
@@ -508,8 +511,9 @@ public:
        P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    tools::time_event perf_("interpolation source-gpu");
     {
-      tools::time_event perf_("source func (gpu)");
+      // tools::time_event perf_("source func (gpu)");
       func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, gpu_it1[dev()].data());
     }
     nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
