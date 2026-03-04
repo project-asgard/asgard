@@ -479,11 +479,10 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         P const u1 = m01[i] / m0[i];
         P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
 
-        vals[i] = nu * n / (2 * PI * t);
         P const vu0 = nodes[i][num_pos] - u0;
         P const vu1 = nodes[i][num_pos + 1] - u1;
         P const d = vu0 * vu0 + vu1 * vu1;
-        vals[i] *= std::exp(- P{0.5} * d / t);
+        vals[i] = std::exp(- P{0.5} * d / t) * nu * n / (2 * PI * t);
       }
     };
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,

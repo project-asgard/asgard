@@ -561,13 +561,10 @@ __global__ void kernel_weights(int num_indexes, P const state[], P weights[])
         }
       }
 
-      __syncthreads();
-
       num = r;
+
       __syncthreads();
     }
-
-    __syncthreads();
 
     if (threadIdx.x == 0) {
       P const v = data[nd * threadIdx.y];
