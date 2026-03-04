@@ -137,7 +137,7 @@ if __name__ == '__main__':
         # but look at the comment related to run_with_args() and custom arguments.
 
         # example command:
-        #   python3 bgk.py -shock2d -nu 100 -m 8 -a 5.E-5 -n 2000
+        #   python3 bgk.py -shock2d -nu 100 -m 8 -a 1.E-5 -n 2000
         #
         # This is nice visual example but also takes a while to compute.
         # It requires up to 90 million degrees of freedom and minimum 16GB GPU

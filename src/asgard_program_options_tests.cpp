@@ -469,6 +469,28 @@ void misc_opts()
     tassert(degree_to_string(3).find("cubic") != std::string::npos);
     tassert(degree_to_string(7).find("7") != std::string::npos);
   }
+  {
+    current_test name_("utility methods");
+
+    prog_opts prog;
+    prog.start_levels = {3, };
+    prog.max_levels = {3, 4};
+    tassert(prog.max_level() == 4);
+    tassert(prog.max_level(dimension_id{0}) == 3);
+    tassert(prog.max_level(dimension_id{1}) == 4);
+
+    prog.default_start_levels = {3, };
+    prog.start_levels.clear();
+    prog.max_levels.clear();
+    tassert(prog.max_level() == 3);
+    tassert(prog.max_level(dimension_id{0}) == 3);
+    tassert(prog.max_level(dimension_id{1}) == 3);
+
+    prog.max_levels = {4, 3};
+    tassert(prog.max_level() == 4);
+    tassert(prog.max_level(dimension_id{0}) == 4);
+    tassert(prog.max_level(dimension_id{1}) == 3);
+  }
 }
 
 int main(int argc, char **argv) {

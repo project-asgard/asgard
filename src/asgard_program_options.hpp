@@ -613,6 +613,9 @@ struct prog_opts
       ml = std::max(ml, *std::max_element(max_levels.begin(),max_levels.end()));
     return ml;
   }
+  //! returns the max level for the given dimension
+  int max_level(struct dimension_id const &dim) const;
+  // implemented in asgard_pde.cpp after the definition of dimension_id
 
   //! returns true if the options indicate a restart file
   bool restarting() const { return not restart_file.empty(); }

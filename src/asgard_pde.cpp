@@ -7,6 +7,29 @@
 namespace asgard
 {
 
+int prog_opts::max_level(dimension_id const &dim) const {
+  int lstart = 0;
+  if (start_levels.empty() and not default_start_levels.empty()) {
+    lstart = (static_cast<size_t>(dim()) < default_start_levels.size())
+              ? default_start_levels[dim()]
+              : default_start_levels.front();
+  }
+  if (not start_levels.empty()) {
+    lstart = (static_cast<size_t>(dim()) < start_levels.size())
+              ? start_levels[dim()]
+              : start_levels.front();
+
+  }
+  int lmax = 0;
+  if (not max_levels.empty()) {
+    lmax = (static_cast<size_t>(dim()) < max_levels.size())
+            ? max_levels[dim()]
+            : max_levels.front();
+
+  }
+  return std::max(lmax, lstart);
+}
+
 template<typename P>
 template<typename opmode>
 void pde_scheme<P>::process(operators::lenard_bernstein_collisions lbc)

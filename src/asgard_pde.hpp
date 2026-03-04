@@ -1701,7 +1701,7 @@ public:
   //! returns the smallest cell size in given dimension and level, , uses max-level by default
   P cell_size(dimension_id dim, int level = -1) const {
     if (level < 0)
-      level = max_level_;
+      level = options_.max_level(dim);
     return domain_.cell_size(dim, level);
   }
   //! returns the smallest cell size across all dimensions, uses max-level by default
