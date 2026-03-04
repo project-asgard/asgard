@@ -390,14 +390,15 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
   if (static_cast<int>(row_wspace.size()) < max_threads)
     row_wspace.resize(max_threads);
 
-  int threadid = 0;
 #pragma omp parallel
   {
     int64_t my_block_count = 0;
 
-    int tid;
-#pragma omp critical
-    tid = threadid++;
+    #ifdef _OPENMP
+    int const tid = omp_get_thread_num();
+    #else
+    int const tid = 0;
+    #endif
 
     // xidx holds indexes for the entries of the current
     // sparse row that are present in the current ilist
