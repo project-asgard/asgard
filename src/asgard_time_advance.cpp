@@ -6,6 +6,9 @@
 #include "asgard_gpu_algorithms.hpp"
 #endif
 
+// see the comment in asgard_refinement.cpp
+#define ASGARD_INFINITE_TRESHOLD 1.E+100
+
 namespace asgard::time_advance
 {
 
@@ -905,7 +908,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         size_t local_bad = 0;
         #pragma omp for
         for (size_t i = 0; i < next.size(); i++)
-          if (not std::isfinite(next[i]))
+          if (std::abs(next[i]) > ASGARD_INFINITE_TRESHOLD)
             ++local_bad;
 
         #pragma omp atomic

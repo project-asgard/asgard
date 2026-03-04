@@ -214,7 +214,7 @@ __global__ void kernel_num_non_finite(int64_t num, P const x[], int *sum)
 {
   int i = threadIdx.x + blockIdx.x * num_threads;
   while (i < num) {
-    if (! isfinite(x[i]))
+    if (not isfinite(x[i]))
       atomicAdd(sum, int{1});
     i += num_threads * gridDim.x;
   }

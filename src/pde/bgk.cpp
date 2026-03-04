@@ -37,7 +37,7 @@
  * The definition of the electric field E(x, t) and the initial conditions is the same.
  * This problem corresponds to pde_mode::poisson
  *
- * \par The 1D shock problem
+ * \par The 1D and 2D shock problems
  * Using a variation of the problem borrowed from
  * <a href="https://link.springer.com/book/10.1007/b79761">
  * E. F. Toro. "Riemann Solvers and Numerical Methods for Fluid Dynamics" </a>,
@@ -52,7 +52,6 @@
  * \par
  * The equation also omits the terms for the electric field
  * \f[ \frac{\partial}{\partial t} f(x, v, t) + v \nabla_x f(x, v, t) = \nu ( M(f) - f) \f]
- *
  *
  * \par
  * The focus of this example is to show the usage of the moment dependence in the sources and
@@ -98,7 +97,7 @@ enum class pde_mode
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
- * \param dims is the number of spatial velocity dimensions, 1-3
+ * \param pde_mode is type ofPDE to set
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme definition
@@ -504,50 +503,37 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
           P const v0 = nodes[i][2];
           P const v1 = nodes[i][3];
 
-          //P const ax = std::sqrt(x0 * x0 + x1 * x1);
           P const ax = std::abs(x0);
           P const ay = std::abs(x1);
 
           if (ax >= outer_bound or ay >= outer_bound) {
-            // std::cout << " (" << x0 << ", " << x1 << ")  (" << ax << ", " << ay << ")  - inside\n";
             vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
                               * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
             continue;
           }
 
-          // std::cout << " (" << x0 << ", " << x1 << ")  (" << ax << ", " << ay << ")  - outside\n";
-
           if (ax <= inner_bound) {
-            // vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
-            //                   * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
             vals[i] = inner_m * std::exp(- P{0.5} * v0 * v0 / inner_t) / std::sqrt(2 * PI * inner_t);
           } else if (ax >= outer_bound) {
-            // vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
-            //                   * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
             vals[i] = std::sqrt(outer_m) * std::exp(- P{0.5} * v0 * v0 / outer_t) / std::sqrt(2 * PI * outer_t);
           } else {
             // transition region
             P const r = ax - inner_bound;
             P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
             P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
-            // vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
             vals[i] = std::sqrt(m) * std::exp(- P{0.5} * v0 * v0 / t) / std::sqrt(2 * PI * t);
           }
 
           if (ay <= inner_bound) {
-            // vals[i] = inner_m * exp(- P{0.5} * v0 * v0 / inner_t)
-            //                   * exp(- P{0.5} * v1 * v1 / inner_t) / (2 * PI * inner_t);
             vals[i] *= inner_m * std::exp(- P{0.5} * v1 * v1 / inner_t) / std::sqrt(2 * PI * inner_t);
           } else if (ay >= outer_bound) {
-            // vals[i] = outer_m * exp(- P{0.5} * v0 * v0 / outer_t)
-            //                   * exp(- P{0.5} * v1 * v1 / outer_t) / (2 * PI * outer_t);
             vals[i] *= std::sqrt(outer_m) * std::exp(- P{0.5} * v1 * v1 / outer_t) / std::sqrt(2 * PI * outer_t);
           } else {
             // transition region
             P const r = ay - inner_bound;
             P const m = (r * r * r / 3 - 0.5 * dr * r * r) * cm + inner_m;
             P const t = (r * r * r / 3 - 0.5 * dr * r * r) * ct + inner_t;
-            // vals[i] = m * exp(- P{0.5} * v0 * v0 / t) * exp(- P{0.5} * v1 * v1 / t) / (2 * PI * t);
+
             vals[i] *= std::sqrt(m) * std::exp(- P{0.5} * v1 * v1 / t) / std::sqrt(2 * PI * t);
           }
         }
@@ -681,9 +667,6 @@ int main(int argc, char** argv)
         else // if (options.has_cli_entry("-poisson"))
           return pde_mode::poisson;
       }();
-
-  // get the number of velocity dimensions, defaults to 1
-  //int const dims = options.extra_cli_value_group<P>({"-dims", "-dim"}).value_or(1);
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.

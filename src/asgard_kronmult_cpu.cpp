@@ -390,14 +390,15 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
   if (static_cast<int>(row_wspace.size()) < max_threads)
     row_wspace.resize(max_threads);
 
-  int threadid = 0;
 #pragma omp parallel
   {
     int64_t my_block_count = 0;
 
-    int tid;
-#pragma omp critical
-    tid = threadid++;
+    #ifdef _OPENMP
+    int const tid = omp_get_thread_num();
+    #else
+    int const tid = 0;
+    #endif
 
     // xidx holds indexes for the entries of the current
     // sparse row that are present in the current ilist
@@ -442,10 +443,6 @@ void block_cpu(sparse_grid const &grid, connect_1d const &conn,
           int64_t const xj = xidx[conn[c]];
           if (xj != -1)
           {
-            // std::cout << " (iy, ix) = (" << xidx[row] / block_size << ", " << xidx[conn[c]] / block_size
-            //           << ")   (ir, ic) = " << row << ", " << conn[c] << ")  "
-            //           << "  " << (vals + n2 * c)[0] << "    " << (x + xj)[0] << "    " << local_y[0] << "\n";
-
             if constexpr (n == -1)
               my_block_count += 1;
             else
@@ -604,7 +601,7 @@ void block_cpu(
   bool constexpr single_matrix = std::is_same_v<coeff_type, block_sparse_matrix<precision>>;
   static_assert(single_matrix or
         std::is_same_v<coeff_type, std::array<block_sparse_matrix<precision>, max_num_dimensions>>);
-  tools::time_event performance_("block_cpu");
+  tools::time_event performance_("block-cpu");
 
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
@@ -635,25 +632,17 @@ void block_cpu(
   for (int64_t i = 0; i < perm.size(); i++)
   {
     int dir = perm(i, 0).direction;
-    // std::cout << " i = " << i << "  dir = " << dir << "\n";
 
     block_cpu(num_dims, n, grid, dir, perm(i, 0).fill,
               get_connect_1d(perm(i, 0).fill),
               get_data(dir), x, w1, work.row_map);
 
-    // tools::dump(std::vector<precision>(x, x + 5), "x after first step");
-    // tools::dump(std::vector<precision>(w1, w1 + 5), "w1 after first step");
-
     for (int d = 1; d < active_dims; d++)
     {
       dir = perm(i, d).direction;
-      // std::cout << " i = " << i << "  dir = " << dir << "\n";
       block_cpu(num_dims, n, grid, dir, perm(i, d).fill,
                 get_connect_1d(perm(i, d).fill),
                 get_data(dir), w1, w2, work.row_map);
-
-      // tools::dump(std::vector<precision>(w1, w1 + 5), "w1 after first step");
-      // tools::dump(std::vector<precision>(w2, w2 + 5), "w2 after first step");
 
       std::swap(w1, w2);
     }

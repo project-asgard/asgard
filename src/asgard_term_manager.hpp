@@ -167,7 +167,7 @@ struct term_manager
                       precon_method precon = precon_method::none,
                       P alpha = 0)
   {
-    tools::time_event timing_("initial coefficients");
+    tools::time_event timing_("initial coefficients mats");
     for (int t : iindexof(terms)) {
       #ifdef ASGARD_USE_MPI
       if (not resources.owns(terms[t].rec))

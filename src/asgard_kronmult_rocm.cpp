@@ -369,7 +369,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
     connect_cpu(dev, grid, conns, perm, work);
   }
 
-  tools::time_event performance_("block_gpu");
+  tools::time_event performance_("block-gpu");
 
   int64_t const num_entries = work.gpu_w1[dev.id].size();
 

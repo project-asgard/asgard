@@ -7,6 +7,29 @@
 namespace asgard
 {
 
+int prog_opts::max_level(dimension_id const &dim) const {
+  int lstart = 0;
+  if (start_levels.empty() and not default_start_levels.empty()) {
+    lstart = (static_cast<size_t>(dim()) < default_start_levels.size())
+              ? default_start_levels[dim()]
+              : default_start_levels.front();
+  }
+  if (not start_levels.empty()) {
+    lstart = (static_cast<size_t>(dim()) < start_levels.size())
+              ? start_levels[dim()]
+              : start_levels.front();
+
+  }
+  int lmax = 0;
+  if (not max_levels.empty()) {
+    lmax = (static_cast<size_t>(dim()) < max_levels.size())
+            ? max_levels[dim()]
+            : max_levels.front();
+
+  }
+  return std::max(lmax, lstart);
+}
+
 template<typename P>
 template<typename opmode>
 void pde_scheme<P>::process(operators::lenard_bernstein_collisions lbc)
@@ -456,11 +479,10 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         P const u1 = m01[i] / m0[i];
         P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
 
-        vals[i] = nu * n / (2 * PI * t);
         P const vu0 = nodes[i][num_pos] - u0;
         P const vu1 = nodes[i][num_pos + 1] - u1;
         P const d = vu0 * vu0 + vu1 * vu1;
-        vals[i] *= std::exp(- P{0.5} * d / t);
+        vals[i] = std::exp(- P{0.5} * d / t) * nu * n / (2 * PI * t);
       }
     };
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,

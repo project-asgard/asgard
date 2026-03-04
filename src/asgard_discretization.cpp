@@ -376,9 +376,17 @@ void discretization_manager<precision>::set_initial_condition()
 
     if (refinement) {
       // on the first iteration, do both refine and coarsen with a full-adapt
-      // on follow-on iteration, only add more nodes for stability and to avoid stagnation
-      sparse_grid::strategy mode = (iterations == 0) ? sparse_grid::strategy::adapt
-                                                     : sparse_grid::strategy::refine;
+      // on follow-on iteration, we should only add more nodes for stability and to avoid stagnation
+      // however, we can also run into issue with refinement instability, e.g., due to moments
+      // and adapt-weights, where we over-refine due to inf/nan interpolation weights
+      // so every 5 iterations or so, we can drop some of the coefficients
+      // should do at least 2 refine iterations for every adapt in order to avoid stagnation
+      sparse_grid::strategy mode = (iterations % 3 == 0) ? sparse_grid::strategy::adapt
+                                                         : sparse_grid::strategy::refine;
+
+      if (iterations > 2 * terms.max_level) // should not go this far unless stagnating
+        mode = sparse_grid::strategy::refine;
+
       int const gid = grid.generation();
       #ifdef ASGARD_USE_GPU
       gpu::vector<precision> gstate = state;
@@ -541,9 +549,9 @@ void discretization_manager<precision>::ode_rhs_base(
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(group, grid, conn);
-    tools::time_event performance_("ode-rhs kronmult", flops);
+    tools::time_event performance_("ode-rhs terms", flops);
     #else
-    tools::time_event performance_("ode-rhs kronmult");
+    tools::time_event performance_("ode-rhs terms");
     #endif
     terms.apply(group, grid, conn, -1, in, 0, out);
 
@@ -776,9 +784,9 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(group, grid, conn);
-    tools::time_event performance_("ode-rhs-gpu kronmult", flops);
+    tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
-    tools::time_event performance_("ode-rhs-gpu kronmult");
+    tools::time_event performance_("ode-rhs-gpu terms");
     #endif
     terms.apply_gpu(group, grid, conn, -1, in, 0, out);
 
@@ -849,9 +857,9 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int64_t const flops = terms.flop_count(group, grid, conn);
-    tools::time_event performance_("ode-rhs-gpu kronmult", flops);
+    tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
-    tools::time_event performance_("ode-rhs-gpu kronmult");
+    tools::time_event performance_("ode-rhs-gpu terms");
     #endif
     if (is_leader()) {
       gpu::memcopy_dev2dev(num_entries, in, out);
