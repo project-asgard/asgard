@@ -239,7 +239,7 @@ indexset compute_ancestry_completion(indexset const &iset,
           for (int j = hierarchy.row_begin(row); j < hierarchy.row_diag(row); j++)
           {
             scratch[d] = hierarchy[j];
-            if (pad_indexes.missing(scratch.data()))
+            if (pad_indexes.missing(scratch.data()) and iset.missing(scratch.data()))
               local_missing.append(scratch.data(), 1);
           }
           scratch[d] = row;
