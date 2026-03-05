@@ -1,0 +1,22 @@
+var searchData=
+[
+  ['name_0',['name',['../classasgard_1_1pde__domain.html#acdb1a98093c6d047fc39ebe0947ceb90',1,'asgard::pde_domain::name()'],['../structasgard_1_1aux__field__entry.html#a6740568b866d6a87203fa214e270e000',1,'asgard::aux_field_entry::name']]],
+  ['new_5fterm_5fgroup_1',['new_term_group',['../classasgard_1_1pde__scheme.html#a19a0b8f6d70f262387ecbb8a6d4d4d3d',1,'asgard::pde_scheme']]],
+  ['non_20linear_20equation_2',['Example: Burgers&apos; non-linear equation',['../group__asgard__examples__burgers.html',1,'']]],
+  ['non_5fseparable_3',['non_separable',['../classasgard_1_1separable__func.html#acc0812754af75e2512caa97d90fae554a86395ac3064cedc1d82fdbb9c34a2397',1,'asgard::separable_func']]],
+  ['none_4',['none',['../group__asgard__pde__definition.html#ggaba1ea24b4b4e936edf428217c9dafae5a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'noneasgard'],['../group__asgard__pde__definition.html#gga856ebac4ae7e38c39b9d6312a6c1ce63a334c4a4c42fdb79d7ebc3e73b517e6f8',1,'noneasgard'],['../group__asgard__pde__definition.html#gga9ee9516c2b5130db78352d11354bd47ea334c4a4c42fdb79d7ebc3e73b517e6f8',1,'noneasgard'],['../group__asgard__pde__definition.html#gga2567225f25ac6d26ffe749486cc6376ca334c4a4c42fdb79d7ebc3e73b517e6f8',1,'noneasgard'],['../group__asgard__common__options.html#gga188e07262c3450a3294d7d09160f479da334c4a4c42fdb79d7ebc3e73b517e6f8',1,'noneasgard']]],
+  ['norml2_5',['normL2',['../classasgard_1_1discretization__manager.html#ad1dbc588aef5ace79df3fb84ad4c7b24',1,'asgard::discretization_manager']]],
+  ['nu_6',['nu',['../structasgard_1_1operators_1_1lenard__bernstein__collisions.html#aaf7274faf6d8d79205b2443c4fb37e94',1,'asgard::operators::lenard_bernstein_collisions::nu'],['../structasgard_1_1operators_1_1simple__bgk__collisions.html#a8fb3ce17242d7ca10fde70190bc4f4a9',1,'asgard::operators::simple_bgk_collisions::nu']]],
+  ['num_7',['num',['../structasgard_1_1position__dims.html#a75afd02c2d93e54716ba47b364f64b83',1,'asgard::position_dims::num'],['../structasgard_1_1velocity__dims.html#a520d7f2b5369b7767c364944784d62d9',1,'asgard::velocity_dims::num']]],
+  ['num_5fcells_8',['num_cells',['../classasgard_1_1reconstruct__solution.html#a2ebd5460077f12f35331211e9bd6bed4',1,'asgard::reconstruct_solution']]],
+  ['num_5fchain_9',['num_chain',['../classasgard_1_1term__1d.html#a687df4f92c498ddb19e1934b87fc7ee6',1,'asgard::term_1d::num_chain()'],['../classasgard_1_1term__md.html#ab81526dfb5b8552537d29692a71191f7',1,'asgard::term_md::num_chain()']]],
+  ['num_5fdimensions_10',['num_dimensions',['../classasgard_1_1reconstruct__solution.html#aa201849cc0e12ef6662cf2549b370b53',1,'asgard::reconstruct_solution::num_dimensions()'],['../structasgard_1_1aux__field__entry.html#ae95748a6b4e7581a4ab5f6d6853216e2',1,'asgard::aux_field_entry::num_dimensions']]],
+  ['num_5fdims_11',['num_dims',['../classasgard_1_1term__md.html#a36f42a09c2ee9d4dc4d193d4e14ba544',1,'asgard::term_md::num_dims()'],['../classasgard_1_1pde__scheme.html#aa862463da0a516aa99787f98b616394c',1,'asgard::pde_scheme::num_dims()'],['../classasgard_1_1mass__md.html#a05ef9d62d1079c2af16e0f9a34b42af7',1,'asgard::mass_md::num_dims()'],['../classasgard_1_1separable__func.html#a0406c2f8c80b2bc3cbea93a462592ff9',1,'asgard::separable_func::num_dims()'],['../classasgard_1_1pde__domain.html#a48610d822445fe6b7d2c053178779e6d',1,'asgard::pde_domain::num_dims()'],['../structasgard_1_1moment.html#afa1ac35e615a620de2cb6e5d8cd34171',1,'asgard::moment::num_dims()'],['../classasgard_1_1discretization__manager.html#aab581620a59e7a49b3470f7b7ddb28df',1,'asgard::discretization_manager::num_dims() const']]],
+  ['num_5fdof_12',['num_dof',['../classasgard_1_1discretization__manager.html#a79898924818e76e9231d3a776256063c',1,'asgard::discretization_manager']]],
+  ['num_5fpos_13',['num_pos',['../classasgard_1_1pde__domain.html#acb088d6db0a7b28f0348ccdf9b3d99ea',1,'asgard::pde_domain']]],
+  ['num_5fstrips_14',['num_strips',['../classasgard_1_1vector2d.html#acb344714c6e2f199eaa0e16c7a85281c',1,'asgard::vector2d']]],
+  ['num_5fterms_15',['num_terms',['../classasgard_1_1pde__scheme.html#a0587312de47ecc067bf76cf2ea52465d',1,'asgard::pde_scheme']]],
+  ['num_5ftime_5fsteps_16',['num_time_steps',['../structasgard_1_1prog__opts.html#a16934efeef64a7c01531f2cc6a90cabf',1,'asgard::prog_opts']]],
+  ['num_5fvel_17',['num_vel',['../classasgard_1_1pde__domain.html#a5721afb51470c250de36631c403dd7b8',1,'asgard::pde_domain']]],
+  ['number_5fof_5fdimensions_18',['number_of_dimensions',['../group__asgard__pde__definition.html#ga98a2ef1818198c20e83c305172246f44',1,'asgard']]]
+];

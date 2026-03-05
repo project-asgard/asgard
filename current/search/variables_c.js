@@ -1,0 +1,6 @@
+var searchData=
+[
+  ['pi_0',['pi',['../group__asgard__examples__continuity__2d.html#ga820a8ca159af91e6e65b575bed9ddd40',1,'PI:&#160;continuity_2d.cpp'],['../group__asgard__examples__input__1d.html#ga820a8ca159af91e6e65b575bed9ddd40',1,'PI:&#160;inputs_1d.cpp'],['../group__asgard__examples__continuity__md.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;continuity.cpp'],['../group__asgard__spherical__diffusion.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;spherical_diffusion.cpp'],['../group__asgard__examples__sinwav.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;sinwav.cpp'],['../group__asgard__examples__two__stream.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;two_stream.cpp'],['../group__asgard__examples__vplb.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;vplb.cpp'],['../group__asgard__examples__sodshock.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;sod_shock.cpp'],['../group__asgard__examples__bgk.html#ga66139ed6c2542a7643a4c38b92cc77ec',1,'PI:&#160;bgk.cpp']]],
+  ['pows_1',['pows',['../structasgard_1_1moment.html#a172bbf9206e205f461b018b6f515b5e6',1,'asgard::moment']]],
+  ['precon_2',['precon',['../structasgard_1_1prog__opts.html#a7410a3bec953081bb7aaf8b4545dabc7',1,'asgard::prog_opts']]]
+];

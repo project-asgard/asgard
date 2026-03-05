@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['electric_5ffield_0',['electric_field',['../group__asgard__pde__definition.html#gga2567225f25ac6d26ffe749486cc6376caa79864cf485f38be6b1076d4b73e51b2',1,'asgard']]],
+  ['electric_5ffield_5fonly_1',['electric_field_only',['../group__asgard__pde__definition.html#gga2567225f25ac6d26ffe749486cc6376ca124907345083d053bdd6de567f17d131',1,'asgard']]],
+  ['elliptic_20equation_2',['Example: Elliptic equation',['../group__asgard__examples__elliptic.html',1,'']]],
+  ['empty_3',['empty',['../classasgard_1_1vector2d.html#ac6f5fcad587264c95f9b58ab58d9a58c',1,'asgard::vector2d']]],
+  ['environment_4',['Setting up the environment',['../md_doxygen_2plotting.html#autotoc_md16',1,'']]],
+  ['equation_5',['equation',['../group__asgard__examples__continuity__2d.html',1,'Example: 2D continuity equation'],['../group__asgard__examples__burgers.html',1,'Example: Burgers&apos; non-linear equation'],['../group__asgard__examples__elliptic.html',1,'Example: Elliptic equation'],['../group__asgard__examples__continuity__md.html',1,'Example: xD continuity equation']]],
+  ['eval_6',['eval',['../classasgard_1_1separable__func.html#a0b17de3c11e3d09890f2eb2448435678',1,'asgard::separable_func']]],
+  ['example_20problems_7',['ASGarD Example Problems',['../group__asgard__examples.html',1,'']]],
+  ['example_3a_202d_20continuity_20equation_8',['Example: 2D continuity equation',['../group__asgard__examples__continuity__2d.html',1,'']]],
+  ['example_3a_20bhatnagar_20gross_20krook_20bgk_9',['Example: Bhatnagar-Gross-Krook (BGK)',['../group__asgard__examples__bgk.html',1,'']]],
+  ['example_3a_20burgers_20non_20linear_20equation_10',['Example: Burgers&apos; non-linear equation',['../group__asgard__examples__burgers.html',1,'']]],
+  ['example_3a_20diffusion_20operator_11',['Example: Diffusion operator',['../group__asgard__examples__diffusion.html',1,'']]],
+  ['example_3a_20elliptic_20equation_12',['Example: Elliptic equation',['../group__asgard__examples__elliptic.html',1,'']]],
+  ['example_3a_20handling_20inputs_20file_13',['Example: Handling inputs file',['../group__asgard__examples__input__1d.html',1,'']]],
+  ['example_3a_20moving_20sine_20wave_14',['Example: Moving sine wave',['../group__asgard__examples__sinwav.html',1,'']]],
+  ['example_3a_20robin_20boundary_20condition_15',['Example: Robin boundary condition',['../group__asgard__examples__robin.html',1,'']]],
+  ['example_3a_20sod_20shock_20tube_20problem_16',['Example: Sod shock tube problem',['../group__asgard__examples__sodshock.html',1,'']]],
+  ['example_3a_20spherical_20coordinates_17',['Example: Spherical coordinates',['../group__asgard__spherical__diffusion.html',1,'']]],
+  ['example_3a_20two_20stream_20instability_18',['Example: Two stream instability',['../group__asgard__examples__two__stream.html',1,'']]],
+  ['example_3a_20vlasov_20poisson_20lenard_20bernstein_19',['Example: Vlasov-Poisson-Lenard-Bernstein',['../group__asgard__examples__vplb.html',1,'']]],
+  ['example_3a_20xd_20continuity_20equation_20',['Example: xD continuity equation',['../group__asgard__examples__continuity__md.html',1,'']]],
+  ['extend_5fsteps_21',['extend_steps',['../classasgard_1_1discretization__manager.html#a974478c88b3c5ce448de53ea2fa54757',1,'asgard::discretization_manager']]],
+  ['externals_22',['externals',['../structasgard_1_1prog__opts.html#aa68046f253bf88a3745191b771708d88',1,'asgard::prog_opts']]],
+  ['extra_5fcli_5fvalue_23',['extra_cli_value',['../structasgard_1_1prog__opts.html#a8030d9bde292b716a90e782e33fb89ca',1,'asgard::prog_opts']]],
+  ['extra_5fcli_5fvalue_5fgroup_24',['extra_cli_value_group',['../structasgard_1_1prog__opts.html#a6faa060fa2606bb764136913ad6030ed',1,'asgard::prog_opts']]]
+];

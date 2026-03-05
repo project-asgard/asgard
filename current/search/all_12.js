@@ -1,0 +1,28 @@
+var searchData=
+[
+  ['reconstruct_0',['reconstruct',['../classasgard_1_1reconstruct__solution.html#a8a3d9fa6e8d139b4dccc489532618b4c',1,'asgard::reconstruct_solution']]],
+  ['reconstruct_5fsolution_1',['reconstruct_solution',['../classasgard_1_1reconstruct__solution.html',1,'asgard::reconstruct_solution'],['../classasgard_1_1reconstruct__solution.html#aca85f7dc4227730e9b6a3b29ee3b60d3',1,'asgard::reconstruct_solution::reconstruct_solution()=default'],['../classasgard_1_1reconstruct__solution.html#a660e177eacd613c79388666157d7c2cf',1,'asgard::reconstruct_solution::reconstruct_solution(int dims, int64_t num_cells, int const cells[], int degree, precision const solution[])']]],
+  ['refinement_5fmanager_3c_20p_20_3e_2',['refinement_manager&lt; P &gt;',['../classasgard_1_1pde__scheme.html#a5996ceba5961d86ad9b4af4858b3de73',1,'asgard::pde_scheme']]],
+  ['register_5fmoment_3',['register_moment',['../classasgard_1_1pde__scheme.html#a948a64fbf5db783f18fd2d5a42500d89',1,'asgard::pde_scheme']]],
+  ['remaining_5fsteps_4',['remaining_steps',['../classasgard_1_1discretization__manager.html#a652908795c4a66a1774550b8718fe312',1,'asgard::discretization_manager']]],
+  ['requirements_5',['Requirements',['../md_doxygen_2installation.html#autotoc_md6',1,'']]],
+  ['resize_6',['resize',['../classasgard_1_1vector2d.html#ad600c287a8a7bd0f66cf20d8e77dbfec',1,'asgard::vector2d']]],
+  ['resize_5fand_5fzero_7',['resize_and_zero',['../classasgard_1_1vector2d.html#a756555b48a64c64a7c63a540fa4f0408',1,'asgard::vector2d']]],
+  ['restart_5ffile_8',['restart_file',['../structasgard_1_1prog__opts.html#ac5ebf718b89f429b2788f3e8cf174a6a',1,'asgard::prog_opts']]],
+  ['restarting_9',['restarting',['../structasgard_1_1prog__opts.html#a22f92e771970a8a1b7518fd8d4a85443',1,'asgard::prog_opts']]],
+  ['rhs_10',['rhs',['../classasgard_1_1term__1d.html#a4defe599e194e5ac89d173508885811a',1,'asgard::term_1d::rhs() const'],['../classasgard_1_1term__1d.html#aeff4d8515744e44fcadf7088924e6394',1,'asgard::term_1d::rhs(std::vector&lt; P &gt; const &amp;x, std::vector&lt; P &gt; &amp;fx) const']]],
+  ['rhs_5fconst_11',['rhs_const',['../classasgard_1_1term__1d.html#ab4305e57e214c4bcaddfaedea7e0539e',1,'asgard::term_1d']]],
+  ['right_12',['right',['../structasgard_1_1domain__range.html#a1e252ccbbccdf1533e585bd17926cbf9',1,'asgard::domain_range::right'],['../structasgard_1_1term__volume.html#a43e9ee358304d5959a92caa68061c7e4',1,'asgard::term_volume::right'],['../structasgard_1_1volume__electric.html#a0b62e3282f1417ea78b56589cbc94cd2',1,'asgard::volume_electric::right'],['../group__asgard__examples__sinwav.html#gga87d0a7d816ac8f0d2d3ed272f5fe5c78a7c4f29407893c334a6cb7a87bf045c0d',1,'right:&#160;sinwav.cpp'],['../group__asgard__pde__definition.html#ggaba1ea24b4b4e936edf428217c9dafae5a7c4f29407893c334a6cb7a87bf045c0d',1,'rightasgard']]],
+  ['right_5fboundary_5fflux_13',['right_boundary_flux',['../structasgard_1_1right__boundary__flux.html',1,'asgard::right_boundary_flux&lt; P &gt;'],['../structasgard_1_1right__boundary__flux.html#a743ad6417473bcf3e98a40d6ae6a9458',1,'asgard::right_boundary_flux::right_boundary_flux(separable_func&lt; P &gt; f, std::vector&lt; int &gt; const &amp;clevel)'],['../structasgard_1_1right__boundary__flux.html#a86f17d8d1cf115ba33f709a4336b800b',1,'asgard::right_boundary_flux::right_boundary_flux(separable_func&lt; P &gt; f)'],['../structasgard_1_1right__boundary__flux.html#ace7c7a3200b2f0baa20c3146f548bff1',1,'asgard::right_boundary_flux::right_boundary_flux()=default']]],
+  ['right_5fconst_14',['right_const',['../structasgard_1_1term__robin.html#a4d1a36d70daf3f1b2ea8c54b2c27a5a0',1,'asgard::term_robin']]],
+  ['right_5ff_15',['right_f',['../structasgard_1_1volume__electric.html#ac54ce13ee5e888c881e763571d0640b2',1,'asgard::volume_electric']]],
+  ['right_5frobin_16',['right_robin',['../classasgard_1_1term__1d.html#ae2953e6dad541902e3e2eae7c54174fb',1,'asgard::term_1d']]],
+  ['rk2_17',['rk2',['../group__asgard__common__options.html#ggaa2cf92272447aa743052b8ca6b0facf4a9544a6f830b0f07391cdb6b9401bdb16',1,'asgard']]],
+  ['rk3_18',['rk3',['../group__asgard__common__options.html#ggaa2cf92272447aa743052b8ca6b0facf4ad53112738d4db3371170903a3c6db167',1,'asgard']]],
+  ['rk4_19',['rk4',['../group__asgard__common__options.html#ggaa2cf92272447aa743052b8ca6b0facf4ad334d71379ebcff7281d7600ae6dc8cd',1,'asgard']]],
+  ['robin_20',['robin',['../group__asgard__pde__definition.html#ggae063f4147fef298e65a60f25bbcb4f4aa8ee60a2e00c90d7e00d5069188dc115b',1,'asgard']]],
+  ['robin_20boundary_20condition_21',['Example: Robin boundary condition',['../group__asgard__examples__robin.html',1,'']]],
+  ['run_20and_20plot_20script_22',['The run-and-plot script',['../md_doxygen_2plotting.html#autotoc_md18',1,'']]],
+  ['running_20and_20plotting_23',['Running and plotting',['../md_doxygen_2basic__usage.html#autotoc_md14',1,'']]],
+  ['running_20and_20plotting_20with_20options_24',['Chaining running and plotting with options',['../md_doxygen_2plotting.html#autotoc_md21',1,'']]]
+];
