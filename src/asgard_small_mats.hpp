@@ -639,7 +639,7 @@ namespace asgard::fm
 template<typename P>
 void axpy(std::vector<P> const &x, std::vector<P> &y)
 {
-  expect(x.size() == y.size());
+  assert(x.size() == y.size());
   int64_t n = static_cast<int64_t>(x.size());
   ASGARD_OMP_SIMD
   for (int64_t i = 0; i < n; i++)
@@ -649,7 +649,7 @@ void axpy(std::vector<P> const &x, std::vector<P> &y)
 template<typename P>
 void axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
 {
-  expect(x.size() == y.size());
+  assert(x.size() == y.size());
   int64_t n = static_cast<int64_t>(x.size());
   ASGARD_OMP_SIMD
   for (int64_t i = 0; i < n; i++)
@@ -660,7 +660,7 @@ void axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
 template<typename P>
 void par_axpy(P const alpha, std::vector<P> const &x, std::vector<P> &y)
 {
-  expect(x.size() == y.size());
+  assert(x.size() == y.size());
   int64_t n = static_cast<int64_t>(x.size());
   ASGARD_OMP_PARFOR_SIMD
   for (int64_t i = 0; i < n; i++)

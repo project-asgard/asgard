@@ -57,7 +57,7 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                    std::vector<P> &vals) const
   {
-    expect(not is_gpu());
+    assert(not is_gpu());
     if (std::holds_alternative<md_mom_func<P>>(func)) {
       std::get<md_mom_func<P>>(func)(t, x, moments, vals);
     } else {
@@ -68,7 +68,7 @@ struct source_entry_interp
   void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                    P vals[]) const
   {
-    expect(is_gpu());
+    assert(is_gpu());
     if (std::holds_alternative<md_gpu_mom_func<P>>(func)) {
       std::get<md_gpu_mom_func<P>>(func)(num, t, x, moments, vals);
     } else {

@@ -6,8 +6,8 @@ namespace asgard
 std::array<std::vector<double>, 2>
 legendre_vals(std::vector<double> const &points, int const degree)
 {
-  expect(degree >= 0);
-  expect(points.size() > 0);
+  assert(degree >= 0);
+  assert(points.size() > 0);
 
   int const pdof = degree + 1;
   int const nump = static_cast<int>(points.size());
@@ -72,8 +72,8 @@ std::array<std::vector<double>, 2>
 legendre_weights(int const degree, double const lower_bound, double const upper_bound,
                  quadrature_mode const quad_mode)
 {
-  expect(degree >= 0);
-  expect(lower_bound < upper_bound);
+  assert(degree >= 0);
+  assert(lower_bound < upper_bound);
 
   int const default_num_quad = std::max(ASGARD_NUM_QUADRATURE, degree + 2);
 

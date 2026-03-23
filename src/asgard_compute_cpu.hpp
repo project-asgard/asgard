@@ -102,8 +102,8 @@ inline constexpr T ipow2(T const exponent)
                 std::is_same_v<T, long> || std::is_same_v<T, unsigned long> ||
                 std::is_same_v<T, long long> ||
                 std::is_same_v<T, unsigned long long>);
-  expect(exponent >= 0);
-  expect(exponent < std::numeric_limits<T>::digits);
+  assert(exponent >= 0);
+  assert(exponent < std::numeric_limits<T>::digits);
   return T{1} << exponent;
 }
 
@@ -111,7 +111,7 @@ inline constexpr T ipow2(T const exponent)
 template<typename T = int64_t>
 inline constexpr T ipow(T base, int exponent)
 {
-  expect(exponent >= 1);
+  assert(exponent >= 1);
   T result = base;
   for (int e = 1; e < exponent; e++)
     result *= base;
@@ -165,7 +165,7 @@ auto diff_inf(vecx const &x, vecy const &y)
 {
   using precision = typename vecx::value_type;
   using index     = decltype(x.size());
-  expect(x.size() == static_cast<index>(y.size()));
+  assert(x.size() == static_cast<index>(y.size()));
 
   precision m{0};
   for (index i = index{0}; i < x.size(); i++)
@@ -192,7 +192,7 @@ auto rmserr(vecx const &x, vecy const &y)
 {
   using precision = typename vecx::value_type;
   using index     = decltype(x.size());
-  expect(x.size() == y.size());
+  assert(x.size() == y.size());
 
   precision err{0};
   for (index i = index{0}; i < x.size(); i++)

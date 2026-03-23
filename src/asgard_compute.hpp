@@ -81,7 +81,7 @@ public:
   //! \brief Does not rellocate the data, i.e., if size changes all old data is lost.
   void resize(int64_t new_size)
   {
-    expect(new_size >= 0);
+    assert(new_size >= 0);
     if (new_size != size_)
     {
       if (data_ != nullptr)
@@ -130,7 +130,7 @@ public:
   }
   //! \brief Copy from a host array, the source must contain enough data
   void copy_from_host(int64_t num, T const source[]) {
-    expect(num <= size_);
+    assert(num <= size_);
     gpu::memcopy_host2dev(num, source, data_);
   }
   //! \brief Custom conversion, so we can assign to std::vector.
@@ -171,7 +171,7 @@ struct wrap_array {
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
 template<typename T>
 void mcopy(device src_dev, vector<T> const &src, device dest_dev, vector<T> &dest) {
-  expect(src.size() == dest.size());
+  assert(src.size() == dest.size());
   mcopy(dest.size(), src_dev, src.data(), dest_dev, dest.data());
 }
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)

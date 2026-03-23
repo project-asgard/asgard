@@ -8,7 +8,7 @@ template<typename P>
 void dense_matrix<P>::factorize()
 {
   tools::time_event timing_("dense-matrix::factorize");
-  expect(nrows_ == ncols_);
+  assert(nrows_ == ncols_);
 
   #ifdef ASGARD_USE_GPU
   gpu_factor = data_;
@@ -22,7 +22,7 @@ template<typename P>
 void dense_matrix<P>::solve(std::vector<P> &b) const
 {
   tools::time_event timing_("dense-matrix::solve");
-  expect(is_factorized());
+  assert(is_factorized());
 
   #ifdef ASGARD_USE_GPU
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
@@ -36,7 +36,7 @@ template<typename P>
 void dense_matrix<P>::solve(gpu::vector<P> &b) const
 {
   tools::time_event timing_("dense-matrix::solve");
-  expect(is_factorized());
+  assert(is_factorized());
 
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
 }
@@ -44,7 +44,7 @@ template<typename P>
 void dense_matrix<P>::solve(P b[]) const
 {
   tools::time_event timing_("dense-matrix::solve");
-  expect(is_factorized());
+  assert(is_factorized());
 
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
 }
@@ -68,10 +68,10 @@ void block_matrix<P>::print(std::ostream &os, int br, int bc, int oswidth)
     br = 0;
     while (br < nb and br * br != nb)
       ++br;
-    expect(br * br == nb);
+    assert(br * br == nb);
     bc = br;
   }
-  expect(br * bc == data_.stride());
+  assert(br * bc == data_.stride());
   for (auto r : indexof(nrows_))
   {
     for (int i = 0; i < br; i++)
@@ -95,9 +95,9 @@ void block_matrix<P>::printc(std::ostream &os, int c, int oswidth)
   int br = 0;
   while (br < nb and br * br != nb)
     ++br;
-  expect(br * br == nb);
+  assert(br * br == nb);
   int bc = br;
-  expect(br * bc == data_.stride());
+  assert(br * bc == data_.stride());
   for (auto r : indexof(nrows_))
   {
     for (int i = 0; i < br; i++)
@@ -119,9 +119,9 @@ void block_matrix<P>::printr(std::ostream &os, int r, int oswidth)
   int br = 0;
   while (br < nb and br * br != nb)
     ++br;
-  expect(br * br == nb);
+  assert(br * br == nb);
   int bc = br;
-  expect(br * bc == data_.stride());
+  assert(br * bc == data_.stride());
   for (int i = 0; i < br; i++)
   {
     for (auto c : indexof(ncols_))
@@ -137,9 +137,9 @@ void block_matrix<P>::printr(std::ostream &os, int r, int oswidth)
 
 template<typename P>
 P block_matrix<P>::max_diff(block_matrix<P> const &other) {
-  expect(nrows_ == other.nrows_);
-  expect(ncols_ == other.ncols_);
-  expect(nblock() == other.nblock());
+  assert(nrows_ == other.nrows_);
+  assert(ncols_ == other.ncols_);
+  assert(nblock() == other.nblock());
   int64_t const size = nrows_ * ncols_ * nblock();
   P const *v1 = data_[0];
   P const *v2 = other.data_[0];
@@ -152,7 +152,7 @@ P block_matrix<P>::max_diff(block_matrix<P> const &other) {
 template<typename P>
 dense_matrix<P> block_matrix<P>::to_dense_matrix(int const n) const
 {
-  expect(n * n == data_.stride());
+  assert(n * n == data_.stride());
   dense_matrix<P> mat(n * nrows_, n * ncols_);
   #pragma omp parallel for
   for (int r = 0; r < nrows_; r++)
@@ -169,13 +169,13 @@ void gemm1(int const n, block_matrix<P> const &A, block_matrix<P> const &B, bloc
   int N = B.ncols();
   int K = A.ncols();
 
-  expect(C.nrows() == M);
-  expect(C.ncols() == N);
-  expect(B.nrows() == K);
+  assert(C.nrows() == M);
+  assert(C.ncols() == N);
+  assert(B.nrows() == K);
 
-  expect(A.nblock() == n * n);
-  expect(B.nblock() == n * n);
-  expect(C.nblock() == n * n);
+  assert(A.nblock() == n * n);
+  assert(B.nblock() == n * n);
+  assert(C.nblock() == n * n);
 
 #pragma omp parallel for
   for (int c = 0; c < N; c++) {
@@ -211,7 +211,7 @@ block_matrix<P> block_diag_matrix<P>::to_full() const
 template<typename P>
 void block_diag_matrix<P>::spd_factorize(int const n)
 {
-  expect(n * n == nblock());
+  assert(n * n == nblock());
   switch (n)
   {
   case 1:
@@ -235,7 +235,7 @@ void block_diag_matrix<P>::spd_factorize(int const n)
 template<typename P>
 void block_diag_matrix<P>::solve(int const n, P rhs[]) const
 {
-  expect(n * n == nblock());
+  assert(n * n == nblock());
   switch (n)
   {
   case 1:
@@ -317,8 +317,8 @@ void block_diag_matrix<P>::solve(int const n, block_tri_matrix<P> &rhs) const
 template<typename P>
 void block_diag_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P> &work) const
 {
-  expect(nblock() == n * n);
-  expect(vec.size() == static_cast<size_t>(n * nrows()));
+  assert(nblock() == n * n);
+  assert(vec.size() == static_cast<size_t>(n * nrows()));
   if (work.size() < vec.size())
     work.resize(vec.size());
 
@@ -336,8 +336,8 @@ void block_diag_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<
 template<typename P>
 void block_tri_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P> &work) const
 {
-  expect(nblock() == n * n);
-  expect(vec.size() == static_cast<size_t>(n * nrows_));
+  assert(nblock() == n * n);
+  assert(vec.size() == static_cast<size_t>(n * nrows_));
   if (work.size() < vec.size())
     work.resize(vec.size());
 
@@ -371,8 +371,8 @@ void block_tri_matrix<P>::inplace_gemv(int n, std::vector<P> &vec, std::vector<P
 
 template<typename P>
 block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_tri_matrix<P> const &other) {
-  expect(nrows_ == other.nrows_);
-  expect(data_.stride() == other.data_.stride());
+  assert(nrows_ == other.nrows_);
+  assert(data_.stride() == other.data_.stride());
 
   int64_t const num_entries = data_.total_size();
 
@@ -389,8 +389,8 @@ block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_tri_matrix<P> const
 template<typename P>
 block_tri_matrix<P> &block_tri_matrix<P>::operator += (block_diag_matrix<P> const &other)
 {
-  expect(nrows_ == other.nrows());
-  expect(data_.stride() == other.nblock());
+  assert(nrows_ == other.nrows());
+  assert(data_.stride() == other.nblock());
 
   int const n = data_.stride();
 
@@ -464,11 +464,11 @@ void gemm_block_tri_ul(
     block_tri_matrix<P> &C)
 {
   int64_t const M = A.nrows();
-  expect(A.nblock() == n * n);
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(A.nblock() == n * n);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
   // lower(r) -> (r, r - 1), diag(r) -> (r, r), upper(r) -> (r, r + 1)
   // lower(0) -> (0, n - 1), upper(n - 1) -> (n - 1, 0)
@@ -507,11 +507,11 @@ void gemm_block_tri_lu(
     block_tri_matrix<P> &C)
 {
   int const M = A.nrows();
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(A.nblock() == n * n);
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(A.nblock() == n * n);
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
   smmat::gemm<0>(n, A.lower(0), B.diag(M - 1), C.lower(0));
   smmat::gemm<0>(n, A.lower(0), B.upper(M - 1), C.diag(0));
@@ -538,12 +538,12 @@ void gemm_block_tri(int const n, block_tri_matrix<P> const &A, block_tri_matrix<
                     block_tri_matrix<P> &C)
 {
   int const M = A.nrows();
-  expect(M >= 1);
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(A.nblock() == n * n);
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(M >= 1);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(A.nblock() == n * n);
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
   if (M == 1) {
     smmat::gemm<0>(n, A.diag(0), B.diag(0), C.diag(0));
@@ -591,11 +591,11 @@ void gemm_diag_tri(
     block_tri_matrix<P> &C)
 {
   int64_t const M = A.nrows();
-  expect(A.nblock() == n * n);
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(A.nblock() == n * n);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
 #pragma omp parallel for
   for (int64_t r = 0; r < M; r++)
@@ -612,11 +612,11 @@ void gemm_tri_diag(
     block_tri_matrix<P> &C)
 {
   int64_t const M = A.nrows();
-  expect(A.nblock() == n * n);
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(A.nblock() == n * n);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
   smmat::gemm<0>(n, A.diag(0), B[0], C.diag(0));
   if (M == 1)
@@ -642,11 +642,11 @@ template<typename P>
 void gemm_block_diag(int const n, block_diag_matrix<P> const &A, block_diag_matrix<P> const &B, block_diag_matrix<P> &C)
 {
   int64_t const M = A.nrows();
-  expect(A.nblock() == n * n);
-  expect(A.nblock() == B.nblock());
-  expect(A.nblock() == C.nblock());
-  expect(B.nrows() == M);
-  expect(C.nrows() == M);
+  assert(A.nblock() == n * n);
+  assert(A.nblock() == B.nblock());
+  assert(A.nblock() == C.nblock());
+  assert(B.nrows() == M);
+  assert(C.nrows() == M);
 
 #pragma omp parallel for
   for (int64_t r = 0; r < M; r++)
@@ -656,9 +656,9 @@ void gemm_block_diag(int const n, block_diag_matrix<P> const &A, block_diag_matr
 template<typename P>
 void invert_mass(int const n, mass_matrix<P> const &mass, block_tri_matrix<P> &op)
 {
-  expect(mass.nblock() == op.nblock());
+  assert(mass.nblock() == op.nblock());
   int64_t nr = op.nrows();
-  expect(mass.nrows() == nr);
+  assert(mass.nrows() == nr);
 
   switch (n)
   {
@@ -695,9 +695,9 @@ void invert_mass(int const n, mass_matrix<P> const &mass, block_tri_matrix<P> &o
 template<typename P>
 void invert_mass(int const n, mass_matrix<P> const &mass, block_diag_matrix<P> &op)
 {
-  expect(mass.nblock() == op.nblock());
+  assert(mass.nblock() == op.nblock());
   int64_t const nr = op.nrows();
-  expect(mass.nrows() == nr);
+  assert(mass.nrows() == nr);
 
   switch (n)
   {
@@ -722,12 +722,12 @@ void invert_mass(int const n, mass_matrix<P> const &mass, block_diag_matrix<P> &
 template<typename P>
 void block_sparse_matrix<P>::gemv(int const n, int const level, connection_patterns const &conns, P const x[], P y[]) const
 {
-  expect(n * n == nblock());
+  assert(n * n == nblock());
 
   connect_1d const &conn = conns(htype_);
   int const nrows        = fm::ipow2(level);
 
-  expect(nrows <= conn.num_rows());
+  assert(nrows <= conn.num_rows());
 
 #pragma omp parallel for
   for (int r = 0; r < nrows; r++)
@@ -756,7 +756,7 @@ void block_sparse_matrix<P>::scal(P v)
 template<typename P>
 void invert_mass(int const n, mass_matrix<P> const &mass, P x[])
 {
-  expect(mass.nblock() == n * n);
+  assert(mass.nblock() == n * n);
   int64_t const nr = mass.nrows();
 
   switch (n)

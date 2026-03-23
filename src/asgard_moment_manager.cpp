@@ -244,7 +244,7 @@ template<typename P>
 template<int npos>
 void moment_manager<P>::reduce_grid(sparse_grid const &grid) const
 {
-  expect(npos == pos_grid.num_dims());
+  assert(npos == pos_grid.num_dims());
   std::vector<int> &pos_indexes = pos_grid.iset_.indexes_;
   pos_indexes.resize(npos, 0); // zero index
   pos_indexes.reserve(grid.num_indexes() * npos);
@@ -646,9 +646,9 @@ void moment_manager<P>::set_moment_types(
     std::vector<std::vector<moment_id>> const &raws,
     std::vector<std::vector<moment_id>> const &intps)
 {
-  expect(not raws.empty());
+  assert(not raws.empty());
   size_t const num_groups = raws.size();
-  expect(intps.size() == num_groups);
+  assert(intps.size() == num_groups);
 
   size_t const num_raws = [&]() -> size_t {
       size_t sum = 0;
@@ -702,7 +702,7 @@ void moment_manager<P>::set_moment_distribution(
         // using unset moments to indicate the end of the group
         gpu_moments[dev].push_back(mom_on_gpu{});
       }
-      expect(num_moms + groups.size() == gpu_moments[dev].size());
+      assert(num_moms + groups.size() == gpu_moments[dev].size());
     }
   }
 
@@ -820,7 +820,7 @@ void moment_manager<P>::compute_moments(
     if (gpu_moments[g].empty()) continue;
 
     compute->set_device(gpu::device{g});
-    expect(work1[g].size() >= num_entries);
+    assert(work1[g].size() >= num_entries);
     // using work[g] as workspace without resizing
     gpu::wrap_array<P> w1(work1[g].data(), num_entries);
     // find the begin/end iterators to the moments in the group
@@ -871,7 +871,7 @@ void moment_manager<P>::compute_moments(
       if (im->skip_interp()) continue;
 
       // now we have to compute the interpolation
-      expect(work2[g].size() >= num_entries);
+      assert(work2[g].size() >= num_entries);
       gpu::wrap_array<P> w2(work2[g].data(), num_entries);
 
       interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
@@ -904,7 +904,7 @@ void moment_manager<P>::compute_moments(
   int64_t const num_entries = pos_block * pos_grid.num_indexes();
 
   compute->set_device(gpu::device{0});
-  expect(work1[0].size() >= num_entries);
+  assert(work1[0].size() >= num_entries);
   // using work[g] as workspace without resizing
   gpu::wrap_array<P> w1(work1[0].data(), num_entries);
 
@@ -935,7 +935,7 @@ void moment_manager<P>::compute_moments(
     }
 
     // now we have to compute the interpolation
-    expect(work2[0].size() >= num_entries);
+    assert(work2[0].size() >= num_entries);
     gpu::wrap_array<P> w2(work2[0].data(), num_entries);
 
     interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);

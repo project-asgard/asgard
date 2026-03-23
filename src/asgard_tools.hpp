@@ -74,14 +74,6 @@ namespace asgard::debug {
 
 namespace asgard::tools
 {
-#ifndef NDEBUG
-#define expect(cond) assert(cond)
-#else
-#define expect(cond) ((void)(cond))
-#endif
-// simple layer over assert to prevent unused variable warnings when
-// expects disabled
-
 /*!
  * \brief Simple profiling tool, allows us to time different sections of code
  *
@@ -124,10 +116,10 @@ public:
   //! start an event for the given id
   std::string const &start(std::string const &id)
   {
-    expect(!id.empty());
+    assert(!id.empty());
 
     events_.try_emplace(id, events_list());
-    expect(not events_[id].started);
+    assert(not events_[id].started);
 
     events_[id].started = current_time();
 
@@ -149,14 +141,14 @@ public:
 #endif
 
     events_list &event = events_[id];
-    expect(event.started.has_value());
+    assert(event.started.has_value());
 
     event.intervals.push_back(duration_since(event.started));
 
     event.started.reset();
 
     if (flops != -1) {
-      expect(flops >= 0);
+      assert(flops >= 0);
       total_flops_ += flops;
       max_flops_ = std::max(max_flops_, flops);
       // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
@@ -549,13 +541,13 @@ public:
   irange(int b, int e)
     : begin_(b), end_(e)
   {
-    expect(e >= b);
+    assert(e >= b);
   }
   //! create a new range from zero to the given end
   irange(int e)
     : begin_(0), end_(e)
   {
-    expect(e >= 0);
+    assert(e >= 0);
   }
 
   //! returns the number of indexes

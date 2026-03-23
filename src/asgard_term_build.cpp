@@ -11,7 +11,7 @@ template<typename P>
 term_entry<P>::term_entry(term_md<P> tin)
   : tmd(std::move(tin)), has_poisson(false)
 {
-  expect(not tmd.is_chain());
+  assert(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
     return; // interpolation poisson dependence goes here
   }
@@ -222,14 +222,14 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       }
       else
       {
-        expect(sources.back().is_time_const() or sources.back().is_time_sep());
+        assert(sources.back().is_time_const() or sources.back().is_time_sep());
 
         for (int d : iindexof(num_dims)) {
           if (sources.back().func.is_const(dimension_id{d})) {
             sources.back().consts[d]
                 = hier.get_project1d_c(s.const_at(dimension_id{d}), mass[d], d, max_level);
           } else {
-            expect(sources.back().func.is_fixed(dimension_id{d}));
+            assert(sources.back().func.is_fixed(dimension_id{d}));
             sources.back().consts[d] = hier.get_project1d_f(
                 [&](std::vector<P> const &x, std::vector<P> &y)->
                   void {
@@ -379,7 +379,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     // indexes for the term and source groups, if no groups then using only 1 index
     auto igroups = (term_groups.empty()) ? indexrange(1) : indexrange(term_groups);
-    expect(term_groups.size() == source_groups.size());
+    assert(term_groups.size() == source_groups.size());
 
     #ifdef ASGARD_USE_GPU
     // have to clean the logic of skip-interp
@@ -593,8 +593,8 @@ void term_manager<P>::build_const_terms(
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
     return;
 
-  expect(basis.pdof == hier.degree() + 1);
-  expect(not terms[tid].tmd.is_chain());
+  assert(basis.pdof == hier.degree() + 1);
+  assert(not terms[tid].tmd.is_chain());
 
   auto &tmd = terms[tid];
 
@@ -767,7 +767,7 @@ void term_manager<P>::build_raw_mat(
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_[clink] : tentry.tmd.dim(d);
-  expect(not t1d.is_chain());
+  assert(not t1d.is_chain());
 
   switch (t1d.optype())
   {
@@ -854,12 +854,12 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     case operation_type::penalty:
-      expect(not t1d.rhs());
+      assert(not t1d.rhs());
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     case operation_type::robin:
-      expect(not t1d.rhs());
+      assert(not t1d.rhs());
       gen_robin_cmat<P>(basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), raw_diag);
       break;
     default: // case operation_type::identity:
@@ -879,7 +879,7 @@ void term_manager<P>::build_raw_mat(
     boundary_entry<P> &bentry = bcs[b];
 
     if (bentry.flux.chain_level(d) > clink) {
-      expect(not bentry.consts[d].empty());
+      assert(not bentry.consts[d].empty());
       if (t1d.is_diagonal()) {
         raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
       } else {
@@ -974,8 +974,8 @@ template<typename P>
 void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
                                      block_diag_matrix<P> &raw_diag)
 {
-  expect(t1d.is_diagonal());
-  expect(t1d.depends() == term_dependence::none);
+  assert(t1d.is_diagonal());
+  assert(t1d.depends() == term_dependence::none);
 
   if (t1d.rhs()) {
     gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
@@ -992,9 +992,9 @@ void term_manager<P>::rebuld_chain(
     bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = tentry.tmd.dim(d);
-  expect(t1d.is_chain());
+  assert(t1d.is_chain());
   int const num_chain = t1d.num_chain();
-  expect(num_chain > 1);
+  assert(num_chain > 1);
 
   is_diag = true;
   for (int i : iindexof(num_chain)) {
@@ -1145,7 +1145,7 @@ void term_manager<P>::rebuld_chain(
     // for no mass, write directly into consts, else must use scratch space to invert the matrix
     P *dest = (bmass) ? penwork.data() : bentry.consts[d].data();
 
-    expect(bentry.consts[d].size() == static_cast<size_t>(num_entries));
+    assert(bentry.consts[d].size() == static_cast<size_t>(num_entries));
 
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
@@ -1312,7 +1312,7 @@ void term_manager<P>::assign_compute_resources()
 
   auto load_balance_terms = [&](int gid, int num_workers, balance_mode mode)
     -> void {
-      expect(num_workers >= 1);
+      assert(num_workers >= 1);
       compute_terms_work(gid, mode);
 
       // consider cases: num_workers == 1 or num_workers > 1
@@ -1347,7 +1347,7 @@ void term_manager<P>::assign_compute_resources()
 
   auto load_balance_src = [&](int gid, int num_workers, balance_mode mode)
     -> void {
-      expect(num_workers >= 1);
+      assert(num_workers >= 1);
       compute_src_work(gid, mode);
 
       // consider cases: num_workers == 1 or num_workers > 1

@@ -185,8 +185,8 @@ public:
   //! get the mass matrix for the given level
   mass_matrix(int const nblock, int const num_rows) : data_(nblock, num_rows)
   {
-    expect(nblock > 0);
-    expect(num_rows > 0);
+    assert(nblock > 0);
+    assert(num_rows > 0);
   }
   //! size of the block
   int nblock() const { return data_.stride(); }
@@ -289,7 +289,7 @@ public:
   void spd_factorize(int const n);
   //! solves against a vector
   void solve(int const n, std::vector<P> &rhs) const {
-    expect(rhs.size() == static_cast<size_t>(n * nrows()));
+    assert(rhs.size() == static_cast<size_t>(n * nrows()));
     solve(n, rhs.data());
   }
   //! solves against a raw-array
@@ -467,11 +467,11 @@ public:
   #ifdef ASGARD_USE_GPU
   #ifndef ASGARD_GPU_MEMGREEDY
   block_sparse_matrix get_subpattern(int level, connection_patterns const &conns) const {
-    expect(htype_ == connect_1d::hierarchy::volume or htype_ == connect_1d::hierarchy::full);
+    assert(htype_ == connect_1d::hierarchy::volume or htype_ == connect_1d::hierarchy::full);
 
     connect_1d const &conn = conns(htype_);
     connect_1d const &low  = conns.get(level, htype_);
-    expect(level < conn.max_loaded_level()); // special case, either just copy or avoid this
+    assert(level < conn.max_loaded_level()); // special case, either just copy or avoid this
 
     int const n = nblock();
 

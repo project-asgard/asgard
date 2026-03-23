@@ -43,7 +43,7 @@ legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
     leg_left  = std::exchange(d, d + pdof);
     leg_right = std::exchange(d, d + pdof);
 
-    expect(static_cast<size_t>(std::distance(data_.data(), d)) == data_.size());
+    assert(static_cast<size_t>(std::distance(data_.data(), d)) == data_.size());
   }
 
   // copy the values returned by legendre into the locals
@@ -256,7 +256,7 @@ void hierarchy_manipulator<P>::project_separable(
 template<typename P>
 void hierarchy_manipulator<P>::reconstruct1d(int level, std::vector<P> &hdata) const
 {
-  expect(static_cast<int>(hdata.size()) == (degree_ + 1) * fm::ipow2(level));
+  assert(static_cast<int>(hdata.size()) == (degree_ + 1) * fm::ipow2(level));
 
   if (level == 0)
     return; // the hierarchical form is the same as the nodal
@@ -343,7 +343,7 @@ void hierarchy_manipulator<P>::project1d(
   int const num_quad = quad.stride();
   int const pdof     = degree_ + 1;
 
-  expect(vals.size() == static_cast<size_t>(num_cells * num_quad));
+  assert(vals.size() == static_cast<size_t>(num_cells * num_quad));
 
   cells.resize(pdof * num_cells);
 
@@ -367,7 +367,7 @@ template<int tdegree, typename hierarchy_manipulator<P>::operation op>
 void hierarchy_manipulator<P>::apply_transform(P const *trans, int level, P src[], P dest[]) const
 {
   if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
-    expect(trans != nullptr);
+    assert(trans != nullptr);
   }
 
   int const pdof = degree_ + 1; // polynomial degree of freedom
@@ -564,7 +564,7 @@ void hierarchy_manipulator<P>::col_project_full(P const *trans,
                                                 connection_patterns const &conns,
                                                 block_sparse_matrix<P> &sp) const
 {
-  expect(connect_1d::hierarchy::col_full == sp);
+  assert(connect_1d::hierarchy::col_full == sp);
 #ifdef _OPENMP
   int const max_threads = omp_get_max_threads();
 #else
@@ -589,7 +589,7 @@ void hierarchy_manipulator<P>::col_project_full(P const *trans,
 
   std::vector<P> custom;
   if constexpr (op == operation::custom_unitary) {
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     if constexpr (tdegree == 0) {
       cc[0] = trans[0];
       cc[1] = trans[2];
@@ -619,7 +619,7 @@ void hierarchy_manipulator<P>::col_project_full(P const *trans,
   } else if constexpr (op == operation::custom_non_unitary) {
     // in the non-unitary case, the forward and inverse transforms use different matrices
     // and we do not transpose in the application of the blocks
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     if constexpr (tdegree == 0) {
       std::copy_n(trans, 4, cc);
     } else if constexpr (tdegree == 1) {
@@ -899,7 +899,7 @@ void hierarchy_manipulator<P>::col_project_vol(
     P const *trans, block_diag_matrix<P> const &diag, int const level,
     connection_patterns const &conns, block_sparse_matrix<P> &sp) const
 {
-  expect(connect_1d::hierarchy::col_volume == sp);
+  assert(connect_1d::hierarchy::col_volume == sp);
 #ifdef _OPENMP
   int const max_threads = omp_get_max_threads();
 #else
@@ -924,7 +924,7 @@ void hierarchy_manipulator<P>::col_project_vol(
 
   std::vector<P> custom;
   if constexpr (op == operation::custom_unitary) {
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     if constexpr (tdegree == 0) {
       cc[0] = trans[0];
       cc[1] = trans[2];
@@ -954,7 +954,7 @@ void hierarchy_manipulator<P>::col_project_vol(
   } else if constexpr (op == operation::custom_non_unitary) {
     // in the non-unitary case, the forward and inverse transforms use different matrices
     // and we do not transpose in the application of the blocks
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     if constexpr (tdegree == 0) {
       std::copy_n(trans, 4, cc);
     } else if constexpr (tdegree == 1) {
@@ -1128,9 +1128,9 @@ void hierarchy_manipulator<P>::row_project_any(
     P const *trans, block_sparse_matrix<P> &col, int const level,
     connection_patterns const &conn, block_sparse_matrix<P> &sp) const
 {
-  expect(connect_1d::hierarchy::col_full == col or
+  assert(connect_1d::hierarchy::col_full == col or
          connect_1d::hierarchy::col_volume == col);
-  expect(connect_1d::hierarchy::full == sp or
+  assert(connect_1d::hierarchy::full == sp or
          connect_1d::hierarchy::volume == sp);
 
   P constexpr s22 = 0.5 * s2;
@@ -1148,7 +1148,7 @@ void hierarchy_manipulator<P>::row_project_any(
 
   std::vector<P> custom;
   if constexpr (op == operation::custom_unitary or op == operation::custom_non_unitary) {
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     if constexpr (tdegree == 0) {
       cc[0] = trans[0]; cc[1] = trans[2]; cc[2] = trans[1]; cc[3] = trans[3];
     } else if constexpr (tdegree == 1) {
@@ -1256,10 +1256,10 @@ void hierarchy_manipulator<P>::row_project_any(
         int c = fconn[j];
         while (tconn[++jt] != c);
         while (++jr, tconn[++jl] != c); // the two rows must have identical pattern
-        expect(tconn[jr] == c); // TODO: shold not be needed
-        expect(jt < tconn.row_end(tout));
-        expect(jl < tconn.row_end(cl));
-        expect(jr < tconn.row_end(cr));
+        assert(tconn[jr] == c); // TODO: shold not be needed
+        assert(jt < tconn.row_end(tout));
+        assert(jl < tconn.row_end(cl));
+        assert(jr < tconn.row_end(cr));
         apply(col[jl], col[jr], sp[j], col[jt]);
       }
     }
@@ -1268,7 +1268,7 @@ void hierarchy_manipulator<P>::row_project_any(
   if (nrows == 2) // last two cells, all rows are dense
   {
     int r1 = tconn.row_begin(1);
-    expect(r1 == fconn.row_begin(1));
+    assert(r1 == fconn.row_begin(1));
     for (int j = 0; j < tconn.row_end(0); j++)
       apply(col[j], col[r1 + j], sp[r1 + j], sp[j]);
 

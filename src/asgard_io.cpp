@@ -16,7 +16,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
 {
   tools::time_event writing("write output");
 
-  expect(not filename.empty());
+  assert(not filename.empty());
 
   HighFive::File file(filename, HighFive::File::ReadWrite |
                                   HighFive::File::Create |
@@ -359,7 +359,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
       }
     }
 
-    expect(stop_time); // should always happen
+    assert(stop_time); // should always happen
 
     // the setup above mostly focuses on the number of steps and the final time used
     dtime.stop_time_ = stop_time.value();

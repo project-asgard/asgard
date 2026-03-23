@@ -77,8 +77,8 @@ interpolation_manager<P>::interpolation_manager(
     horder = opts.interp_horder;
   }
 
-  expect(points.size() == static_cast<size_t>(pdof));
-  expect(horder.size() == points.size());
+  assert(points.size() == static_cast<size_t>(pdof));
+  assert(horder.size() == points.size());
 
   int const pdof2 = pdof * pdof;
 
@@ -96,7 +96,7 @@ interpolation_manager<P>::interpolation_manager(
       if (std::none_of(horder.begin(), horder.end(),
                        [&](int m) -> bool { return (m == i); }))
         lorder[idx++] = i;
-    expect(idx == pdof);
+    assert(idx == pdof);
   }
 
   { // construct the permutation transform
@@ -413,8 +413,8 @@ interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hie
                                              block_diag_matrix<P> const &mat,
                                              block_diag_matrix<P> &work) const
 {
-  expect(mat.nblock() == pdof * pdof);
-  expect(mat.nrows() == diag_h2w.nrows());
+  assert(mat.nblock() == pdof * pdof);
+  assert(mat.nrows() == diag_h2w.nrows());
 
   work.check_resize(mat);
   gemm_block_diag(pdof, mat, diag_h2w, work);
@@ -431,8 +431,8 @@ interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hie
                                              block_tri_matrix<P> const &mat,
                                              block_tri_matrix<P> &work) const
 {
-  expect(mat.nblock() == pdof * pdof);
-  expect(mat.nrows() == diag_h2w.nrows());
+  assert(mat.nblock() == pdof * pdof);
+  assert(mat.nrows() == diag_h2w.nrows());
 
   work.check_resize(mat);
   gemm_tri_diag(pdof, mat, diag_h2w, work);

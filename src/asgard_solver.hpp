@@ -147,7 +147,7 @@ public:
   //! solves Ax = b
   void operator() (group_id group, size_t stage, std::vector<P> &b) const {
     size_t const idx = mat_index(group, stage);
-    expect(idx < mats.size());
+    assert(idx < mats.size());
     mats[idx].dense_mat.solve(b);
   }
   //! solves Ax = b
@@ -157,7 +157,7 @@ public:
   //! solves Ax = b, b is in GPU memory
   void operator() (group_id group, size_t stage, P b[]) const {
     size_t const idx = mat_index(group, stage);
-    expect(idx < mats.size());
+    assert(idx < mats.size());
     mats[idx].dense_mat.solve(b);
   }
   //! solves Ax = b, b is in GPU memory
@@ -303,7 +303,7 @@ public:
     sines       = std::exchange(data, data + max_inner_ + 1);
     cosines     = std::exchange(data, data + max_inner_ + 1);
     krylov_sol  = std::exchange(data, data + max_inner_ + 1);
-    expect(data == krylov_data.data() + krylov_data.size());
+    assert(data == krylov_data.data() + krylov_data.size());
   }
 
   //! solve for the given linear operators, right-hand-side and initial iterate

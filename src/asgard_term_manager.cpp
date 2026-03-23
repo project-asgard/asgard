@@ -13,7 +13,7 @@ void term_manager<P>::mass_apply(
   if (beta == 0) {
     y.resize(x.size());
   } else {
-    expect(y.size() == x.size());
+    assert(y.size() == x.size());
   }
   if (mass_term) {
     block_cpu(basis.pdof, grid, conns, mass_perm, mass_forward,
@@ -53,10 +53,10 @@ void term_manager<P>::apply_tmpl(
 
   if constexpr (using_vectors)
   {
-    expect(x.size() == y.size());
-    expect(x.size() == kwork.w1.size());
+    assert(x.size() == y.size());
+    assert(x.size() == kwork.w1.size());
   }
-  expect(gid.is_valid(term_groups.size()));
+  assert(gid.is_valid(term_groups.size()));
 
   auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
@@ -140,7 +140,7 @@ int64_t term_manager<P>::flop_count(
   if (not resources.is_leader())
     return -1;
 
-  expect(gid.is_valid(term_groups.size()));
+  assert(gid.is_valid(term_groups.size()));
 
   int const gidx = gid() + 1;
   if (flop_info.size() <= static_cast<size_t>(gidx))
@@ -249,11 +249,11 @@ void term_manager<P>::apply_tmpl_gpu(
   // no reasonable way to check if pointers are on the CPU or GPU, assume "mode" is set correctly
 
   if constexpr (using_vectors)
-    expect(x.size() == y.size());
+    assert(x.size() == y.size());
 
   int64_t const num_entries  = fm::ipow(basis.pdof, grid.num_dims()) * grid.num_indexes();
 
-  expect(-1 <= gid() and gid() < static_cast<int>(term_groups.size()));
+  assert(-1 <= gid() and gid() < static_cast<int>(term_groups.size()));
 
   auto kterm = [&grid, &conns, this]
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])

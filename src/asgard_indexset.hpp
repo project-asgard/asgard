@@ -49,7 +49,7 @@ public:
       : stride_(stride), num_strips_(static_cast<int64_t>(data.size()) / stride_),
         data_(std::move(data))
   {
-    expect(static_cast<size_t>(stride_ * num_strips_) == data_.size());
+    assert(static_cast<size_t>(stride_ * num_strips_) == data_.size());
   }
   //! \brief Returns the vector stride.
   int64_t stride() const { return stride_; }
@@ -74,7 +74,7 @@ public:
   //! \brief Append to the end of the vector.
   void append(std::vector<T> const &p)
   {
-    expect(static_cast<int64_t>(p.size()) % this->stride_ == 0);
+    assert(static_cast<int64_t>(p.size()) % this->stride_ == 0);
     this->data_.insert(this->data_.end(), p.begin(), p.end());
     this->num_strips_ += static_cast<int64_t>(p.size()) / this->stride_;
   }
@@ -140,7 +140,7 @@ public:
   span2d(int64_t stride, std::vector<T> &vec)
       : stride_(stride), num_strips_(static_cast<int64_t>(vec.size()) / stride), data_(vec.data())
   {
-    expect(vec.size() == static_cast<size_t>(num_strips_ * stride_));
+    assert(vec.size() == static_cast<size_t>(num_strips_ * stride_));
   }
   //! \brief Returns the vector stride.
   int64_t stride() const { return stride_; }
@@ -209,7 +209,7 @@ public:
   indexset(int num_dimensions, std::vector<int> &&indexes)
       : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
   {
-    expect(indexes.size() % num_dimensions_ == 0);
+    assert(indexes.size() % num_dimensions_ == 0);
     num_indexes_ = static_cast<int64_t>(indexes_.size() / num_dimensions_);
   }
 
@@ -267,7 +267,7 @@ public:
   //! \brief Union this set with another
   indexset &operator+=(indexset const &iset)
   {
-    expect(iset.num_dimensions_ == num_dimensions_);
+    assert(iset.num_dimensions_ == num_dimensions_);
     if (iset.num_indexes_ == 0)
       return *this;
 
@@ -313,7 +313,7 @@ public:
   //! \brief Print a single index, for debugging purposes.
   void print(int index, std::ostream &os = std::cout)
   {
-    expect(index >= 0 and index < num_indexes_);
+    assert(index >= 0 and index < num_indexes_);
     os << std::setw(3) << indexes_[index * num_dimensions_];
     for (int j = 1; j < num_dimensions_; j++)
       os << " " << std::setw(3) << indexes_[index * num_dimensions_ + j];

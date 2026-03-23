@@ -9,7 +9,7 @@ namespace asgard::kronmult
 {
 permutes::permutes(int num_dimensions)
 {
-  expect(num_dimensions > 0);
+  assert(num_dimensions > 0);
 
   int const num_permute = (num_dimensions == 1) ? 1 : fm::ipow2(num_dimensions - 1);
 
@@ -42,7 +42,7 @@ permutes::permutes(int num_dimensions, conn_fill same_fill)
 {
   if (num_dimensions < 1)
     return;
-  expect(same_fill != conn_fill::both);
+  assert(same_fill != conn_fill::both);
 
   ops = vector2d<step>(num_dimensions, 1);
   for (int d = 0; d < num_dimensions; d++) {
@@ -66,7 +66,7 @@ std::string_view permutes::fill_name(int perm, int stage) const
 
 void permutes::prepad_upper(std::vector<int> const &additional)
 {
-  expect(ops.stride() > 0);
+  assert(ops.stride() > 0);
 
   int const new_dims = static_cast<int>(additional.size());
   int const old_dims = ops.stride();
@@ -496,7 +496,7 @@ void block_cpu(int n, sparse_grid const &grid, int dim, connect_1d const &conn,
                precision const vals[], precision const x[], precision y[],
                std::vector<std::vector<int64_t>> &row_wspace)
 {
-  expect(dim < num_dimensions);
+  assert(dim < num_dimensions);
   switch (dim)
   {
   case 0:
@@ -627,7 +627,7 @@ void block_cpu(
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
-  expect(active_dims > 0);
+  assert(active_dims > 0);
 
   for (int64_t i = 0; i < perm.size(); i++)
   {
@@ -705,7 +705,7 @@ int64_t block_cpu(
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
-  expect(active_dims > 0);
+  assert(active_dims > 0);
 
   int64_t const num_entries = static_cast<int64_t>(work.w1.size());
 
@@ -819,7 +819,7 @@ std::vector<int>
 connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn,
             std::vector<int64_t> &row_wspace)
 {
-  expect(fill != conn_fill::lower_udiag); // udiag is handled as diag + axpy() operation
+  assert(fill != conn_fill::lower_udiag); // udiag is handled as diag + axpy() operation
   switch (fill)
   {
   case conn_fill::lower:
@@ -854,7 +854,7 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
   };
 
   int const active_dims = perm.num_dimensions();
-  expect(active_dims > 0);
+  assert(active_dims > 0);
 
   for (int64_t i = 0; i < perm.size(); i++)
   {

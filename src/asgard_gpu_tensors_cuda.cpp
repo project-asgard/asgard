@@ -494,7 +494,7 @@ void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &r
 
   int const team_size = pos_block * vel_block;
   if (team_size > max_threads) { // multiple cycles
-    expect(pdof == 4 and num_pos == 3 and num_vel == 3);
+    assert(pdof == 4 and num_pos == 3 and num_vel == 3);
     dim3 const launch_grid(max_threads, 1);
     kernel_moment_expand<P, 4, max_threads><<<launch_blocks, launch_grid>>>(
         pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
@@ -710,7 +710,7 @@ void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &st
   constexpr int max_threads = 1024;
   bool const one_cycle = (block_size <= max_threads);
   int const team_size = (one_cycle) ? block_size : max_threads;
-  expect(one_cycle or 4 * team_size == block_size);
+  assert(one_cycle or 4 * team_size == block_size);
   const int num_teams = max_threads / team_size;
   dim3 const launch_grid(team_size, num_teams);
   constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;

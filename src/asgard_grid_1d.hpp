@@ -72,7 +72,7 @@ public:
   connect_1d(int const max_level, hierarchy mode)
       : levels(max_level)
   {
-    expect(mode == hierarchy::full or mode == hierarchy::volume);
+    assert(mode == hierarchy::full or mode == hierarchy::volume);
     switch (mode)
     {
     case hierarchy::full:
@@ -532,7 +532,7 @@ struct connection_patterns
   std::array<std::vector<connect_1d>, 2> lconns;
   //! returns the connection pattern for a given level, needed by get_subpattern()
   connect_1d const &get(int level, connect_1d::hierarchy h) const {
-    expect(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
+    assert(h == connect_1d::hierarchy::volume or h == connect_1d::hierarchy::full);
     return lconns[static_cast<int>(h)][level];
   }
   //! fill the levels from a full volume connection with reduced fill

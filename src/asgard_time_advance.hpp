@@ -109,7 +109,7 @@ struct steady_state
   steady_state(prog_opts const &options)
     : solver(options), precon(options.precon.value_or(precon_method::none))
   {
-    expect(options.step_method.value() == method);
+    assert(options.step_method.value() == method);
   }
   //! Solves for the final step
   void next_step(discretization_manager<P> const &disc, std::vector<P> const &current,
@@ -172,7 +172,7 @@ struct rungekutta
   //! Default empty stepper
   rungekutta(time_method rk) : rktype(rk)
   {
-    expect(rktype == time_method::forward_euler or rktype == time_method::rk2
+    assert(rktype == time_method::forward_euler or rktype == time_method::rk2
            or rktype == time_method::rk3 or rktype == time_method::rk4);
   }
   //! Performs RK step forward in time, uses the current and next step
@@ -256,7 +256,7 @@ struct crank_nicolson
       : method(options.step_method.value()), solver(options),
         precon(options.precon.value_or(precon_method::none))
   {
-    expect(method == time_method::cn or
+    assert(method == time_method::cn or
            method == time_method::back_euler);
   }
   //! computes the rhs of the implicit solver using single MPI operation
@@ -334,7 +334,7 @@ struct imex_stepper
         precon2(options.precon.value_or(precon_method::none)),
         imex_implicit(im), imex_explicit(ex)
   {
-    expect(is_imex(method));
+    assert(is_imex(method));
     if (method != time_method::imex1)
       solver.set_num_stages(2);
   }

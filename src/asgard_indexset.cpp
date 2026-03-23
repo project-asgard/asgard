@@ -12,7 +12,7 @@ namespace asgard
 template<typename callable>
 inline std::vector<int> generate_lower_index_set(int num_dims, callable inside)
 {
-  expect(num_dims > 0);
+  assert(num_dims > 0);
   int c = 0;
   bool is_in = true;
   std::array<int, max_num_dimensions> root;
@@ -269,8 +269,8 @@ indexset compute_ancestry_completion(indexset const &iset,
 sparse_grid::sparse_grid(prog_opts const &options)
   : mgroup(options.mgrid_group.value_or(-1))
 {
-  expect(not options.start_levels.empty());
-  expect(mgroup < static_cast<int>(options.start_levels.size()));
+  assert(not options.start_levels.empty());
+  assert(mgroup < static_cast<int>(options.start_levels.size()));
 
   grid_type gtype = options.grid.value_or(grid_type::sparse); // defaults to sparse
   std::vector<int> const &levels = options.start_levels;

@@ -366,7 +366,7 @@ void discretization_manager<precision>::set_initial_condition()
       std::fill(state.begin(), state.end(), precision{0});
 
     for (int i : iindexof(initial_sep_)) {
-      expect(initial_sep_[i].num_dims() == num_dims());
+      assert(initial_sep_[i].num_dims() == num_dims());
 
       terms.rebuild_mass_matrices(grid);
 
@@ -741,7 +741,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
 {
   int64_t const num_entries = num_dof();
   #ifdef ASGARD_USE_MPI
-  expect(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
+  assert(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
   int const inume = static_cast<int>(num_entries);
   if (terms.resources.num_ranks() > 1) {
     terms.gpumpi_work.resize(num_entries);
@@ -814,7 +814,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
 {
   int64_t const num_entries = num_dof();
   #ifdef ASGARD_USE_MPI
-  expect(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
+  assert(num_entries < static_cast<int64_t>(std::numeric_limits<int>::max()));
   int const inume = static_cast<int>(num_entries);
   if (terms.resources.num_ranks() > 1) {
     terms.gpumpi_work.resize(num_entries);

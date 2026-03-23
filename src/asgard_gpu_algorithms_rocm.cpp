@@ -43,7 +43,7 @@ template<typename P>
 void compute_last_bicgstab(P beta, P omega, gpu::vector<P> const &r,
                            gpu::vector<P> const &v, gpu::vector<P> &p)
 {
-  expect(r.size() == v.size() and r.size() == p.size());
+  assert(r.size() == v.size() and r.size() == p.size());
   constexpr int max_threads = 1024;
   int const num_blocks = round_up(r.size(), max_threads);
 

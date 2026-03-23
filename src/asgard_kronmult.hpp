@@ -54,7 +54,7 @@ struct permutes
   //! \brief Reindexes the dimensions to match the active (non-identity) dimensions
   void remap_directions(std::vector<int> const &active_dirs)
   {
-    expect(static_cast<size_t>(ops.stride()) == active_dirs.size());
+    assert(static_cast<size_t>(ops.stride()) == active_dirs.size());
     for (int i = 0; i < ops.num_strips(); i++) {
       step *sweep = ops[i];
       for (int d = 0; d < ops.stride(); d++) {

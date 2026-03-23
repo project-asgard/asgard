@@ -295,10 +295,10 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
       std::vector<P> const &m2 = moments[im2];
 
       int64_t const num_nodes = nodes.num_strips();
-      expect(vals.size() == static_cast<size_t>(num_nodes));
-      expect(m0.size() == static_cast<size_t>(num_nodes));
-      expect(m1.size() == static_cast<size_t>(num_nodes));
-      expect(m2.size() == static_cast<size_t>(num_nodes));
+      assert(vals.size() == static_cast<size_t>(num_nodes));
+      assert(m0.size() == static_cast<size_t>(num_nodes));
+      assert(m1.size() == static_cast<size_t>(num_nodes));
+      assert(m2.size() == static_cast<size_t>(num_nodes));
       #pragma omp parallel for
       for (int64_t i = 0; i < num_nodes; i++) {
         // P const x = nodes[i][0]; // no explicit spatial dependence

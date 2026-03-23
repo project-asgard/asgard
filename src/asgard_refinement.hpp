@@ -41,7 +41,7 @@ public:
   void refine(connection_patterns const &conns, term_manager<P> const &terms,
               std::vector<P> const &state, strategy mode, sparse_grid &grid) const
   {
-    expect(not iweights_.is_gpu());
+    assert(not iweights_.is_gpu());
     if (atol != -1)
       refine_(conns, terms, state, mode, grid);
   }
@@ -95,24 +95,24 @@ private:
   struct interp_weights {
     //! interpolation weights using only the field
     void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
-      expect(std::holds_alternative<md_func_f<P>>(interp_));
+      assert(std::holds_alternative<md_func_f<P>>(interp_));
       std::get<md_func_f<P>>(interp_)(t, x, f, vals);
     }
     //! interpolation weights using the field and moments
     void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
                 std::vector<P> const &f, std::vector<P> &vals) const {
-      expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
+      assert(std::holds_alternative<md_mom_func_f<P>>(interp_));
       std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
     }
     //! interpolation weights on the gpu using only the field
     void interp(int64_t const num, P t, P const x[], P const f[], P vals[]) const {
-      expect(std::holds_alternative<md_gpu_func_f<P>>(interp_));
+      assert(std::holds_alternative<md_gpu_func_f<P>>(interp_));
       std::get<md_gpu_func_f<P>>(interp_)(num, t, x, f, vals);
     }
     //! interpolation weights on the gpu using the field and moments
     void interp(int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                 P const f[], P vals[]) const {
-      expect(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
+      assert(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
       std::get<md_gpu_mom_func_f<P>>(interp_)(num, t, x, moments, f, vals);
     }
     //! indicates whether the weights use moments
