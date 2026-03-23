@@ -67,7 +67,6 @@ void test_timer()
   tassert(dur >= 7.0); // must have waited above, keep this loose
 
   auto const ttime = tools::timer.stop("testing");
-  ignore(ttime);
 #ifdef ASGARD_USE_TIMER
   tassert(ttime >= 7.0); // must have waited above, keep this loose
 
@@ -76,6 +75,8 @@ void test_timer()
   tassert(report.find("regulat session") < report.size());
   tassert(report.find("nested session") < report.size());
   tassert(report.find("100%") >= report.size());
+#else
+  std::ignore = ttime;
 #endif
 }
 

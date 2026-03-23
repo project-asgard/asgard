@@ -253,7 +253,7 @@ public:
     #if ASGARD_MAX_NUM_GPUS > 1
     gpu::set_device(device.id);
     #else
-    ignore(device);
+    std::ignore = device;
     #endif
   }
   //! synchronize the device

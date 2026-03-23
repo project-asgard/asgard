@@ -260,7 +260,7 @@ interpolation_manager<P>::interpolation_manager(
   { // nodal cell-by-cell projection
     auto [pnts, wts]     = legendre_weights(pdof - 1, -1, 1);
     auto [lvals, lprime] = legendre_vals(pnts, pdof - 1);
-    ignore(lprime);
+    std::ignore = lprime;
 
     int const num_quad = static_cast<int>(pnts.size());
 

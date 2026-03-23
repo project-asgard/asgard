@@ -1296,7 +1296,7 @@ void hierarchy_manipulator<P>::prepare_quadrature(int d, int num_cells) const
   P *iq = quad_points[d].data();
   for (int i : indexof<int>(num_cells))
   {
-    ignore(i);
+    std::ignore = i;
     for (int j : indexof<int>(num_quad))
       iq[j] = slp * quad[points][j] + mid;
     mid += cell_size;

@@ -389,13 +389,6 @@ namespace asgard
   }
 
 /*!
- * \brief Suppressed warnings about unused variables
- *
- * An expressive way to indicate that a variable is intentionally left unused.
- */
-auto const ignore = [](auto ignored) { (void)ignored; };
-
-/*!
  * \brief Iterator/generator for a sequence of integers
  *
  * This is needed for the indexof template
