@@ -1,6 +1,6 @@
 cmake_minimum_required (VERSION 3.19)
 
-project (asgard VERSION 0.9.0 LANGUAGES CXX)
+project (asgard VERSION 0.9.1 LANGUAGES CXX)
 
 set(ASGARD_RELEASE_INFO "${asgard_VERSION}") # sync with pip-installer setup.py
 
