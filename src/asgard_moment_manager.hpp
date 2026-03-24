@@ -59,15 +59,15 @@ public:
 
   //! returns the  moment vector after expanding to full level and reconstructing
   std::vector<P> const &get_cached_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
-    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
+    assert(pos_grid.num_dims() == 1); // levels work only for position 1d
     if (full_level[id].empty())
       complete_level(hier, raw_vals[id], full_level.get(id));
     return full_level[id];
   }
   //! returns the  moment vector, assumes it has already been reconstructed
   std::vector<P> const &get_cached_level(moment_id id) const {
-    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
-    expect(not full_level[id].empty());
+    assert(pos_grid.num_dims() == 1); // levels work only for position 1d
+    assert(not full_level[id].empty());
     return full_level[id];
   }
   //! returns the Poisson solution on the position grid, 1D position uses poisson_level() only
@@ -90,8 +90,8 @@ public:
   //! cache a number of ids listed as the first n entries of a container ids, were ids[i] is moment_id
   template<typename vec_type>
   void cache_levels(int num, hierarchy_manipulator<P> const &hier, vec_type const &ids) const {
-    expect(num <= static_cast<int>(ids.size()));
-    expect(pos_grid.num_dims() == 1); // levels work only for position 1d
+    assert(num <= static_cast<int>(ids.size()));
+    assert(pos_grid.num_dims() == 1); // levels work only for position 1d
     static_assert(std::is_same_v<decltype(ids[0]), moment_id const> or std::is_same_v<decltype(ids[0]), moment_id const &>);
     for (int i = 0; i < num; i++) {
       if (full_level[ids[i]].empty())

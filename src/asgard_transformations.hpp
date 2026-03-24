@@ -141,7 +141,7 @@ public:
       : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
         quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
-    expect(num_dimensions <= max_num_dimensions);
+    assert(num_dimensions <= max_num_dimensions);
     std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
     std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
     setup_projection_matrices();
@@ -153,7 +153,7 @@ public:
       : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
         quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
-    expect(num_dimensions <= max_num_dimensions);
+    assert(num_dimensions <= max_num_dimensions);
     std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
     std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
     setup_projection_matrices();
@@ -301,7 +301,7 @@ public:
   //! transform with vector overload
   void transform(int level, std::vector<P> &src, std::vector<P> &dest) const
   {
-    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    assert(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
     dest.resize(src.size());
     transform(level, src.data(), dest.data());
   }
@@ -311,7 +311,7 @@ public:
     if (level == 0) // nothing to project at level 0
       return;
     int64_t const size = fm::ipow2(level) * (degree_ + 1);
-    expect(size == static_cast<int64_t>(x.size()));
+    assert(size == static_cast<int64_t>(x.size()));
 
     pwork.resize(size);
     std::copy_n(x.begin(), size, pwork.begin());
@@ -323,7 +323,7 @@ public:
   {
     // the unitary/non-unitary property of the map relates only to the inverse,
     // i.e., when constructing the column transformation
-    expect(trans != nullptr);
+    assert(trans != nullptr);
     constexpr operation op = operation::custom_unitary;
     switch (degree_) {
       case 0:
@@ -340,7 +340,7 @@ public:
   //! transform with vector overload
   void transform(P const *trans, int level, std::vector<P> &src, std::vector<P> &dest) const
   {
-    expect(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
+    assert(static_cast<int64_t>(src.size()) == fm::ipow2(level) * (degree_ + 1));
     dest.resize(src.size());
     transform(trans, level, src.data(), dest.data());
   }

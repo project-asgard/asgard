@@ -37,8 +37,8 @@ void gen_no_flux_cmat(legendre_basis<P> const &basis, P xleft, P xright, int lev
   if constexpr (dmode == data_mode::replace) {
     coeff.resize_and_zero(nblock, num_cells);
   } else {
-    expect(coeff.nblock() == nblock);
-    expect(coeff.nrows() == num_cells);
+    assert(coeff.nblock() == nblock);
+    assert(coeff.nrows() == num_cells);
   }
 
   span2d<P> rhs_vals;
@@ -154,8 +154,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   if constexpr (dmode == data_mode::replace) {
     coeff.resize_and_zero(nblock, num_cells);
   } else {
-    expect(coeff.nblock() == nblock);
-    expect(coeff.nrows() == num_cells);
+    assert(coeff.nblock() == nblock);
+    assert(coeff.nrows() == num_cells);
   }
 
   span2d<P> rhs_vals;
@@ -384,7 +384,7 @@ void gen_robin_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level
   if constexpr (std::is_same_v<mat_type, block_diag_matrix<P>>) {
     coeff.resize_and_zero(n2, num_cells);
   } else {
-    expect(coeff.nrows() == num_cells);
+    assert(coeff.nrows() == num_cells);
   }
 
   if (robin_left != 0)
@@ -505,8 +505,8 @@ void gen_diag_mom_over_zero(
   int const pdof     = basis.pdof;
   int const num_quad = basis.num_quad;
 
-  expect(static_cast<int>(level_mom0.size()) == pdof * num_cells);
-  expect(static_cast<int>(level_mom1.size()) == pdof * num_cells);
+  assert(static_cast<int>(level_mom0.size()) == pdof * num_cells);
+  assert(static_cast<int>(level_mom1.size()) == pdof * num_cells);
 
   coefficients.resize_and_zero(pdof * pdof, num_cells);
 
@@ -565,14 +565,14 @@ void gen_diag_lenard_bernstein_theta(
 
   for (int i = 0; i < used_ids; i++) {
     // make sure the moments are already cached and the right size
-    expect(static_cast<int>(moments[mom_ids[i]].size()) == num_cells * pdof);
+    assert(static_cast<int>(moments[mom_ids[i]].size()) == num_cells * pdof);
   }
   if constexpr (num_vel == 1) {
-    expect(mom_ids.size() == 3);
+    assert(mom_ids.size() == 3);
   } else if constexpr (num_vel == 2) {
-    expect(mom_ids.size() == 5);
+    assert(mom_ids.size() == 5);
   } else {
-    expect(mom_ids.size() == 7);
+    assert(mom_ids.size() == 7);
   }
 
   span2d<P const> mom0(pdof, num_cells, moments[mom_ids[0]].data());

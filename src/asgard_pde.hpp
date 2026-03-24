@@ -714,7 +714,7 @@ private:
       : optype_(opt), flux_(flx), boundary_(bnd),
         rhs_(std::move(frhs)), coeffs_{crhs, 0}
   {
-    expect(optype_ != operation_type::identity);
+    assert(optype_ != operation_type::identity);
 
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
@@ -787,7 +787,7 @@ public:
   mass_md(std::initializer_list<term_1d<P>> list)
       : num_dims_(static_cast<int>(list.size()))
   {
-    expect(num_dims_ <= max_num_dimensions);
+    assert(num_dims_ <= max_num_dimensions);
     for (int d : iindexof(num_dims_)) {
       rassert((list.begin() + d)->is_volume() or (list.begin() + d)->is_identity(),
               "mass_md terms must be volume or identity");
@@ -800,7 +800,7 @@ public:
   mass_md(std::vector<term_1d<P>> list)
       : num_dims_(static_cast<int>(list.size()))
   {
-    expect(num_dims_ <= max_num_dimensions);
+    assert(num_dims_ <= max_num_dimensions);
     for (int d : iindexof(num_dims_)) {
       rassert(list[d].is_volume() or list[d].is_identity(),
               "mass_md terms must be volume or identity");
@@ -1082,7 +1082,7 @@ public:
     : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
   {
     int num_identity = 0;
-    expect(num_dims_ <= max_num_dimensions);
+    assert(num_dims_ <= max_num_dimensions);
     interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
     auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
@@ -1099,7 +1099,7 @@ public:
     : mode_(mode::separable), num_dims_(static_cast<int>(clist.size()))
   {
     int num_identity = 0;
-    expect(num_dims_ <= max_num_dimensions);
+    assert(num_dims_ <= max_num_dimensions);
     interp_.template emplace<std::array<term_1d<P>, max_num_dimensions>>();
     auto &sep = get_sep();
     for (int i : iindexof(num_dims_)) {
@@ -1188,23 +1188,23 @@ public:
 
   //! (separable mode only) get the 1d term with index i
   term_1d<P> &dim(int i) {
-    expect(mode_ == mode::separable);
+    assert(mode_ == mode::separable);
     return get_sep()[i];
   }
   //! (separable mode only) get the 1d term with index i, const overload
   term_1d<P> const &dim(int i) const {
-    expect(mode_ == mode::separable);
+    assert(mode_ == mode::separable);
     return get_sep()[i];
   }
 
   //! get the chain term with index i
   term_md<P> &chain(int i) {
-    expect(mode_ == mode::chain);
+    assert(mode_ == mode::chain);
     return chain_[i];
   }
   //! get the chain term with index i, const-overload
   term_md<P> const &chain(int i) const {
-    expect(mode_ == mode::chain);
+    assert(mode_ == mode::chain);
     return chain_[i];
   }
 
@@ -1292,7 +1292,7 @@ public:
   }
   //! applies the interpolation function, vals = f(t, x, f)
   void interp(P t, vector2d<P> const &x, std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(std::holds_alternative<md_func_f<P>>(interp_));
+    assert(std::holds_alternative<md_func_f<P>>(interp_));
     std::get<md_func_f<P>>(interp_)(t, x, f, vals);
   }
   //! returns true if the term uses moment interpolation
@@ -1300,7 +1300,7 @@ public:
   //! applies the moment interpolation function, vals = f(t, x, m, f)
   void interp(P t, vector2d<P> const &x, momentset<P> const &moments,
               std::vector<P> const &f, std::vector<P> &vals) const {
-    expect(std::holds_alternative<md_mom_func_f<P>>(interp_));
+    assert(std::holds_alternative<md_mom_func_f<P>>(interp_));
     std::get<md_mom_func_f<P>>(interp_)(t, x, moments, f, vals);
   }
   //! get the moment ids for interpolation
@@ -1308,7 +1308,7 @@ public:
 
   //! applies the function on the GPU device, vals = f(n, t, x, f)
   void interp(int64_t num_points, P t, P const x[], P const f[], P vals[]) const {
-    expect(std::holds_alternative<md_gpu_func_f<P>>(interp_));
+    assert(std::holds_alternative<md_gpu_func_f<P>>(interp_));
     std::get<md_gpu_func_f<P>>(interp_)(num_points, t, x, f, vals);
   }
 
@@ -1316,7 +1316,7 @@ public:
   void interp(int64_t num_points, P t, P const x[], momentset_gpu<P> const &moments,
               P const f[], P vals[]) const
   {
-    expect(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
+    assert(std::holds_alternative<md_gpu_mom_func_f<P>>(interp_));
     std::get<md_gpu_mom_func_f<P>>(interp_)(num_points, t, x, moments, f, vals);
   }
 

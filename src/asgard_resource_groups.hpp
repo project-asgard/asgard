@@ -89,7 +89,7 @@ public:
   //! broadcasts the data to all sets in the communicator, sender-only
   template<typename T, resource_comm cm = resource_comm::regular>
   void bcast(int count, T const *data) const {
-    expect(rank_ == root); // otherwise we will violate const-correctness
+    assert(rank_ == root); // otherwise we will violate const-correctness
     if (num_ranks<cm>() >= mpi::bcast_threshold) {
       MPI_Bcast(const_cast<T*>(data), count, mpi::datatype<T>(), root, get_comm<cm>());
     } else {
@@ -114,7 +114,7 @@ public:
       MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, get_comm<cm>());
     } else {
       if (is_leader()) {
-        expect(output != nullptr);
+        assert(output != nullptr);
         size_t const stride = static_cast<size_t>(count) * sizeof(T);
         work.resize((num_ranks_ - 1) * stride);
         if (num_ranks_ == 2) {
@@ -219,7 +219,7 @@ public:
       MPI_Reduce(input, output, count, mpi::datatype<T>(), MPI_SUM, root, get_comm<cm>());
     } else {
       if (is_leader()) {
-        expect(output != nullptr);
+        assert(output != nullptr);
         int64_t const stride = static_cast<int64_t>(count) * sizeof(T);
         gpu_work.resize((num_ranks_ - 1) * stride);
         if (num_ranks_ == 2) {
@@ -246,7 +246,7 @@ public:
     }
     #else
     if (is_leader()) { // needs 2x the buffer size, for input and output
-      expect(output != nullptr);
+      assert(output != nullptr);
       if (2 * static_cast<size_t>(count) * sizeof(T) > cpu_work.size())
         cpu_work.resize(2 * static_cast<size_t>(count) * sizeof(T));
       T *w = reinterpret_cast<T *>(cpu_work.data());

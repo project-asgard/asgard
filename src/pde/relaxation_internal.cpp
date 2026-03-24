@@ -270,7 +270,7 @@ double get_error_l2(asgard::discretization_manager<P> const &disc) {
   }
 
   std::vector<P> const &state = disc.current_state_mpi();
-  expect(eref.size() == state.size());
+  assert(eref.size() == state.size());
 
   double nself = 0;
   double ndiff = 0;
@@ -341,8 +341,8 @@ int main(int argc, char** argv)
 template<typename P>
 void test_final(double tol, int xdims, int vdims, std::string const &opt_str)
 {
-  expect(1 <= xdims and xdims <= 3);
-  expect(1 <= vdims and vdims <= 3);
+  assert(1 <= xdims and xdims <= 3);
+  assert(1 <= vdims and vdims <= 3);
   int const num_dims = xdims + vdims;
   current_test<P> test_(opt_str, num_dims);
 
@@ -364,10 +364,10 @@ template<typename P>
 void test_aniso(double tol, int xdims, int vdims, std::vector<int> const &levels,
                 std::string const &opt_str)
 {
-  expect(1 <= xdims and xdims <= 3);
-  expect(1 <= vdims and vdims <= 3);
+  assert(1 <= xdims and xdims <= 3);
+  assert(1 <= vdims and vdims <= 3);
   int const num_dims = xdims + vdims;
-  expect(static_cast<size_t>(num_dims) == levels.size());
+  assert(static_cast<size_t>(num_dims) == levels.size());
   std::string rstr = "aniso {";
   for (size_t i = 0; i < levels.size() - 1; i++)
     rstr += std::to_string(levels[i]) + ", ";

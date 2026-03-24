@@ -107,8 +107,8 @@ public:
   }
 
   void init() {
-    expect(cublas == nullptr);
-    expect(cusolverdn == nullptr);
+    assert(cublas == nullptr);
+    assert(cusolverdn == nullptr);
     asgard_cublas_check_error( cublasCreate(&cublas) );
     asgard_cusolver_check_error( cusolverDnCreate(&cusolverdn) );
 

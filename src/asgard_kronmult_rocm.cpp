@@ -285,7 +285,7 @@ void launch_block_gpu(
     int n, int dim, int64_t num_conns, int const xy[],
     precision const vals[], precision const x[], precision y[])
 {
-  expect(dim < num_dims);
+  assert(dim < num_dims);
   switch (dim)
   {
   case 0:
@@ -394,7 +394,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
-  expect(active_dims > 0);
+  assert(active_dims > 0);
 
   for (int64_t i = 0; i < perm.size(); i++)
   {
@@ -658,7 +658,7 @@ void launch_block_gpu(
     int n, gpu_grid_data const &grid, int dim, gpu_connect_1d const &conns,
     precision const *const *vals, precision const x[], precision y[])
 {
-  expect(dim < num_dims);
+  assert(dim < num_dims);
   switch (dim)
   {
   case 0:
@@ -767,7 +767,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
   int const num_dims    = grid.num_dims();
   int const active_dims = perm.num_dimensions();
-  expect(active_dims > 0);
+  assert(active_dims > 0);
 
   for (int64_t i = 0; i < perm.size(); i++)
   {

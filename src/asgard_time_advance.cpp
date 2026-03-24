@@ -290,7 +290,7 @@ void rungekutta<P>::next_step(
       }
       break;
     default: // unreachable
-      expect(false); // should never get here
+      assert(false); // should never get here
       break;
   }
 }
@@ -317,7 +317,7 @@ void rungekutta<P>::next_step(
   tools::time_event performance_(name);
 
   next.resize(disc.num_dof());
-  expect(next.size() == current.size());
+  assert(next.size() == current.size());
 
   P const time = disc.time();
   P const dt   = disc.dt();
@@ -383,7 +383,7 @@ void rungekutta<P>::next_step(
       }
       break;
     default: // unreachable
-      expect(false); // should never get here
+      assert(false); // should never get here
       break;
   }
 }
@@ -490,7 +490,7 @@ template<typename P>
 void crank_nicolson<P>::set_rhs_gpu(discretization_manager<P> const &disc, P substep, P time, P dt,
                                     gpu::vector<P> const &current, gpu::vector<P> &rhs) const
 {
-  expect(current.size() == disc.num_dof());
+  assert(current.size() == disc.num_dof());
   rhs.resize(current.size());
   if (substep == 1)
     disc.ode_euler_gpu(time + substep * dt, current.data(),
@@ -816,7 +816,7 @@ time_advance_manager<P>::time_advance_manager(
     imex_implicit_group im, imex_explicit_group ex)
     : data(tdata)
 {
-  expect(is_imex(data.step_method()));
+  assert(is_imex(data.step_method()));
   rassert(im.gid >= -1 and ex.gid >= -1,
           "the IMEX implicit and explicit groups have not been set in the pde_scheme");
 

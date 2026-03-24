@@ -8,8 +8,7 @@ namespace asgard::legendre
 // transform
 std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
 {
-  expect(degree >= 0);
-  expect(degree >= 2); // if you need degree 0 or 1, see the switch statement below
+  assert(degree >= 2); // if you need degree 0 or 1, see the switch statement below
 
   // Consider the first two levels of the wavelet hierarchy and the corresponding
   // cell-by-cell (non-hierarchical) Legendre basis representation.

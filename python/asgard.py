@@ -209,11 +209,11 @@ class pde_snapshot:
 
         aux.num_dimensions = self.aux_fields[idnum]['dims']
         if aux.num_dimensions == self.num_dimensions:
-          aux.num_position = self.num_position
-          aux.num_velocity = self.num_velocity
+            aux.num_position = self.num_position
+            aux.num_velocity = self.num_velocity
         else:
-          aux.num_position = aux.num_dimensions
-          aux.num_velocity = 0
+            aux.num_position = aux.num_dimensions
+            aux.num_velocity = 0
 
         aux.num_cells = int(aux.cells.shape[0] / aux.num_dimensions)
 

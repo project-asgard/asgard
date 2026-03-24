@@ -57,7 +57,7 @@ template<typename P>
 pde_scheme<P> make_pde(pde_domain<P> const &domain, int level, int degree,
                        std::vector<std::function<void(std::vector<P> const &, P, std::vector<P> &)>> const &funcs)
 {
-  expect(static_cast<int>(funcs.size()) == domain.num_dims());
+  assert(static_cast<int>(funcs.size()) == domain.num_dims());
 
   prog_opts options;
   options.default_degree = degree;
@@ -83,9 +83,9 @@ void test_case(std::string info, int num_pos, std::vector<int> ifuncs,
                std::vector<moment> const &moms,
                std::vector<test_props> const &props)
 {
-  expect(num_pos + 1 <= static_cast<int>(ifuncs.size()));
+  tassert(num_pos + 1 <= static_cast<int>(ifuncs.size()));
   for (auto const &p : props) {
-    expect(p.tols.size() == moms.size());
+    tassert(p.tols.size() == moms.size());
   }
 
   int const num_vel = static_cast<int>(ifuncs.size() - num_pos);

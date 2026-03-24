@@ -73,7 +73,7 @@ gpu_connect::gpu_connect(int max_level)
 gpu_connect::gpu_connect(std::vector<connect_1d> &levels, connect_1d const &last,
                          connect_1d::hierarchy h)
 {
-  expect(h == connect_1d::hierarchy::volume);
+  assert(h == connect_1d::hierarchy::volume);
   for (auto const &lvl : levels) {
     for (int p = 0; p < 3; p++)
       patts[p].add_level(lvl, static_cast<conn_fill>(p));

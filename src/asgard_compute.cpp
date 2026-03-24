@@ -122,7 +122,7 @@ __signleton_compute_resources::__signleton_compute_resources() {
 template<typename P>
 void __signleton_compute_resources::getrf(int M, std::vector<P> &A, std::vector<int> &ipiv) const
 {
-  expect(static_cast<size_t>(M) * static_cast<size_t>(M) == A.size());
+  assert(static_cast<size_t>(M) * static_cast<size_t>(M) == A.size());
 
   ipiv.resize(M);
 
@@ -159,9 +159,9 @@ template<typename P>
 void __signleton_compute_resources::getrs(int M, std::vector<P> const &A, std::vector<int> const &ipiv,
                               std::vector<P> &b) const
 {
-  expect(static_cast<size_t>(M) == ipiv.size());
-  expect(ipiv.size() * ipiv.size() == A.size());
-  expect(ipiv.size() == b.size());
+  assert(static_cast<size_t>(M) == ipiv.size());
+  assert(ipiv.size() * ipiv.size() == A.size());
+  assert(ipiv.size() == b.size());
 
   int info  = 0;
   int const nrhs = 1; // num right-hand-sides
@@ -174,7 +174,7 @@ void __signleton_compute_resources::getrs(int M, std::vector<P> const &A, std::v
   }
 
   // only check if arguments have illegal value
-  expect(info == 0);
+  assert(info == 0);
 }
 
 template void __signleton_compute_resources::getrs<double>(
@@ -185,7 +185,7 @@ template void __signleton_compute_resources::getrs<float>(
 #ifdef ASGARD_USE_CUDA
 template<typename P>
 void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A, gpu::vector<int> &ipiv) const {
-  expect(static_cast<int64_t>(M) * M == A.size());
+  assert(static_cast<int64_t>(M) * M == A.size());
 
   ipiv.resize(M);
 
@@ -230,8 +230,8 @@ template<typename P>
 void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
                                           gpu::vector<int> const &ipiv, P b[]) const
 {
-  expect(M == ipiv.size());
-  expect(ipiv.size() * ipiv.size() == A.size());
+  assert(M == ipiv.size());
+  assert(ipiv.size() * ipiv.size() == A.size());
 
   gpu::vector<int> gpu_info(1);
 
@@ -249,7 +249,7 @@ void __signleton_compute_resources::getrs(int M, gpu::vector<P> const &A,
 template<typename P>
 void __signleton_compute_resources::getrf(int M, gpu::vector<P> &A,
                                           gpu::vector<gpu::direct_int> &ipiv) const {
-  expect(static_cast<int64_t>(M) * M == A.size());
+  assert(static_cast<int64_t>(M) * M == A.size());
 
   ipiv.resize(M);
 
@@ -281,8 +281,8 @@ template<typename P>
 void __signleton_compute_resources::getrs(
     int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv, P b[]) const
 {
-  expect(M == ipiv.size());
-  expect(ipiv.size() * ipiv.size() == A.size());
+  assert(M == ipiv.size());
+  assert(ipiv.size() * ipiv.size() == A.size());
 
   gpu::vector<int> gpu_info(1);
 
@@ -313,7 +313,7 @@ template void __signleton_compute_resources::getrs<float>(
 template<typename P>
 void __signleton_compute_resources::pttrf(std::vector<P> &diag, std::vector<P> &sub) const
 {
-  expect(sub.size() + 1 == diag.size());
+  assert(sub.size() + 1 == diag.size());
 
   int const N = static_cast<int>(diag.size());
   int info = 0;
@@ -336,7 +336,7 @@ __signleton_compute_resources::pttrf<float>(std::vector<float> &, std::vector<fl
 template<typename P>
 void __signleton_compute_resources::pttrs(std::vector<P> const &diag, std::vector<P> const &sub,
                                           std::vector<P> &b) const {
-  expect(sub.size() + 1 == diag.size());
+  assert(sub.size() + 1 == diag.size());
 
   int const N = static_cast<int>(diag.size());
   int const nrhs = 1;

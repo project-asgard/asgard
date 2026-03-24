@@ -101,8 +101,8 @@ void pde_scheme<P>::process(operators::lenard_bernstein_collisions lbc)
         {
           std::vector<P> const &mom0 = moments[m0];
           std::vector<P> const &mom1 = moments[m1];
-          expect(static_cast<size_t>(x.num_strips()) == mom0.size());
-          expect(static_cast<size_t>(x.num_strips()) == mom1.size());
+          assert(static_cast<size_t>(x.num_strips()) == mom0.size());
+          assert(static_cast<size_t>(x.num_strips()) == mom1.size());
           ASGARD_OMP_PARFOR_SIMD
           for (int64_t i = 0; i < x.num_strips(); i++)
             vals[i] = (nu * mom1[i] * f[i]) / mom0[i];

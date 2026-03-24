@@ -55,33 +55,8 @@
 #include "mpi.h"
 #endif
 
-#ifndef NDEBUG
-namespace asgard::debug {
-  //! debug tools, write a range-like object
-  template<typename range_like>
-  void dump(range_like const &x) {
-    for (auto const &v : x)
-      std::cout << v << '\n';
-  }
-  //! debug tools, write the first n entries of a range-like object
-  template<typename range_like>
-  void dump(int n, range_like const &x) {
-    for (int i = 0; i < n; i++)
-      std::cout << x[i] << '\n';
-  }
-}
-#endif
-
 namespace asgard::tools
 {
-#ifndef NDEBUG
-#define expect(cond) assert(cond)
-#else
-#define expect(cond) ((void)(cond))
-#endif
-// simple layer over assert to prevent unused variable warnings when
-// expects disabled
-
 /*!
  * \brief Simple profiling tool, allows us to time different sections of code
  *
@@ -111,10 +86,6 @@ public:
     std::vector<double> intervals;
     //! if doing a kronmult event, report the Gflops/s
     std::vector<double> gflops;
-    //! indicates whether to include in % of total time
-    bool is_nested = false;
-    //! during reporting, will be set to he sum of the intervals
-    double sum = 0;
   };
 
   //! called at the start of the program
@@ -124,10 +95,10 @@ public:
   //! start an event for the given id
   std::string const &start(std::string const &id)
   {
-    expect(!id.empty());
+    assert(!id.empty());
 
     events_.try_emplace(id, events_list());
-    expect(not events_[id].started);
+    assert(not events_[id].started);
 
     events_[id].started = current_time();
 
@@ -149,14 +120,14 @@ public:
 #endif
 
     events_list &event = events_[id];
-    expect(event.started.has_value());
+    assert(event.started.has_value());
 
     event.intervals.push_back(duration_since(event.started));
 
     event.started.reset();
 
     if (flops != -1) {
-      expect(flops >= 0);
+      assert(flops >= 0);
       total_flops_ += flops;
       max_flops_ = std::max(max_flops_, flops);
       // flops -> Gflops has factor 1.E-9, ms -> seconds has factor 1.E-3
@@ -192,7 +163,7 @@ public:
   int64_t max_flops() const { return max_flops_; }
 
 private:
-  //! kepps track of the start of the simulation
+  //! keeps track of the start of the simulation
   time_point start_;
   //! for each event key, stores a list of durations
   std::map<std::string, events_list> events_;
@@ -389,13 +360,6 @@ namespace asgard
   }
 
 /*!
- * \brief Suppressed warnings about unused variables
- *
- * An expressive way to indicate that a variable is intentionally left unused.
- */
-auto const ignore = [](auto ignored) { (void)ignored; };
-
-/*!
  * \brief Iterator/generator for a sequence of integers
  *
  * This is needed for the indexof template
@@ -556,13 +520,13 @@ public:
   irange(int b, int e)
     : begin_(b), end_(e)
   {
-    expect(e >= b);
+    assert(e >= b);
   }
   //! create a new range from zero to the given end
   irange(int e)
     : begin_(0), end_(e)
   {
-    expect(e >= 0);
+    assert(e >= 0);
   }
 
   //! returns the number of indexes

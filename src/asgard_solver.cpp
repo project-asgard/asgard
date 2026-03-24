@@ -434,7 +434,7 @@ int gmres<P>::solve(
 
   tools::time_event timing_("gmres::solve");
   int const n = static_cast<int>(rhs.size());
-  expect(x.size() == rhs.size());
+  assert(x.size() == rhs.size());
 
   basis.resize(static_cast<int64_t>(n) * (max_inner_ + 1));
 
@@ -538,7 +538,7 @@ int gmres<P>::solve(
 {
   tools::time_event timing_("gmres::solve");
   int const n = static_cast<int>(rhs.size());
-  expect(n == static_cast<int>(x.size()));
+  assert(n == static_cast<int>(x.size()));
 
   gpu_basis.resize(static_cast<int64_t>(n) * (max_inner_ + 1));
 
@@ -640,7 +640,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
   P scal = 1;
   for (int i : trange) {
     term_md<P> const &term = terms.terms[i].tmd;
-    expect(term.is_separable() and term.flux_dim() == -1);
+    assert(term.is_separable() and term.flux_dim() == -1);
     for (int d : iindexof(terms.num_dims)) {
       term_1d<P> const &t1d = term.dim(d);
       if (t1d.is_volume())
@@ -670,7 +670,7 @@ void scaled_identity<P>::operator()(group_id group, size_t stage, std::vector<P>
 template<typename P>
 void scaled_identity<P>::operator()(group_id group, size_t stage, gpu::vector<P> &x) const
 {
-  expect(num_entries == x.size());
+  assert(num_entries == x.size());
   gpu::set_scal(x.size(), scale(group, stage), x.data());
 }
 template<typename P>

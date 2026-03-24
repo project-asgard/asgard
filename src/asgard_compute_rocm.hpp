@@ -92,7 +92,7 @@ public:
   }
 
   void init() {
-    expect(rocblas == nullptr);
+    assert(rocblas == nullptr);
     asgard_rocblas_check_error( rocblas_create_handle(&rocblas) );
 
     fone = memalloc<float>(1);

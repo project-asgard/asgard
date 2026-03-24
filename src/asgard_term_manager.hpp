@@ -224,7 +224,7 @@ struct term_manager
                             connection_patterns const &conn, hierarchy_manipulator<P> const &hier)
   {
     tools::time_event timing_("rebuild moment terms (" + ((group() == -1) ? std::string("all") : std::to_string(group())) + ")");
-    expect(group.is_valid(term_groups.size()));
+    assert(group.is_valid(term_groups.size()));
     for (int it : terms_group_range(group)) {
       auto &te = terms[it];
       for (int d : indexof(num_dims))
@@ -367,7 +367,7 @@ struct term_manager
                      connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
-    expect(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
+    assert(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
     apply_sources<dmode>(group, grid, conns, hier, time, alpha, y.data());
   }
   #ifdef ASGARD_USE_GPU

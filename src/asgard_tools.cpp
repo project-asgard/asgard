@@ -100,6 +100,8 @@ std::string simple_timer::report()
     report << pad_left<double_block>(split_style(total_flops_ / int64_t{1'000'000'000})) << "Gflops";
   #endif
 
+  std::map<std::string, double> events_sum;
+
   report << "\n  - all times are in ms, 1000ms = 1 second\n\n";
 
   std::string const ev =  "-- events --  ";
@@ -108,8 +110,8 @@ std::string simple_timer::report()
   for (auto &[id, event] : events_)
   {
     max_key = std::max(id.size(), max_key);
-    event.sum = std::accumulate(event.intervals.begin(), event.intervals.end(), 0.0);
-    max_event = std::max(event.sum, max_event);
+    events_sum[id] = std::accumulate(event.intervals.begin(), event.intervals.end(), 0.0);
+    max_event = std::max(events_sum[id], max_event);
   }
 
   report << pad_left(max_key, ev);
@@ -121,26 +123,26 @@ std::string simple_timer::report()
   report << pad_left<double_block>("-- min");
   report << pad_left<double_block>("-- max") << '\n';
 
-  for (auto &[id, event] : events_) {
+  for (auto &[id, event] : events_)
+  {
     auto &times = event.intervals;
 
-    if (event.started) { // currently running timer
+    if (event.started) // currently running timer
       times.push_back(duration_since(event.started));
-      event.sum += times.back();
-    }
 
-    //double const sum = std::accumulate(times.begin(), times.end(), 0.0);
-    double const avg = event.sum / static_cast<double>(times.size());
+    double const esum = events_sum[id] + ((event.started) ? times.back() : 0);
+
+    double const avg = esum / static_cast<double>(times.size());
     double const min = *std::min_element(times.begin(), times.end());
     double const max = *std::max_element(times.begin(), times.end());
 
     report << pad_left(max_key, id);
 
     if (max_event > 1000)
-      report << pad_left<double_block>(split_style(static_cast<int64_t>(event.sum + 0.5)));
+      report << pad_left<double_block>(split_style(static_cast<int64_t>(esum + 0.5)));
     else
-      report << pad_string(event.sum);
-    report << pad_string_percent(event.sum, total_time);
+      report << pad_string(esum);
+    report << pad_string_percent(esum, total_time);
     report << pad_string(times.size());
     report << pad_string(avg);
     report << pad_string(min);

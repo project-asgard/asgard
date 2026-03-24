@@ -232,7 +232,7 @@ public:
        kronmult::workspace<P> &work) const
   {
     tools::time_event perf_("interpolation term");
-    expect(plan.is_enabled());
+    assert(plan.is_enabled());
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
         if (plan.uses_field()) {
@@ -293,7 +293,7 @@ public:
     if (beta == 0)
       y.resize(it1.size());
     else
-      expect(y.size() == it1.size());
+      assert(y.size() == it1.size());
     (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work);
   }
 
@@ -428,7 +428,7 @@ public:
     gpu::vector<P> &gpu_t1 = gpu_it1[dev()];
     gpu::vector<P> &gpu_t2 = gpu_it2[dev()];
 
-    expect(plan.is_enabled());
+    assert(plan.is_enabled());
     if (plan.uses_gpu_func()) {
       gpu::vector<P> const &nodal = [&]() -> gpu::vector<P> const &
         {
