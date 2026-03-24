@@ -316,7 +316,7 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
   h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
                               state, terms.moms, aux_fields, filename);
 #else
-  ignore(filename);
+  std::ignore = filename;
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
 #endif
 }
