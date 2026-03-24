@@ -256,7 +256,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   }
 
 #else
-  ignore(pde);
+  std::ignore = pde;
   throw std::runtime_error("restarting from a file requires CMake option "
                            "-DASGARD_USE_HIGHFIVE=ON");
 #endif
