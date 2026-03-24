@@ -83,9 +83,9 @@ void test_case(std::string info, int num_pos, std::vector<int> ifuncs,
                std::vector<moment> const &moms,
                std::vector<test_props> const &props)
 {
-  assert(num_pos + 1 <= static_cast<int>(ifuncs.size()));
+  tassert(num_pos + 1 <= static_cast<int>(ifuncs.size()));
   for (auto const &p : props) {
-    assert(p.tols.size() == moms.size());
+    tassert(p.tols.size() == moms.size());
   }
 
   int const num_vel = static_cast<int>(ifuncs.size() - num_pos);

@@ -99,6 +99,7 @@ void test_ic(double const tol, std::string const &opts)
   auto icmd = [=](P t, vector2d<P> const &nodes, std::vector<P> &vals) ->
     void {
       assert(t == 0);
+      std::ignore = t;
       for (auto i : indexof(vals)) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
