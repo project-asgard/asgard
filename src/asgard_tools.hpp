@@ -55,23 +55,6 @@
 #include "mpi.h"
 #endif
 
-#ifndef NDEBUG
-namespace asgard::debug {
-  //! debug tools, write a range-like object
-  template<typename range_like>
-  void dump(range_like const &x) {
-    for (auto const &v : x)
-      std::cout << v << '\n';
-  }
-  //! debug tools, write the first n entries of a range-like object
-  template<typename range_like>
-  void dump(int n, range_like const &x) {
-    for (int i = 0; i < n; i++)
-      std::cout << x[i] << '\n';
-  }
-}
-#endif
-
 namespace asgard::tools
 {
 /*!
@@ -103,10 +86,6 @@ public:
     std::vector<double> intervals;
     //! if doing a kronmult event, report the Gflops/s
     std::vector<double> gflops;
-    //! indicates whether to include in % of total time
-    bool is_nested = false;
-    //! during reporting, will be set to he sum of the intervals
-    double sum = 0;
   };
 
   //! called at the start of the program
@@ -184,7 +163,7 @@ public:
   int64_t max_flops() const { return max_flops_; }
 
 private:
-  //! kepps track of the start of the simulation
+  //! keeps track of the start of the simulation
   time_point start_;
   //! for each event key, stores a list of durations
   std::map<std::string, events_list> events_;
