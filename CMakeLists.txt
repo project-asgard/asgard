@@ -706,21 +706,27 @@ if (ASGARD_BUILD_TESTS)
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
   set(_asg_build_info "")
-  foreach(_asg_opt OPENMP CUDA ROCM MPI)
+  foreach(_asg_opt OPENMP CUDA ROCM MPI PYTHON)
     if (ASGARD_USE_${_asg_opt})
       set(_asg_build_info "${_asg_build_info} ${_asg_opt}")
     endif()
   endforeach()
+  if (ASGARD_USE_HIGHFIVE)
+    set(_asg_build_info "${_asg_build_info} HDF5")
+  endif()
   if ((ASGARD_USE_CUDA OR ASGARD_USE_ROCM) AND ASGARD_USE_MPI)
     set(_asg_build_info "${_asg_build_info} (w. GPU-aware MPI)")
+  endif()
+  if ("${_asg_build_info}" STREQUAL "")
+    set(_asg_build_info " (no extra modules)")
+  else()
+    set(_asg_build_info "with${_asg_build_info}")
   endif()
   message(STATUS "ASGarD version: ${ASGARD_RELEASE_INFO} ${_asg_build_info}")
   foreach(_asg_opt CMAKE_INSTALL_PREFIX
                    CMAKE_BUILD_TYPE
                    CMAKE_CXX_FLAGS
-                   ASGARD_PRECISIONS
-                   ASGARD_USE_PYTHON
-                   ASGARD_USE_HIGHFIVE)
+                   ASGARD_PRECISIONS)
     message(STATUS "  ${_asg_opt}=${${_asg_opt}}")
   endforeach()
   if (ASGARD_USE_TIMER)
