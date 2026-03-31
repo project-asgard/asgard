@@ -221,12 +221,11 @@ if (ASGARD_USE_PYTHON)
             set(__asgard_pysubpath "${CMAKE_INSTALL_LIBDIR}/python/site-packages")
         endif()
         set(__asgard_final_path "${ASGARD_python_pip_path}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
-        set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     else()
         # regular build, all those folders are the same
         set(__asgard_final_path "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
-        set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
     endif()
+    set(_asgard_python_path "${CMAKE_INSTALL_PREFIX}/${__asgard_pysubpath}")
 
     # this value should be set to "ON", CMake accepts YES, ON or 1 in either upper or lower case
     # however, some of the ASGarD configured scripts (e.g., asgard-env.sh) use only "ON" as a valid value
@@ -237,37 +236,34 @@ if (ASGARD_USE_PYTHON)
     set(__pyasgard_libasgard_path__ "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}asgard${CMAKE_SHARED_LIBRARY_SUFFIX}")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgard_config.py"  "${CMAKE_CURRENT_BINARY_DIR}/asgard_config.py")
 
-    # put the module and all testing files into the build tree
-    foreach(_asg_pybuildfile asgard.py pyasgard_test.py sandbox.py)
-        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
-                           COMMAND "${CMAKE_COMMAND}"
-                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
-                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}"
-                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}")
-        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
+    # put the module and all testing files into the build tree, copy only
+    set (__asgard_pyfiles_python "asgard.py;pyasgard_test.py;sandbox.py")
+    set (__asgard_pyfiles_examples "continuity_2d.py;inputs_1d.py;slideshow.py;bgk.py")
+    foreach(_asg_pymode python examples)
+        foreach(_asg_pybuildfile ${__asgard_pyfiles_${_asg_pymode}})
+            add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
+                               COMMAND "${CMAKE_COMMAND}"
+                               ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${_asg_pymode}/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
+                               DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${_asg_pymode}/${_asg_pybuildfile}"
+                               COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/${_asg_pymode}/${_asg_pybuildfile}")
+            list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
+            if ("${_asg_pymode}" STREQUAL "examples")
+                # install only the example files
+                install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
+            endif()
+        endforeach()
     endforeach()
-    foreach(_asg_pybuildfile continuity_2d.py inputs_1d.py slideshow.py bgk.py)
-        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
-                           COMMAND "${CMAKE_COMMAND}"
-                           ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile} ${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}
-                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}"
-                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}")
-        list(APPEND _pyasgard_buildstage "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}")
-        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_pybuildfile}" DESTINATION share/asgard/examples)
-    endforeach()
+
     add_custom_target(asgard_python_testing ALL DEPENDS "${_pyasgard_buildstage}")
 
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardplot.sh"
-                   "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh" @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardplot.sh"
-            DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
-
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/asgardrun.sh"
-                   "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh" @ONLY)
-    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/asgardrun.sh"
-            DESTINATION "${CMAKE_INSTALL_BINDIR}"
-            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    # put the run/plot scripts into the build tree, configure the files
+    foreach(_asg_pybuildfile asgardplot.sh asgardrun.sh)
+        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/python/${_asg_pybuildfile}"
+                       "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}" @ONLY)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${_asg_pybuildfile}"
+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
+                PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+    endforeach()
 
     # install the module without the testing files
     set(__pyasgard_libasgard_path__ "${__asgard_final_path}")
@@ -314,19 +310,20 @@ if (ASGARD_BUILD_TESTS)
                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/testing/${_asg_testinput}")
         list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
     endforeach()
-
-    foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
-        add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
-                           COMMAND "${CMAKE_COMMAND}"
-                           ARGS -E copy "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}" "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
-                           DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
-                           COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
-        list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
-
-        install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
-    endforeach()
-    add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
 endif()
+
+foreach(_asg_testinput inputs_1d_1.txt inputs_1d_2.txt)
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                        COMMAND "${CMAKE_COMMAND}"
+                        ARGS -E copy "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}" "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}"
+                        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}"
+                        COMMENT "Copying ${CMAKE_CURRENT_SOURCE_DIR}/examples/${_asg_testinput}")
+    list(APPEND _asg_testinputfiles "${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput}")
+
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${_asg_testinput} DESTINATION share/asgard/examples)
+endforeach()
+add_custom_target(asgard_test_inputs ALL DEPENDS "${_asg_testinputfiles}")
+
 
 if (ASGARD_USE_CUDA)
     # CUDA has to be enabled before libasgard is created
@@ -442,18 +439,18 @@ if (ASGARD_USE_HIGHFIVE)
     list (APPEND asgard_components io)
 endif ()
 
-foreach (component IN LISTS asgard_components)
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp)
+foreach (_asg_component IN LISTS asgard_components)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asg_component}.cpp)
         # some components don't have .cpp files
         target_sources (libasgard
                         PRIVATE
-                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.cpp>
+                        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asg_component}.cpp>
         )
     endif()
-    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp)
+    if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asg_component}.hpp)
         target_precompile_headers (libasgard
                                    PUBLIC
-                                   $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${component}.hpp>>
+                                   $<$<BOOL:${ASGARD_USE_PCH}>:$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/asgard_${_asg_component}.hpp>>
         )
     endif()
 endforeach ()
@@ -708,34 +705,40 @@ if (ASGARD_BUILD_TESTS)
 # assuming testing makes us into a stand-alone project, so be more verbose
 # helps keep track of flags and options and whether things we enabled correctly
   message(STATUS "")
-  message(STATUS "ASGarD version: ${ASGARD_RELEASE_INFO}")
-  foreach(_opt CMAKE_BUILD_TYPE
-               CMAKE_CXX_FLAGS
-               ASGARD_PRECISIONS
-               ASGARD_USE_OPENMP
-               ASGARD_USE_MPI
-               ASGARD_USE_CUDA
-               ASGARD_USE_ROCM
-               ASGARD_USE_PYTHON
-               ASGARD_USE_HIGHFIVE
-               ASGARD_USE_TIMER)
-    message(STATUS "  ${_opt}=${${_opt}}")
+  set(_asg_build_info "")
+  foreach(_asg_opt OPENMP CUDA ROCM MPI)
+    if (ASGARD_USE_${_asg_opt})
+      set(_asg_build_info "${_asg_build_info} ${_asg_opt}")
+    endif()
+  endforeach()
+  if ((ASGARD_USE_CUDA OR ASGARD_USE_ROCM) AND ASGARD_USE_MPI)
+    set(_asg_build_info "${_asg_build_info} (w. GPU-aware MPI)")
+  endif()
+  message(STATUS "ASGarD version: ${ASGARD_RELEASE_INFO} ${_asg_build_info}")
+  foreach(_asg_opt CMAKE_INSTALL_PREFIX
+                   CMAKE_BUILD_TYPE
+                   CMAKE_CXX_FLAGS
+                   ASGARD_PRECISIONS
+                   ASGARD_USE_PYTHON
+                   ASGARD_USE_HIGHFIVE)
+    message(STATUS "  ${_asg_opt}=${${_asg_opt}}")
   endforeach()
   if (ASGARD_USE_TIMER)
-    message(STATUS "  ASGARD_USE_FLOPCOUNTER=${ASGARD_USE_FLOPCOUNTER}")
+    if (ASGARD_USE_FLOPCOUNTER)
+      message(STATUS "  ASGARD_USE_TIMER=${ASGARD_USE_TIMER} (w. flop counter)")
+    else()
+      message(STATUS "  ASGARD_USE_TIMER=${ASGARD_USE_TIMER}")
+    endif()
   endif()
   if (ASGARD_USE_CUDA)
-    foreach(_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS CMAKE_CUDA_ARCHITECTURES)
-      message(STATUS "  ${_opt}=${${_opt}}")
+    foreach(_asg_opt CMAKE_CUDA_COMPILER CMAKE_CUDA_FLAGS CMAKE_CUDA_ARCHITECTURES)
+      message(STATUS "  ${_asg_opt}=${${_asg_opt}}")
     endforeach()
   endif()
   if (ASGARD_USE_ROCM)
-    foreach(_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
-      message(STATUS "  ${_opt}=${${_opt}}")
+    foreach(_asg_opt CMAKE_HIP_COMPILER CMAKE_HIP_FLAGS CMAKE_HIP_ARCHITECTURES)
+      message(STATUS "  ${_asg_opt}=${${_asg_opt}}")
     endforeach()
-  endif()
-  if ((ASGARD_USE_CUDA OR ASGARD_USE_ROCM) AND ASGARD_USE_MPI)
-    message(STATUS "  ASGARD_GPUMPI_DIRECT=${ASGARD_GPUMPI_DIRECT}")
   endif()
   message(STATUS "")
 
