@@ -1,22 +1,23 @@
 -title    : Two Stream 2D
 -subtitle : adaptive sparse grid level 7, quadratic basis
 
+# run file with
+# asgarsrun.sh two_stream -if twostream2dasg.txt
+
 # df / dt + v d_x f + E(f) d_v f = 0
 # E is the electric field given by a Poisson Solve
--pde : two_stream
 
 # disctretization in space
 # level 7 adaptive sparse grid and quadratic basis
--grid         : mixed 1
 -start-levels : 7
 -max-levels   : 7
 -degree       : 2
--adapt        : 1.E-6
+-adapt        : 1.E-3
 
 # imex timestep
 # CFL = dx*(1/(2k+1))*(1/|v_max|)
 #     = (4*pi/2^7)*(1/5)*1/(2*pi)
-#     = 1/320 
+#     = 1/320
 # dt  = 3/4*CFL
 # T   = dt*19200 = 45.0
 -step-method : rk2
