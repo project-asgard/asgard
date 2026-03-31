@@ -18,7 +18,6 @@ LAPACK_LIBRARIES                   @LAPACK_LIBRARIES@
 
 #ifdef ASGARD_BUILD_TESTS
 std::cout << "\nASGARD_BUILD_TESTS                 @ASGARD_BUILD_TESTS@\n";
-std::cout << "ASGARD_LONG_TESTS                  @ASGARD_LONG_TESTS@\n";
 #else
 std::cout << "\nASGARD_BUILD_TESTS                 OFF\n";
 #endif
