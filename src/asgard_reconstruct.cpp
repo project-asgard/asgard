@@ -12,16 +12,16 @@ reconstruct_solution::reconstruct_solution(
     int degree, precision const solution[])
     : pterms_(degree + 1), block_size_(fm::ipow(pterms_, dims)), domain_scale(1.0)
 {
-  // cells are already in the new format and sorted, copy over
-  std::vector<int> sorted_cells(asg_cells, asg_cells + dims * num_cells);
+  inv_slope.fill(1);
+  shift.fill(0);
 
-  cells_ = indexset(dims, std::move(sorted_cells));
+  cells_ = indexset(dims, std::vector<int>(asg_cells, asg_cells + dims * num_cells));
 
-  if constexpr (std::is_same_v<precision, double>) {
+  if constexpr (is_double<precision>) {
     coeff_ = std::vector<double>(solution, solution + num_cells * block_size_);
   } else {
     coeff_.resize(num_cells * block_size_);
-    std::copy_n(solution, coeff_.size(), coeff_.data());
+    std::copy_n(solution, coeff_.size(), coeff_.data()); // converts floats to doubles
   }
 
   // analyze the graph and prepare cache data
@@ -144,10 +144,10 @@ vector2d<int> reconstruct_solution::compute_dag_down() const
 {
   int constexpr max_1d_kids = 2; // change for a different hierarchy
 
-  int num_dimensions = cells_.num_dimensions();
-  int64_t num_cells  = cells_.num_indexes();
+  int const num_dims      = cells_.num_dimensions();
+  int64_t const num_cells = cells_.num_indexes();
 
-  vector2d<int> kids(num_dimensions * max_1d_kids, num_cells);
+  vector2d<int> kids(num_dims * max_1d_kids, num_cells);
 
 #pragma omp parallel
 {
@@ -156,27 +156,27 @@ vector2d<int> reconstruct_solution::compute_dag_down() const
 #pragma omp for
   for (int64_t i = 0; i < num_cells; i++)
   {
-    std::copy_n(cells_[i], num_dimensions, kid.data());
+    std::copy_n(cells_[i], num_dims, kid.data());
     int *family = kids[i];
 
-    for (int j = 0; j < num_dimensions; j++)
+    for (int j = 0; j < num_dims; j++)
     {
       int const current = kid[j];
       if (current == 0)
       {
         kid[j]    = 1;
-        *family++ = cells_.find(kid.data());
+        *family++ = cells_.find(kid);
         *family++ = -1;
       }
       else
       {
         kid[j]    = 2 * current;
-        *family++ = cells_.find(kid.data());
+        *family++ = cells_.find(kid);
         ++kid[j];
-        *family++ = cells_.find(kid.data());
+        *family++ = cells_.find(kid);
       }
       kid[j] = current;
-    } // for j - num_dimensions
+    } // for j - num_dims
   } // #pragma omp for
 } // #pragma omp parallel
   return kids;
