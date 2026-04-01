@@ -23,15 +23,15 @@ void steady_state<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &endstep) const
 {
-  tools::time_event performance_("solve steady state");
-
-  #if defined(ASGARD_USE_GPU)
+  #ifdef ASGARD_USE_GPU
   gcurrent = current;
   gnext.resize(gcurrent.size());
   next_step(disc, gcurrent, gnext);
   gnext.copy_to_host(endstep);
   return;
   #endif
+
+  tools::time_event performance_("solve steady state");
 
   P const time = disc.stop_time();
 
@@ -218,6 +218,13 @@ void rungekutta<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
+  #ifdef ASGARD_USE_GPU
+  gcurrent = current;
+  next_step(disc, gcurrent, gnext);
+  gnext.copy_to_host(next);
+  return;
+  #endif
+
   std::string const name = [&]() -> std::string {
       switch (rktype) {
         case time_method::forward_euler:
@@ -232,13 +239,6 @@ void rungekutta<P>::next_step(
     }();
 
   tools::time_event performance_(name);
-
-  #ifdef ASGARD_USE_GPU
-  gcurrent = current;
-  next_step(disc, gcurrent, gnext);
-  gnext.copy_to_host(next);
-  return;
-  #endif
 
   P const time = disc.time();
   P const dt   = disc.dt();
@@ -412,16 +412,16 @@ void crank_nicolson<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
-  tools::time_event performance_(
-      (method == time_method::cn) ? "crank-nicolson" : "back-euler");
-
-  #if defined(ASGARD_USE_GPU)
+  #ifdef ASGARD_USE_GPU
   gcurrent = current;
   gnext.resize(gcurrent.size());
   next_step(disc, gcurrent, gnext);
   gnext.copy_to_host(next);
   return;
   #endif
+
+  tools::time_event performance_(
+      (method == time_method::cn) ? "crank-nicolson" : "back-euler");
 
   P const time = disc.time();
   P const dt   = disc.dt();
@@ -643,15 +643,15 @@ void imex_stepper<P>::next_step(
     discretization_manager<P> const &disc, std::vector<P> const &current,
     std::vector<P> &next) const
 {
-  tools::time_event performance_("stepper-imex");
-
-  #if defined(ASGARD_USE_GPU)
+  #ifdef ASGARD_USE_GPU
   gcurrent = current;
   gnext.resize(gcurrent.size());
   next_step(disc, gcurrent, gnext);
   gnext.copy_to_host(next);
   return;
   #endif
+
+  tools::time_event performance_("stepper-imex");
 
   P const time = disc.time();
   P const dt   = disc.dt();
