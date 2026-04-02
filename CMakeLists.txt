@@ -364,6 +364,7 @@ if (ASGARD_USE_ROCM)
     endif()
     list (APPEND CMAKE_PREFIX_PATH ${ASGARD_ROCM_PATH}/hip ${ASGARD_ROCM_PATH})
     enable_language(HIP)
+    find_package(rocblas REQUIRED)
     find_package(rocsolver REQUIRED)
 
     # number of blocks must be set before "asgard_build_info.hpp" is configured
@@ -465,6 +466,7 @@ target_link_libraries (libasgard
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cudart>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cublas>
                        $<$<BOOL:${ASGARD_USE_CUDA}>:CUDA::cusolver>
+                       $<$<BOOL:${ASGARD_USE_ROCM}>:roc::rocblas>
                        $<$<BOOL:${ASGARD_USE_ROCM}>:roc::rocsolver>
                        $<$<BOOL:${ASGARD_USE_ROCM}>:hip::host>
 )
