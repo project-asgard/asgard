@@ -60,7 +60,7 @@ if (ASGARD_USE_MPI)
 endif()
 
 if (ASGARD_GPUMPI_DIRECT AND NOT ASGARD_USE_MPI) # maybe ASGARD_GPUMPI_DIRECT is set by an external script
-  set(ASGARD_GPUMPI_DIRECT "disabling MPI-GPU-Direct (missing MPI)" OFF CACHE FORCE)
+  set(ASGARD_GPUMPI_DIRECT OFF BOOL "disabling MPI-GPU-Direct (missing MPI)" CACHE FORCE)
 endif()
 
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
@@ -109,7 +109,7 @@ else()
   # if neither CUDA nor ROCm are present, then never use GPUs or GPU-Aware things
   set (ASGARD_MAX_NUM_GPUS "0" CACHE STRING "Maximum number of GPU devices to use simultaneously" FORCE)
   if (ASGARD_GPUMPI_DIRECT) # if set by a script or by mistake
-    set(ASGARD_GPUMPI_DIRECT "disabling MPI-GPU-Direct (missing GPU)" OFF CACHE FORCE)
+    set(ASGARD_GPUMPI_DIRECT OFF CACHE BOOL "disabling MPI-GPU-Direct (missing MPI)" FORCE)
   endif()
 endif()
 
