@@ -131,7 +131,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       H5Easy::dump(file, auxstr.name, aux_fields[i].name);
       write_vector(auxstr.data, aux_fields[i].data);
       write_vector(auxstr.grid, aux_fields[i].grid);
-      H5Easy::dump(file, auxstr.dims, aux_fields[i].num_dimensions);
+      H5Easy::dump(file, auxstr.dims, aux_fields[i].num_dims);
     }
   }
 
@@ -502,7 +502,7 @@ void h5manager<P>::read(std::string const &filename, bool silent,
         continue;
       aux_fields.emplace_back();
       aux_fields.back().name = name;
-      aux_fields.back().num_dimensions = H5Easy::load<int>(file, auxstr.dims);
+      aux_fields.back().num_dims = H5Easy::load<int>(file, auxstr.dims);
       aux_fields.back().data = H5Easy::load<std::vector<P>>(file, auxstr.data);
       aux_fields.back().grid = H5Easy::load<std::vector<int>>(file, auxstr.grid);
     }
