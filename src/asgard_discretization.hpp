@@ -684,8 +684,7 @@ public:
   void report_memusage(std::ostream &os = std::cout) const;
 
   // performs integration in time
-  friend bool advance_in_time<precision>(
-      discretization_manager<precision> &disc, int64_t num_steps);
+  friend bool advance_in_time<precision>(discretization_manager<precision> &, int64_t);
   // this is the I/O manager
   friend class h5manager<precision>;
   // handles the time-integration meta-data
