@@ -1035,6 +1035,9 @@ struct source {
   //! make an interpolation moment source
   source(md_mom_func<P> s, std::vector<moment_id> mids)
     : func_(std::move(s)), mids_(std::move(mids)) {}
+  //! make an interpolation moment source with indicies
+  source(md_mom_and_idx_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids)) {}
   //! make an interpolation moment source using a GPU device data
   source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
     : func_(std::move(s)), mids_(std::move(mids)) {
@@ -1043,7 +1046,7 @@ struct source {
   }
 
   //! variant holding all permissible function types
-  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
+  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>, md_mom_and_idx_func<P>,
                md_gpu_func<P>, md_gpu_mom_func<P>> func_;
   //! holds the moment ids for moment sources
   std::vector<moment_id> mids_;
@@ -1633,6 +1636,20 @@ public:
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
   void set_source(md_mom_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_mom_and_idx_func<P> fmd, std::vector<moment_id> mids) {
     rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index

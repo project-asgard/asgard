@@ -58,7 +58,12 @@ struct source_entry_interp
                    std::vector<P> &vals) const
   {
     assert(not is_gpu());
-    if (std::holds_alternative<md_mom_func<P>>(func)) {
+    if (std::holds_alternative<md_mom_and_idx_func<P>>(func)) {
+    // This signature requires indexes, so this overload cannot call it.
+    // It is intended to be called only from eval_posonly_with_idx().
+    throw std::runtime_error("md_mom_and_idx_func requires indexes (use eval_posonly_with_idx)");
+    }
+    else if (std::holds_alternative<md_mom_func<P>>(func)) {
       std::get<md_mom_func<P>>(func)(t, x, moments, vals);
     } else {
       std::get<md_func<P>>(func)(t, x, vals);
@@ -75,6 +80,24 @@ struct source_entry_interp
       std::get<md_gpu_func<P>>(func)(num, t, x, vals);
     }
   }
+  //! calls the moment+indexes variant
+  void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
+                  std::vector<int> const &indexes, std::vector<P> &vals) const
+  {
+    std::fprintf(stderr, "HIT source_entry_interp::operator()(with indexes)\n");
+    std::fflush(stderr);
+
+    assert(not is_gpu());
+    if (std::holds_alternative<md_mom_and_idx_func<P>>(func)) {
+      std::get<md_mom_and_idx_func<P>>(func)(t, x, moments, indexes, vals);
+    } else if (std::holds_alternative<md_mom_func<P>>(func)) {
+      std::get<md_mom_func<P>>(func)(t, x, moments, vals);
+    } else {
+      std::get<md_func<P>>(func)(t, x, vals);
+    }
+  }
+
+
   //! indicates whether the entry contains a moment function
   bool is_moment() const {
     return std::visit([](auto const &v) -> bool {

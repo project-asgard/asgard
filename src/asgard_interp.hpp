@@ -203,6 +203,27 @@ public:
     block_cpu(pdof, grid, conn, perm_up, hier2wav_,
               alpha * P{iwav_scale}, t1.data(), beta, vals, work);
   }
+
+  //! converts interpolated nodal values to hierarchical coefficients (hybrid: vel identity)
+  void nodal2hier_hybrid(sparse_grid const &grid, connection_patterns const &conn,
+                        P const f[], P hier[], kronmult::workspace<P> &work) const
+  {
+    kronmult::block_cpu(pdof, grid, conn, perm_low, nodal2hier_hybrid_,
+                        P{1}, f, P{0}, hier, work);
+  }
+
+  void nodal2wav_hybrid(sparse_grid const &grid, connection_patterns const &conn,
+                        P alpha, P const f[], P beta, P vals[],
+                        kronmult::workspace<P> &work, std::vector<P> &t1) const
+  {
+    // t1 sized appropriately by caller (same as existing nodal2wav)
+    kronmult::block_cpu(pdof, grid, conn, perm_low, nodal2hier_hybrid_,
+                        P{1}, f, P{0}, t1.data(), work);
+
+    kronmult::block_cpu(pdof, grid, conn, perm_up, hier2wav_hybrid_,
+                        alpha * P{hybrid_iwav_scale}, t1.data(), beta, vals, work);
+  }
+
   /*!
    * \brief Performs the interpolation of the function func
    *
@@ -297,6 +318,37 @@ public:
     (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work);
   }
 
+  __attribute__((noinline)) static void hit_eval_posonly_with_idx() {
+    std::fprintf(stderr, "HIT eval_posonly_with_idx\n");
+    std::fflush(stderr);
+    //std::abort();
+  } 
+
+  template<typename tmd_type>
+  void eval_posonly_with_idx
+      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+       P time, P alpha, tmd_type const &func, P beta, P y[],
+       kronmult::workspace<P> &work) const
+  {
+    hit_eval_posonly_with_idx();
+    size_t const nentries = static_cast<size_t>(grid.num_indexes()) * block_size;
+
+    // Must size buffers BEFORE callback writes into them
+    it1.assign(nentries, P{0}); // or resize(nentries) if you prefer
+    it2.resize(nentries);
+    {
+      tools::time_event perf_("interpolation source");
+      func(time, nodes(grid), moments, grid.iset().indexes(), it1);
+    }
+
+    // // Enforce callback contract (no resizing)
+    // if (it1.size() != nentries)
+    //   throw std::runtime_error("source callback resized vals (it1); this is not allowed");
+    // if (it2.size() != nentries)
+    //   throw std::runtime_error("internal error: it2 wrong size");
+    nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+  }
+
   //! indicates whether the manager has been initialized
   operator bool () const { return (num_dims > 0); }
 
@@ -317,6 +369,7 @@ public:
                                             block_tri_matrix<P> &work) const;
   //! returns the wavelet scale factor for hier2wav
   P wav_scale_h2w() const { return iwav_scale; }
+  P hybrid_wav_scale_h2w() const { return hybrid_iwav_scale; }
 
 
   #ifdef ASGARD_USE_GPU
@@ -529,7 +582,10 @@ public:
   size_t used_bytes() const {
     size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
               + nodes1d_.size() * sizeof(P) + (it1.size() + it2.size()) * sizeof(P);
-    return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+    t += wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+    for (const auto& mat : hier2wav_hybrid_  ) t += mat.used_bytes();
+    for (const auto& mat : nodal2hier_hybrid_) t += mat.used_bytes();
+    return t;
   }
   //! values for the interpolation field, allows reuse for several interp ops
   mutable std::vector<P> ifield;
@@ -544,6 +600,7 @@ private:
   int block_size = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
+  P hybrid_wav_scale = 0, hybrid_iwav_scale = 0;
 
   std::vector<double> points;
   std::vector<int> horder;
@@ -564,6 +621,9 @@ private:
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
+  block_sparse_matrix<P> vol_identity_;
+  std::array<block_sparse_matrix<P>, max_num_dimensions> nodal2hier_hybrid_;
+  std::array<block_sparse_matrix<P>, max_num_dimensions> hier2wav_hybrid_;
 
   connection_patterns conn_reduced;
 
