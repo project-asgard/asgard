@@ -318,19 +318,12 @@ public:
     (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work);
   }
 
-  __attribute__((noinline)) static void hit_eval_posonly_with_idx() {
-    std::fprintf(stderr, "HIT eval_posonly_with_idx\n");
-    std::fflush(stderr);
-    //std::abort();
-  } 
-
   template<typename tmd_type>
   void eval_posonly_with_idx
       (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
        P time, P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
-    hit_eval_posonly_with_idx();
     size_t const nentries = static_cast<size_t>(grid.num_indexes()) * block_size;
 
     // Must size buffers BEFORE callback writes into them

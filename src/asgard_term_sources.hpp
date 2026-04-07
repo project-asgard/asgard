@@ -84,8 +84,6 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                   std::vector<int> const &indexes, std::vector<P> &vals) const
   {
-    std::fprintf(stderr, "HIT source_entry_interp::operator()(with indexes)\n");
-    std::fflush(stderr);
 
     assert(not is_gpu());
     if (std::holds_alternative<md_mom_and_idx_func<P>>(func)) {
