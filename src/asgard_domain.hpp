@@ -344,7 +344,7 @@ public:
   //! check the number of dimensions, does not cache so the cost is not-trivial
   int num_dims() const {
     int dims = 0;
-    while (dims < 6 and not std::holds_alternative<std::monostate>(funcs_[dims])) ++dims;
+    while (dims < max_num_dimensions and not std::holds_alternative<std::monostate>(funcs_[dims])) ++dims;
     return dims;
   }
   //! returns true if the function is constant in given dimension
