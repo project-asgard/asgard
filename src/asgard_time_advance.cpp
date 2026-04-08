@@ -12,7 +12,7 @@
 namespace asgard::time_advance
 {
 
-std::string toMB(size_t bytes) {
+inline std::string toMB(size_t bytes) {
   std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
   s.insert(0, 11 - s.size(), ' ');
   return s;
