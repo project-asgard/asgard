@@ -15,7 +15,6 @@
 #define ASGARD_RELEASE_INFO "@ASGARD_RELEASE_INFO@"
 
 #cmakedefine ASGARD_BUILD_TESTS
-#cmakedefine ASGARD_LONG_TESTS
 
 #cmakedefine ASGARD_USE_HIGHFIVE
 #cmakedefine ASGARD_USE_TIMER

@@ -6,6 +6,22 @@
 
 namespace asgard
 {
+// helper struct, using an index for an auxiliary field generates
+// strings corresponding to the name, data, grid, and dims fields
+struct auxiliary_strings {
+  auxiliary_strings(int i)
+    : name("aux_field_" + std::to_string(i) + "_name"),
+      data("aux_field_" + std::to_string(i) + "_data"),
+      grid("aux_field_" + std::to_string(i) + "_grid"),
+      dims("aux_field_" + std::to_string(i) + "_dims")
+  {}
+
+  std::string const name;
+  std::string const data;
+  std::string const grid;
+  std::string const dims;
+};
+
 template<typename P>
 void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
                          int degree, sparse_grid const &grid,
@@ -111,10 +127,11 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
     int const num_aux = static_cast<int>(aux_fields.size()) + ((!!moms) ? moms.num_moments() : 0);
     H5Easy::dump(file, "num_aux_fields", num_aux);
     for (int i : iindexof(aux_fields)) {
-      H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_name", aux_fields[i].name);
-      write_vector("aux_field_" + std::to_string(i) + "_data", aux_fields[i].data);
-      write_vector("aux_field_" + std::to_string(i) + "_grid", aux_fields[i].grid);
-      H5Easy::dump(file, "aux_field_" + std::to_string(i) + "_dims", aux_fields[i].num_dimensions);
+      auxiliary_strings auxstr{i};
+      H5Easy::dump(file, auxstr.name, aux_fields[i].name);
+      write_vector(auxstr.data, aux_fields[i].data);
+      write_vector(auxstr.grid, aux_fields[i].grid);
+      H5Easy::dump(file, auxstr.dims, aux_fields[i].num_dims);
     }
   }
 
@@ -124,11 +141,12 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
     {
       int const auxid = static_cast<int>(aux_fields.size()) + i;
       moms.mcompute(grid, moment_id{i}, state, vals);
-      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_name",
+      auxiliary_strings auxstr{auxid};
+      H5Easy::dump(file, auxstr.name,
                    std::string("__moment_") + moms.get_by_id(moment_id{i}).to_string());
-      write_vector("aux_field_" + std::to_string(auxid) + "_data", vals);
-      write_vector("aux_field_" + std::to_string(auxid) + "_grid", moms.get_grid_indexes());
-      H5Easy::dump(file, "aux_field_" + std::to_string(auxid) + "_dims", domain.num_pos());
+      write_vector(auxstr.data, vals);
+      write_vector(auxstr.grid, moms.get_grid_indexes());
+      H5Easy::dump(file, auxstr.dims, domain.num_pos());
     }
   }
 }
@@ -478,14 +496,15 @@ void h5manager<P>::read(std::string const &filename, bool silent,
     aux_fields.resize(0);
     aux_fields.reserve(num_aux);
     for (int i : iindexof(num_aux)) {
-      std::string const name = H5Easy::load<std::string>(file, "aux_field_" + std::to_string(i) + "_name");
+      auxiliary_strings auxstr{i};
+      std::string const name = H5Easy::load<std::string>(file, auxstr.name);
       if (name.rfind("__moment_", 0) == 0)
         continue;
       aux_fields.emplace_back();
       aux_fields.back().name = name;
-      aux_fields.back().num_dimensions = H5Easy::load<int>(file, "aux_field_" + std::to_string(i) + "_dims");
-      aux_fields.back().data = H5Easy::load<std::vector<P>>(file, "aux_field_" + std::to_string(i) + "_data");
-      aux_fields.back().grid = H5Easy::load<std::vector<int>>(file, "aux_field_" + std::to_string(i) + "_grid");
+      aux_fields.back().num_dims = H5Easy::load<int>(file, auxstr.dims);
+      aux_fields.back().data = H5Easy::load<std::vector<P>>(file, auxstr.data);
+      aux_fields.back().grid = H5Easy::load<std::vector<int>>(file, auxstr.grid);
     }
   }
 }

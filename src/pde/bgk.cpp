@@ -20,7 +20,7 @@
  * The (simple) BGK collision operator used here is defined as
  * \f[ \mathcal{C}_{sBGK}[f](x, v, t) = \nu ( M(f) - f) \f]
  * with
- * \f[ M(f)(x, v) = \frac{n(x)}{\sqrt{2\pi \theta(x)}} \exp \left( - \frac{|v - u(x)|^2}{2 \theta(x)} \right) \f]
+ * \f[ M(f)(x, v) = \frac{n(x)}{\left( 2\pi \theta(x) \right)^{3/2}} \exp \left( - \frac{|v - u(x)|^2}{2 \theta(x)} \right) \f]
  * where
  * \f[ n(x) = \int_v f dv, \qquad u(x) = (u_1, u_2, u_3), \quad u_i(x) = \frac{1}{n(x)} \int_v v_i f dv \f]
  * and

@@ -204,7 +204,7 @@ class indexset
 {
 public:
   //! \brief Creates an empty set.
-  indexset() : num_dimensions_(0), num_indexes_(0) {}
+  indexset() = default;
   //! \brief Creates a new set from a vector of sorted indexes.
   indexset(int num_dimensions, std::vector<int> &&indexes)
       : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
@@ -225,7 +225,7 @@ public:
   //! \brief Get the i-th index of the lexicographical order.
   const int *operator[](int64_t i) const
   {
-    return &indexes_[i * num_dimensions_];
+    return std::addressof(indexes_[i * num_dimensions_]);
   }
   //! \brief Get the i-th index of the lexicographical order.
   const int *index(int i) const
@@ -360,8 +360,8 @@ protected:
   }
 
 private:
-  int num_dimensions_;
-  int64_t num_indexes_;
+  int num_dimensions_ = 0;
+  int64_t num_indexes_ = 0;
   std::vector<int> indexes_;
 };
 

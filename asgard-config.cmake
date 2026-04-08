@@ -26,6 +26,7 @@ endif()
 if ("@ASGARD_USE_ROCM@")
   list (APPEND CMAKE_PREFIX_PATH "@ASGARD_ROCM_PATH@/hip" "@ASGARD_ROCM_PATH@")
   enable_language (HIP)
+  find_package(rocblas REQUIRED)
   find_package(rocsolver REQUIRED)
 endif()
 

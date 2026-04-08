@@ -179,8 +179,8 @@ private:
   indexset cells_;
   std::vector<double> coeff_;
 
-  std::array<double, max_num_dimensions> inv_slope = {{1}};
-  std::array<double, max_num_dimensions> shift = {{0}};
+  std::array<double, max_num_dimensions> inv_slope;
+  std::array<double, max_num_dimensions> shift;
   double domain_scale = 0;
 
   // tree for evaluation

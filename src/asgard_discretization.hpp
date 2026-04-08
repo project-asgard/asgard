@@ -562,8 +562,8 @@ public:
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
       aux_fields.back().grid = grid.get_cells(); // assume the current grid
-    if (aux_fields.back().num_dimensions == -1) // default num-dims is the current
-      aux_fields.back().num_dimensions = grid.num_dims();
+    if (aux_fields.back().num_dims == -1) // default num-dims is the current
+      aux_fields.back().num_dims = grid.num_dims();
     rassert(aux_fields.back().data.size()
             == static_cast<size_t>(hier.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
@@ -684,8 +684,7 @@ public:
   void report_memusage(std::ostream &os = std::cout) const;
 
   // performs integration in time
-  friend bool advance_in_time<precision>(
-      discretization_manager<precision> &disc, int64_t num_steps);
+  friend bool advance_in_time<precision>(discretization_manager<precision> &, int64_t);
   // this is the I/O manager
   friend class h5manager<precision>;
   // handles the time-integration meta-data

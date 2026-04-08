@@ -344,7 +344,7 @@ public:
   //! check the number of dimensions, does not cache so the cost is not-trivial
   int num_dims() const {
     int dims = 0;
-    while (dims < 6 and not std::holds_alternative<std::monostate>(funcs_[dims])) ++dims;
+    while (dims < max_num_dimensions and not std::holds_alternative<std::monostate>(funcs_[dims])) ++dims;
     return dims;
   }
   //! returns true if the function is constant in given dimension
@@ -555,7 +555,7 @@ struct aux_field_entry {
   //! reference name for the field, should be unique
   std::string name;
   //! the field can potentially have a different number of dimensions
-  int num_dimensions = -1;
+  int num_dims = -1;
   //! vector data
   std::vector<P> data;
   //! multi-indexes

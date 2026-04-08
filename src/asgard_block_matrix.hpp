@@ -406,7 +406,7 @@ public:
   size_t used_bytes() const { return data_.total_size() * sizeof(P);}
 
 private:
-  int64_t nrows_; // avoids constantly dividing by 3
+  int64_t nrows_ = 0; // avoids constantly dividing by 3
   vector2d<P> data_;
 };
 
