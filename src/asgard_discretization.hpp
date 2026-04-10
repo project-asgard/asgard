@@ -18,6 +18,8 @@
 namespace asgard
 {
 
+inline sparse_grid* global_grid = nullptr;
+
 /*!
  * \ingroup asgard_discretization
  * \brief Wrapper around several aspects of the pde discretization

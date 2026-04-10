@@ -12,6 +12,7 @@ discretization_manager<precision>::discretization_manager(
     : discretization_manager()
 {
   verb = pde.options().verbosity.value_or(verbosity);
+  global_grid = &grid;
 
   #ifdef ASGARD_ALWAYS_SAFE_STEP
   safe_step = true;

@@ -1,5 +1,4 @@
 #include "asgard_interp.hpp"
-
 #include "asgard_small_mats.hpp"
 
 namespace asgard

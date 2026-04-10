@@ -4,6 +4,9 @@
 
 namespace asgard
 {
+
+inline bool is_hybrid_ = false;
+
 /*!
  * \brief Describes the stages of the interpolation operation.
  *
@@ -271,10 +274,19 @@ public:
         tmd.interp(time, nodes(grid), nodal, it2);
       }
     }
-    if (plan.uses_hier())
-      nodal2hier(grid, conn, it2.data(), y, work);
-    else
-      nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
+    if (plan.uses_hier()) {
+      if (is_hybrid_) {
+        nodal2hier_hybrid(grid, conn, it2.data(), y, work);
+      } else {
+        nodal2hier(grid, conn, it2.data(), y, work);
+      }
+    } else {
+      if (is_hybrid_) {
+        nodal2wav_hybrid(grid, conn, alpha, it2.data(), beta, y, work, it1);
+      } else {
+        nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
+      }
+    }
   }
   /*!
    * \brief Performs the interpolation of the function func
