@@ -14,26 +14,28 @@
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_ellipticns Example: Elliptic equation
+ * \addtogroup asgard_examples_ellipticns Example: Non-separable elliptic equation
  *
- * \par Elliptic equation
- * Creates a simple elliptic PDE that multiplies across the dimensions
- * the same one-dimensional boundary value problem
- * \f[ -\frac{d^2}{d x^2} f = 2 \f]
- * the domain is (0, 1) and the exact solution is
- * \f[ f(x) = 2 x - x^2 \f]
- * The solution can be obtained by assigning homogeneous boundary conditions,
- * Dirichlet on the left and Neumann on the right,
- * or alternatively we can assign inhomogeneous conditions
- * \f[ \frac{d}{dx} f(0) = 2, \qquad f(1) = 1 \f]
- * Since the solution is a quadratic function, using degree of 2 or more
- * should resolve the exact solution regardless of the grid
- * (up to rounding error due to conditioning and precision).
+ * \par Non-separable elliptic equation
+ * Solves the 3D elliptic equation
+ * \f[ -\nabla \cdot \eta(x, y, z) \nabla f = s(x, y, z) \f]
+ * over the domain (0, 1)^3 and the non-separable coefficient is
+ * \f[ \eta(x, y, z) = 1 + 0.5 \sin(2 \pi (x + y + z)) \f]
+ * and the source is chosen to make the exact solution
+ * \f[ f(x, y, z) = \cos(x + y + 2 z) \f]
+ * The solution can be obtained by assigning inhomogeneous non-separable boundary conditions,
+ * Dirichlet in x and Neumann in y and z.
  *
  * \par
- * This examples shows how to set different types of boundary conditions
- * and how to solve a steady state problem.
+ * This examples shows how to set different types of non-separable coefficients
+ * and boundary conditions.
  */
+
+/*!
+ * \ingroup asgard_examples_ellipticns
+ * \brief The ratio of circumference to diameter of a circle
+ */
+double constexpr PI = asgard::PI;
 
 /*!
  * \ingroup asgard_examples_ellipticns
@@ -42,18 +44,12 @@
  * Constructs the pde description for the given umber of dimensions
  * and options.
  *
- * \tparam boudnary indicates the type of boundary to use
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
- * \param num_dims number of dimensions
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme description
- *
- * \b Note: The asgard namespace includes the name \b boundary_type,
- * it a natural name but it is possible to create a conflict if the entire namespace
- * is included.
  *
  * \snippet elliptic_nonsep.cpp ellipticns make
  */
@@ -77,7 +73,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   options.force_step_method(asgard::time_method::steady);
 
   // OK for small problems, larger one should switch to gmres or bicgstab
-  options.default_solver = asgard::solver_method::direct;
+  options.default_solver = asgard::solver_method::bicgstab;
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
@@ -85,10 +81,43 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
+  asgard::term_1d<P> I = asgard::term_identity{};
+
+  asgard::term_md<P> divx = { asgard::term_div<P>{-1}, I, I};
+  asgard::term_md<P> divy = { I, asgard::term_div<P>{-1, asgard::boundary_type::bothsides}, I};
+  asgard::term_md<P> divz = { I, I, asgard::term_div<P>{-1, asgard::boundary_type::bothsides}};
+
+  asgard::term_md<P> gradx = { asgard::term_grad<P>{1, asgard::boundary_type::bothsides}, I, I};
+  asgard::term_md<P> grady = { I, asgard::term_div<P>{1}, I};
+  asgard::term_md<P> gradz = { I, I, asgard::term_div<P>{1}};
+
+  auto eta = [=](P, asgard::vector2d<P> const &nodes,
+                 std::vector<P> const &f, std::vector<P> &vals) ->
+    void {
+      // ignore the first input, it is time but it is not implemented yet
+      for (size_t i = 0; i < f.size(); i++) {
+        P const x = nodes[i][0];
+        P const y = nodes[i][1];
+        P const z = nodes[i][2];
+
+        vals[i] = 1 + 0.5 * sin(2 * PI * (x + y + z));
+      }
+    };
+
+  pde += {divx, asgard::term_interp<P>{eta}, gradx};
+  pde += {divy, asgard::term_interp<P>{eta}, grady};
+  pde += {divz, asgard::term_interp<P>{eta}, gradz};
+
+  P const dx = pde.cell_size(asgard::dimension_id{0});
+  P const dy = pde.cell_size(asgard::dimension_id{1});
+  P const dz = pde.cell_size(asgard::dimension_id{2});
+
+  pde += { asgard::term_penalty<P>{P{1} / dx}, I, I};
+  pde += { I, asgard::term_penalty<P>{P{1} / dy}, I};
+  pde += { I, I, asgard::term_penalty<P>{P{1} / dz}};
 
   // if an initial condition is specified, it will be used as the initial guess
-  // of an iterative solver, other zeros is used as the initial guess
-  // the direct solver does not use an initial guess
+  // of an iterative solver, otherwise zeros is used as the initial guess
 
   return pde;
 #ifndef __ASGARD_DOXYGEN_SKIP
