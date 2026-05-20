@@ -44,7 +44,7 @@ discretization_manager<precision>::discretization_manager(
 template<typename precision>
 void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
-  conn = connection_patterns(pde.max_level());
+  connection_patterns conn(pde.max_level());
 
   int const degree_ = options_.degree.value();
 
@@ -168,7 +168,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   // first we must initialize the terms, which will also initialize the kron
   // operations and the interpolation engine
-  terms = term_manager<precision>(options_, domain_, pde, std::move(grid), hier, conn);
+  terms = term_manager<precision>(options_, domain_, pde, std::move(grid), hier, std::move(conn));
 
   set_initial_condition();
 
@@ -179,7 +179,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   start_moments(); // grid may have changes above, wait to start the moments
 
-  terms.build_matrices(conn, hier);
+  terms.build_matrices(hier);
 
   if (high_verbosity())
     progress_report();
@@ -205,7 +205,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
                              options_, domain_, grid,
                              dtime, aux_fields, state);
 
-  conn = connection_patterns(options_.max_level());
+  connection_patterns conn(options_.max_level());
 
   #ifdef ASGARD_USE_GPU
   grid.gpu_sync();
@@ -221,11 +221,11 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     stepper = time_advance_manager<precision>(dtime, options_);
   }
 
-  terms = term_manager<precision>(options_, domain_, pde, std::move(grid), hier, conn);
+  terms = term_manager<precision>(options_, domain_, pde, std::move(grid), hier, std::move(conn));
 
   start_moments();
 
-  terms.build_matrices(conn, hier);
+  terms.build_matrices(hier);
 
   if (not stop_verbosity()) {
     if (not options_.title.empty())
@@ -304,7 +304,7 @@ void discretization_manager<precision>::compute_moments_local(
   terms.moms.cache_moments(gid, terms.grid, f);
   terms.moms.load_interp(gid, terms.interp, terms.kwork);
   compute_poisson(gid);
-  terms.rebuild_moment_terms(gid, conn, hier);
+  terms.rebuild_moment_terms(gid, hier);
 }
 
 template<typename precision>
@@ -357,7 +357,7 @@ void discretization_manager<precision>::set_initial_condition()
     state.resize(grid.num_indexes() * hier.block_size());
 
     if (initial_md_)
-      terms.interp(grid, conn, {}, time, 1,
+      terms.interp(grid, terms.conn, {}, time, 1,
                    // using the moment signature, even thought the initial conditions
                    // cannot have a moment dependence
                    [&](precision t, vector2d<precision> const &x,
@@ -474,7 +474,7 @@ void discretization_manager<precision>::print_mats() const {
       if (terms.terms[tid].coeffs[d].empty()) {
         std::cout << "identity\n";
       } else {
-        terms.terms[tid].coeffs[d].to_full(conn).print(std::cout);
+        terms.terms[tid].coeffs[d].to_full(terms.conn).print(std::cout);
       }
       std::cout << '\n';
     }
@@ -556,13 +556,13 @@ void discretization_manager<precision>::ode_rhs_base(
     #else
     tools::time_event performance_("ode-rhs terms");
     #endif
-    terms.apply(group, conn, -1, in, 0, out);
+    terms.apply(group, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
   }{
     tools::time_event performance_("ode-rhs sources");
-    terms.template apply_sources<data_mode::increment>(group, conn, hier, time, 1, out);
+    terms.template apply_sources<data_mode::increment>(group, hier, time, 1, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -638,7 +638,7 @@ void discretization_manager<precision>::ode_euler_base(
       out.resize(in.size());
 
     if (term_scal.value != 0) {
-      terms.apply(group, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      terms.apply(group, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
       if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
     } else {
@@ -650,10 +650,9 @@ void discretization_manager<precision>::ode_euler_base(
   }{
     tools::time_event performance_("ode-rhs sources");
     if (source_scal.value == 1)
-      terms.template apply_sources<data_mode::increment>(group, conn, hier, time, 1, out);
+      terms.template apply_sources<data_mode::increment>(group, hier, time, 1, out);
     else
-      terms.template apply_sources<data_mode::scal_inc>(group, conn, hier, time,
-                                                        source_scal.value, out);
+      terms.template apply_sources<data_mode::scal_inc>(group, hier, time, source_scal.value, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -680,7 +679,7 @@ void discretization_manager<precision>::ode_rhs_sources(
       terms.mpiwork = src;
     }
     if (is_leader()) {
-      terms.template apply_sources<mode>(group, conn, hier, time, alpha, terms.mpiwork);
+      terms.template apply_sources<mode>(group, hier, time, alpha, terms.mpiwork);
       terms.resources.reduce_add(terms.mpiwork, src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
@@ -691,12 +690,12 @@ void discretization_manager<precision>::ode_rhs_sources(
           else
             return mode;
         }();
-      terms.template apply_sources<mm>(group, conn, hier, time, alpha, src);
+      terms.template apply_sources<mm>(group, hier, time, alpha, src);
       terms.resources.reduce_add(src);
     }
   } else {
   #endif
-    terms.template apply_sources<mode>(group, conn, hier, time, alpha, src);
+    terms.template apply_sources<mode>(group, hier, time, alpha, src);
   #ifdef ASGARD_USE_MPI
   }
   #endif
@@ -735,7 +734,7 @@ void discretization_manager<precision>::compute_moments_local_gpu(
     terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.kwork, wf.vec);
   }
   compute_poisson(gid);
-  terms.rebuild_moment_terms(gid, conn, hier);
+  terms.rebuild_moment_terms(gid, hier);
 }
 
 template<typename precision>
@@ -791,13 +790,13 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
     #endif
-    terms.apply_gpu(group, conn, -1, in, 0, out);
+    terms.apply_gpu(group, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
       compute->fill_zeros(num_entries, out);
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
-    terms.template apply_sources_gpu<data_mode::increment>(group, conn, hier, time, 1, out);
+    terms.template apply_sources_gpu<data_mode::increment>(group, hier, time, 1, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -869,7 +868,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
     }
 
     if (term_scal.value != 0) {
-      terms.apply_gpu(group, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      terms.apply_gpu(group, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
       if (not terms.has_terms())
         compute->fill_zeros(num_entries, out);
     } else {
@@ -879,10 +878,9 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
     if (source_scal.value == 1)
-      terms.template apply_sources_gpu<data_mode::increment>(group, conn, hier, time, 1, out);
+      terms.template apply_sources_gpu<data_mode::increment>(group, hier, time, 1, out);
     else
-      terms.template apply_sources_gpu<data_mode::scal_inc>(group, conn, hier, time,
-                                                            source_scal.value, out);
+      terms.template apply_sources_gpu<data_mode::scal_inc>(group, hier, time, source_scal.value, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -910,8 +908,7 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
       gpu::memcopy_dev2dev(num_entries, src, terms.gpumpi_work.data());
     }
     if (is_leader()) {
-      terms.template apply_sources_gpu<mode>(group, conn, hier, time, alpha,
-                                             terms.gpumpi_work.data());
+      terms.template apply_sources_gpu<mode>(group, hier, time, alpha, terms.gpumpi_work.data());
       terms.resources.reduce_add_gpu(num_entries, terms.gpumpi_work.data(), src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
@@ -922,12 +919,12 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
           else
             return mode;
         }();
-      terms.template apply_sources_gpu<mm>(group, conn, hier, time, alpha, src);
+      terms.template apply_sources_gpu<mm>(group, hier, time, alpha, src);
       terms.resources.reduce_add_gpu(num_entries, src);
     }
   } else {
   #endif
-    terms.template apply_sources_gpu<mode>(group, conn, hier, time, alpha, src);
+    terms.template apply_sources_gpu<mode>(group, hier, time, alpha, src);
   #ifdef ASGARD_USE_MPI
   }
   #endif
@@ -957,7 +954,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base(
     if (x.back() == std::numeric_limits<precision>::max())
       break;
 
-    terms.apply(group, conn, 1, x, 0, y);
+    terms.apply(group, 1, x, 0, y);
 
     if (not terms.has_terms()) // R must be zeroed out explicitly
       std::fill(y.begin(), y.end(), 0);
@@ -986,7 +983,7 @@ void discretization_manager<precision>::mpi_leader_apply_base(
   tools::time_event performance_("mpi_leader_apply");
 
   if (terms.resources.num_ranks() == 1) {
-    terms.apply(group, conn, alpha, x, beta, y);
+    terms.apply(group, alpha, x, beta, y);
     return;
   }
 
@@ -1002,7 +999,7 @@ void discretization_manager<precision>::mpi_leader_apply_base(
 
   terms.resources.bcast(n, x);
 
-  terms.apply(group, conn, 1, x, 0, work.data());
+  terms.apply(group, 1, x, 0, work.data());
 
   if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
     std::fill_n(work.begin(), n, 0);
@@ -1042,7 +1039,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base_gpu(
     if (back == std::numeric_limits<precision>::max())
       break;
 
-    terms.apply_gpu(group, conn, 1, x, 0, y);
+    terms.apply_gpu(group, 1, x, 0, y);
 
     if (not terms.has_terms()) // R must be zeroed out explicitly
       compute->fill_zeros(num_entries, x);
@@ -1074,7 +1071,7 @@ void discretization_manager<precision>::mpi_leader_apply_base_gpu(
   tools::time_event performance_("mpi_leader_apply");
 
   if (terms.resources.num_ranks() == 1) {
-    terms.apply_gpu(group, conn, alpha, x, beta, y);
+    terms.apply_gpu(group, alpha, x, beta, y);
     return;
   }
 
@@ -1092,7 +1089,7 @@ void discretization_manager<precision>::mpi_leader_apply_base_gpu(
 
   terms.resources.bcast_gpu(num_entries, x);
 
-  terms.apply_gpu(group, conn, 1, x, 0, work);
+  terms.apply_gpu(group, 1, x, 0, work);
 
   if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
     compute->fill_zeros(num_entries, work);

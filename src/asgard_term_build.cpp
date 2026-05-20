@@ -60,9 +60,9 @@ template<typename P>
 term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
                               pde_scheme<P> &pde, sparse_grid &&grid_in,
                               hierarchy_manipulator<P> const &hier,
-                              connection_patterns const &conn)
+                              connection_patterns &&conn_in)
   : num_dims(domain.num_dims()), max_level(options.max_level()),  grid(std::move(grid_in)),
-    basis(hier.degree()),
+    conn(std::move(conn_in)), basis(hier.degree()),
     moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
@@ -192,7 +192,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   }
 
   // set the mass, needed for the sources below
-  build_mass_matrices(hier, conn); // large, up to max-level
+  build_mass_matrices(hier); // large, up to max-level
   rebuild_mass_matrices(); // small, up to the current level
 
   {// copy the separable sources, prepare the constant components
@@ -588,8 +588,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 template<typename P>
 void term_manager<P>::build_const_terms(
-    int const tid, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
+    int const tid, hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
     return;
@@ -626,7 +625,7 @@ void term_manager<P>::build_const_terms(
       if (tmd.tmd.dim(d).change() == changes_with::time)
         continue;
 
-      rebuild_term1d(terms[tid], d, max_level, conn, hier, precon, alpha, merge_with_interp);
+      rebuild_term1d(terms[tid], d, max_level, hier, precon, alpha, merge_with_interp);
       if (terms[tid].tmd.dim(d).is_identity())
         id_dirs.push_back(d);
     }
@@ -649,15 +648,14 @@ void term_manager<P>::build_const_terms(
       if (t1d.change() == changes_with::none)
         level = max_level; // build up to the max
 
-      rebuild_term1d(terms[tid], d, level, conn, hier, precon, alpha);
+      rebuild_term1d(terms[tid], d, level, hier, precon, alpha);
     } // move to next dimension d
   }
 }
 
 template<typename P>
 void term_manager<P>::rebuild_term1d(
-    term_entry<P> &tentry, int const dim, int level,
-    connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+    term_entry<P> &tentry, int const dim, int level, hierarchy_manipulator<P> const &hier,
     precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;

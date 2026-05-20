@@ -243,7 +243,7 @@ public:
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
     rassert(x.size() == state.size(), "the vector size must match the state_size()");
-    return terms.normL2(conn, x);
+    return terms.normL2(x);
   }
 
   //! applies all terms, does not recompute moments
@@ -251,53 +251,52 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all());
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all());
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), alpha, x, beta, y);
   }
   //! applies terms for the given group, does not recompute moments
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, conn, alpha, x, beta, y);
+    terms.apply(gid, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, conn, alpha, x, beta, y);
+    terms.apply(gid, alpha, x, beta, y);
   }
   #ifdef ASGARD_USE_GPU
   //! applies all terms, non-owning array signature
-  void terms_apply_gpu(precision alpha, precision const x[], precision beta,
-                       precision y[]) const
+  void terms_apply_gpu(precision alpha, precision const x[], precision beta, precision y[]) const
   {
     terms_apply_gpu(group_id::all(), alpha, x, beta, y);
   }
@@ -306,12 +305,12 @@ public:
                        precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply_gpu(gid, conn, alpha, x, beta, y);
+    terms.apply_gpu(gid, alpha, x, beta, y);
   }
   #endif
 
@@ -628,7 +627,7 @@ public:
   //! return the hierarchy_manipulator
   hierarchy_manipulator<precision> const &get_hier() const { return hier; }
   //! return the connection patterns
-  connection_patterns const &get_conn() const { return conn; }
+  connection_patterns const &get_conn() const { return terms.conn; }
 
   //! recomputes the Poisson term for the given group
   void compute_poisson(group_id gid = group_id::all()) const {
@@ -755,7 +754,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, terms.grid);
+    refinement.refine(terms.conn, terms, f, mode, terms.grid);
   }
   #ifdef ASGARD_USE_GPU
   //! refines the sparse grid using the given strategy and
@@ -763,7 +762,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, terms.grid);
+    refinement.refine(terms.conn, terms, f, mode, terms.grid);
   }
   #endif
 
@@ -796,7 +795,7 @@ private:
   pde_domain<precision> domain_;
 
   // sparse_grid grid;
-  connection_patterns conn;
+  // connection_patterns conn;
   hierarchy_manipulator<precision> hier;
   #ifdef ASGARD_USE_MPI
   int grid_synced_gen_ = -2;

@@ -751,18 +751,18 @@ void solver_manager<P>::update_grid(
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
       if (terms.resources.is_leader()) {
-        terms.make_jacobi(group, conn, terms.mpiwork);
+        terms.make_jacobi(group, terms.mpiwork);
         terms.resources.reduce_add(terms.mpiwork, jacobi);
       } else {
-        terms.make_jacobi(group, conn, jacobi);
+        terms.make_jacobi(group, jacobi);
         terms.resources.reduce_add(jacobi);
         return;
       }
     } else {
-      terms.make_jacobi(group, conn, jacobi);
+      terms.make_jacobi(group, jacobi);
     }
     #else
-    terms.make_jacobi(group, conn, jacobi);
+    terms.make_jacobi(group, jacobi);
     #endif
 
     if (alpha == 0) { // steady state solver
