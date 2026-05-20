@@ -58,10 +58,11 @@ bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
 
 template<typename P>
 term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
-                              pde_scheme<P> &pde, sparse_grid const &grid,
+                              pde_scheme<P> &pde, sparse_grid &&grid_in,
                               hierarchy_manipulator<P> const &hier,
                               connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), basis(hier.degree()),
+  : num_dims(domain.num_dims()), max_level(options.max_level()),  grid(std::move(grid_in)),
+    basis(hier.degree()),
     moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
@@ -192,7 +193,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   // set the mass, needed for the sources below
   build_mass_matrices(hier, conn); // large, up to max-level
-  rebuild_mass_matrices(grid); // small, up to the current level
+  rebuild_mass_matrices(); // small, up to the current level
 
   {// copy the separable sources, prepare the constant components
     std::vector<separable_func<P>> &sep = pde.sources_sep_;
@@ -247,7 +248,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
-  prapare_kron_workspace(grid); // setup kronmult workspace
+  prapare_kron_workspace(); // setup kronmult workspace
 
   // reshuffle the terms and sources across MPI ranks and GPU devices
   has_terms_ = not terms.empty();
@@ -587,7 +588,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 template<typename P>
 void term_manager<P>::build_const_terms(
-    int const tid, sparse_grid const &grid, connection_patterns const &conn,
+    int const tid, connection_patterns const &conn,
     hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
 {
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms

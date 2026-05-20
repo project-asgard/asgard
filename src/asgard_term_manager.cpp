@@ -7,7 +7,7 @@ namespace asgard
 
 template<typename P>
 void term_manager<P>::mass_apply(
-    sparse_grid const &grid, connection_patterns const &conns,
+    connection_patterns const &conns,
     P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const
 {
   if (beta == 0) {
@@ -26,11 +26,11 @@ void term_manager<P>::mass_apply(
 }
 template<typename P>
 P term_manager<P>::normL2(
-    sparse_grid const &grid, connection_patterns const &conns,
+    connection_patterns const &conns,
     std::vector<P> const &x) const
 {
   if (mass_term) {
-    mass_apply(grid, conns, 1, x, 0, t1);
+    mass_apply(conns, 1, x, 0, t1);
     P nrm = 0;
     for (size_t i = 0; i < x.size(); i++)
       nrm += x[i] * t1[i];
@@ -46,7 +46,7 @@ P term_manager<P>::normL2(
 template<typename P>
 template<typename vector_type_x, typename vector_type_y>
 void term_manager<P>::apply_tmpl(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const
 {
   bool constexpr using_vectors = std::is_same_v<vector_type_x, std::vector<P> const &>;
@@ -58,7 +58,7 @@ void term_manager<P>::apply_tmpl(
   }
   assert(gid.is_valid(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
+  auto kterm = [&conns, this](term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory()) {
         interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, in,
@@ -222,7 +222,7 @@ void term_manager<P>::prapare_kron_workspace_gpu(int64_t num_entries)
 template<typename P>
 template<typename vector_type_x, typename vector_type_y, compute_mode mode>
 void term_manager<P>::apply_tmpl_gpu(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     P alpha, vector_type_x x, P beta, vector_type_y y) const
 {
   bool constexpr using_cpu_vectors = std::is_same_v<vector_type_x, std::vector<P> const &>;
@@ -255,7 +255,7 @@ void term_manager<P>::apply_tmpl_gpu(
 
   assert(-1 <= gid() and gid() < static_cast<int>(term_groups.size()));
 
-  auto kterm = [&grid, &conns, this]
+  auto kterm = [&conns, this]
                (gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
     -> void {
       if (tme.is_interpolatory()) {
@@ -407,7 +407,7 @@ void term_manager<P>::apply_tmpl_gpu(
 
 template<typename P>
 void term_manager<P>::make_jacobi(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     std::vector<P> &y) const
 {
   int const block_size      = fm::ipow(basis.pdof, grid.num_dims());
@@ -434,7 +434,7 @@ void term_manager<P>::make_jacobi(
     }
 
     if (it->num_chain == 1) {
-      kron_diag<data_mode::increment>(grid, conns, *it, block_size, y);
+      kron_diag<data_mode::increment>(conns, *it, block_size, y);
 
       icurrent++;
     } else {
@@ -443,11 +443,11 @@ void term_manager<P>::make_jacobi(
 
       std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
 
-      kron_diag<data_mode::increment>(grid, conns, *(it + num_chain - 1),
+      kron_diag<data_mode::increment>(conns, *(it + num_chain - 1),
                                       block_size, kwork.w1);
 
       for (int i = num_chain - 2; i >= 0; --i) {
-        kron_diag<data_mode::multiply>(grid, conns, *(it + i),
+        kron_diag<data_mode::multiply>(conns, *(it + i),
                                        block_size, kwork.w1);
       }
 ASGARD_OMP_PARFOR_SIMD
@@ -462,7 +462,7 @@ ASGARD_OMP_PARFOR_SIMD
 template<typename P>
 template<data_mode mode>
 void term_manager<P>::kron_diag(
-    sparse_grid const &grid, connection_patterns const &conn,
+    connection_patterns const &conn,
     term_entry<P> const &tme, int const block_size, std::vector<P> &y) const
 {
   static_assert(mode == data_mode::increment or mode == data_mode::multiply);
@@ -538,31 +538,31 @@ void term_manager<P>::print_bytes(std::ostream &os) const {
 template struct term_manager<double>;
 
 template void term_manager<double>::kron_diag<data_mode::increment>(
-    sparse_grid const &, connection_patterns const &,
+    connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
 template void term_manager<double>::kron_diag<data_mode::multiply>(
-    sparse_grid const &, connection_patterns const &,
+    connection_patterns const &,
     term_entry<double> const &, int const, std::vector<double> &) const;
 
 template void term_manager<double>::apply_tmpl<std::vector<double> const &, std::vector<double> &>(
-    group_id, sparse_grid const &, connection_patterns const &, double,
+    group_id, connection_patterns const &, double,
     std::vector<double> const &, double, std::vector<double> &) const;
 template void term_manager<double>::apply_tmpl<double const[], double[]>(
-    group_id, sparse_grid const &, connection_patterns const &, double,
+    group_id, connection_patterns const &, double,
     double const[], double, double[]) const;
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<double>::apply_tmpl_gpu<std::vector<double> const &, std::vector<double> &, compute_mode::cpu>(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     double alpha, std::vector<double> const &x, double beta, std::vector<double> &y) const;
 template void term_manager<double>::apply_tmpl_gpu<double const[], double[], compute_mode::cpu>(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     double alpha, double const x[], double beta, double y[]) const;
 template void term_manager<double>::apply_tmpl_gpu<gpu::vector<double> const &, gpu::vector<double> &, compute_mode::gpu>(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     double alpha, gpu::vector<double> const &x, double beta, gpu::vector<double> &y) const;
 template void term_manager<double>::apply_tmpl_gpu<double const[], double[], compute_mode::gpu>(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
+    group_id gid, connection_patterns const &conns,
     double alpha, double const x[], double beta, double y[]) const;
 #endif
 
@@ -572,31 +572,29 @@ template void term_manager<double>::apply_tmpl_gpu<double const[], double[], com
 template struct term_manager<float>;
 
 template void term_manager<float>::kron_diag<data_mode::increment>(
-    sparse_grid const &, connection_patterns const &,
-    term_entry<float> const &, int const, std::vector<float> &) const;
+    connection_patterns const &, term_entry<float> const &, int const, std::vector<float> &) const;
 template void term_manager<float>::kron_diag<data_mode::multiply>(
-    sparse_grid const &, connection_patterns const &,
-    term_entry<float> const &, int const, std::vector<float> &) const;
+    connection_patterns const &, term_entry<float> const &, int const, std::vector<float> &) const;
 
 template void term_manager<float>::apply_tmpl<std::vector<float> const &, std::vector<float> &>(
-    group_id, sparse_grid const &, connection_patterns const &, float,
+    group_id, connection_patterns const &, float,
     std::vector<float> const &, float, std::vector<float> &) const;
 template void term_manager<float>::apply_tmpl<float const[], float[]>(
-    group_id, sparse_grid const &, connection_patterns const &, float,
+    group_id, connection_patterns const &, float,
     float const[], float, float[]) const;
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<float>::apply_tmpl_gpu<std::vector<float> const &, std::vector<float> &, compute_mode::cpu>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     float, std::vector<float> const &, float beta, std::vector<float> &) const;
 template void term_manager<float>::apply_tmpl_gpu<float const[], float[], compute_mode::cpu>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     float, float const[], float, float[]) const;
 template void term_manager<float>::apply_tmpl_gpu<gpu::vector<float> const &, gpu::vector<float> &, compute_mode::gpu>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     float, gpu::vector<float> const &, float, gpu::vector<float> &) const;
 template void term_manager<float>::apply_tmpl_gpu<float const[], float[], compute_mode::gpu>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     float, float const[], float, float[]) const;
 #endif
 

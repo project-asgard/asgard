@@ -13,7 +13,7 @@ namespace asgard
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(
-    group_id group, sparse_grid const &grid, connection_patterns const &conns,
+    group_id group, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
@@ -35,13 +35,13 @@ void term_manager<P>::apply_sources(
       int tid = bc.term_index - 1;
       while (tid > 0 and terms[tid - 1].is_chain_link()) {
         // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(grid, conns, terms[tid], 1, t1, 0, t2);
+        kron_term(conns, terms[tid], 1, t1, 0, t2);
         std::swap(t1, t2);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(grid, conns, terms[tid - 1], al, t1.data(), 0, data);
+      kron_term(conns, terms[tid - 1], al, t1.data(), 0, data);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -138,7 +138,7 @@ void term_manager<P>::apply_sources(
     }
 
     if (sources_have_time_dep or bcs_have_time_dep)
-      rebuild_mass_matrices(grid);
+      rebuild_mass_matrices();
 
     sources_grid_gen = grid.generation();
   }
@@ -281,7 +281,7 @@ void term_manager<P>::apply_sources(
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources_gpu(
-    group_id group, sparse_grid const &grid, connection_patterns const &conns,
+    group_id group, connection_patterns const &conns,
     hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
@@ -308,13 +308,13 @@ void term_manager<P>::apply_sources_gpu(
       int tid = bc.term_index - 1;
       while (tid > 0 and terms[tid - 1].is_chain_link()) {
         // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(dev, grid, conns, terms[tid], 1, gt1, 0, gt2);
+        kron_term(dev, conns, terms[tid], 1, gt1, 0, gt2);
         std::swap(gt1, gt2);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(grid, conns, terms[tid - 1], al, gt1, 0, data);
+      kron_term(conns, terms[tid - 1], al, gt1, 0, data);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -371,7 +371,7 @@ void term_manager<P>::apply_sources_gpu(
     }
 
     if (sources_have_time_dep or bcs_have_time_dep)
-      rebuild_mass_matrices(grid);
+      rebuild_mass_matrices();
 
     sources_gpu_grid_gen = grid.generation();
   }
@@ -532,30 +532,30 @@ void term_manager<P>::apply_sources_gpu(
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template void term_manager<double>::apply_sources<data_mode::replace>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::increment>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<double>::apply_sources_gpu<data_mode::replace>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::increment>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<double> const &, double, double, double[]);
 #endif
 
@@ -563,30 +563,30 @@ template void term_manager<double>::apply_sources_gpu<data_mode::scal_rep>(
 
 #ifdef ASGARD_ENABLE_FLOAT
 template void term_manager<float>::apply_sources<data_mode::replace>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::increment>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<float>::apply_sources_gpu<data_mode::replace>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::increment>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, sparse_grid const &, connection_patterns const &,
+    group_id, connection_patterns const &,
     hierarchy_manipulator<float> const &, float, float, float[]);
 #endif
 

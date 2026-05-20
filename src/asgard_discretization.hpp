@@ -53,7 +53,7 @@ public:
   int degree() const { return hier.degree(); }
 
   //! returns the number of dimensions
-  int num_dims() const { return grid.num_dims(); }
+  int num_dims() const { return terms.grid.num_dims(); }
   //! returns the max level of the grid
   int max_level() const { return terms.max_level; }
   //! returns the user provided program options
@@ -93,7 +93,7 @@ public:
   int64_t num_dof() const {
     // developer purposes mostly, need to know the state inbetween computations
     // when the state vector has not been updated yet due to GPU/MPI considerations
-    return grid.num_indexes() * hier.block_size();
+    return terms.grid.num_indexes() * hier.block_size();
   }
 
   //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
@@ -243,7 +243,7 @@ public:
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
     rassert(x.size() == state.size(), "the vector size must match the state_size()");
-    return terms.normL2(grid, conn, x);
+    return terms.normL2(conn, x);
   }
 
   //! applies all terms, does not recompute moments
@@ -256,7 +256,7 @@ public:
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
@@ -268,7 +268,7 @@ public:
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), conn, alpha, x, beta, y);
   }
   //! applies terms for the given group, does not recompute moments
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
@@ -280,7 +280,7 @@ public:
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, conn, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
@@ -292,7 +292,7 @@ public:
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, conn, alpha, x, beta, y);
   }
   #ifdef ASGARD_USE_GPU
   //! applies all terms, non-owning array signature
@@ -311,7 +311,7 @@ public:
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply_gpu(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_gpu(gid, conn, alpha, x, beta, y);
   }
   #endif
 
@@ -494,7 +494,7 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes());
+    os << "  grid size: " << std::setw(12) << tools::split_style(terms.grid.num_indexes());
     if (ndof >= 0) {
       os << "  dof: " << std::setw(14) << tools::split_style(ndof);
     } else {
@@ -561,9 +561,9 @@ public:
   void add_aux_field(aux_field_entry<precision> f) {
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
-      aux_fields.back().grid = grid.get_cells(); // assume the current grid
+      aux_fields.back().grid = terms.grid.get_cells(); // assume the current grid
     if (aux_fields.back().num_dims == -1) // default num-dims is the current
-      aux_fields.back().num_dims = grid.num_dims();
+      aux_fields.back().num_dims = terms.grid.num_dims();
     rassert(aux_fields.back().data.size()
             == static_cast<size_t>(hier.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
@@ -607,17 +607,17 @@ public:
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! returns a ref to the sparse grid
-  sparse_grid const &get_grid() const { return grid; }
+  sparse_grid const &get_grid() const { return terms.grid; }
   //! returns the current grid generation
-  int grid_generation() const { return grid.generation(); }
+  int grid_generation() const { return terms.grid.generation(); }
   //! synchronizes the grid across MPI ranks and GPU devices
   void grid_sync() {
     #ifdef ASGARD_USE_MPI
-    grid.mpi_sync(terms.resources, grid_synced_gen_);
-    grid_synced_gen_ = grid.generation();
+    terms.grid.mpi_sync(terms.resources, grid_synced_gen_);
+    grid_synced_gen_ = terms.grid.generation();
     #endif
     #ifdef ASGARD_USE_GPU
-    grid.gpu_sync();
+    terms.grid.gpu_sync();
     #endif
   }
   //! returns the term manager
@@ -738,7 +738,7 @@ protected:
   reconstruct_solution get_local_snapshot() const
   {
     reconstruct_solution shot(
-        num_dims(), grid.num_indexes(), grid[0], degree(), state.data());
+        num_dims(), terms.grid.num_indexes(), terms.grid[0], degree(), state.data());
 
     std::array<double, max_num_dimensions> xmin, xmax;
     for (int d : iindexof(num_dims())) {
@@ -755,7 +755,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, grid);
+    refinement.refine(conn, terms, f, mode, terms.grid);
   }
   #ifdef ASGARD_USE_GPU
   //! refines the sparse grid using the given strategy and
@@ -763,7 +763,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, grid);
+    refinement.refine(conn, terms, f, mode, terms.grid);
   }
   #endif
 
@@ -795,7 +795,7 @@ private:
   // pde-domain
   pde_domain<precision> domain_;
 
-  sparse_grid grid;
+  // sparse_grid grid;
   connection_patterns conn;
   hierarchy_manipulator<precision> hier;
   #ifdef ASGARD_USE_MPI
