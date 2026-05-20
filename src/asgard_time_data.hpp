@@ -159,4 +159,13 @@ private:
   int64_t num_remain_ = -1;
 };
 
+/*!
+ * \internal
+ * \ingroup asgard_discretization
+ * \brief Parses the options and creates the time-data object
+ *
+ * \endinternal
+ */
+time_data make_time_data(prog_opts const &options);
+
 } // namespace asgard
