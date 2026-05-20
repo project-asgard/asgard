@@ -31,12 +31,11 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
 }
 
 template<typename P>
-void refinement_manager<P>::refine_(
-    connection_patterns const &conns, term_manager<P> const &terms,
-    std::vector<P> const &state, strategy mode, sparse_grid &grid) const
+void refinement_manager<P>::refine_(std::vector<P> const &state, strategy mode,
+                                    term_manager<P> &terms) const
 {
-  int64_t const num_indexes = grid.num_indexes();
-  int64_t const block_size  = fm::ipow(terms.basis.pdof, grid.num_dims());
+  int64_t const num_indexes = terms.grid.num_indexes();
+  int64_t const block_size  = fm::ipow(terms.basis.pdof, terms.grid.num_dims());
 
   P l2 = 0;
 
@@ -111,30 +110,29 @@ void refinement_manager<P>::refine_(
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
     if (iweights_.is_moment()) {
-      terms.moms.compute_interps(moments_, grid, state, terms.interp, terms.kwork);
+      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.kwork);
       iplan.use_moments(true);
-      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(),
+      terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
                    1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     } else { // no moments in the adaptive weight
       iplan.use_moments(false);
-      terms.interp(iplan, grid, conns, terms.moms.get_cached_interps(), 0, state.data(),
+      terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
                    1, iweights_, 0, terms.t1.data(), terms.kwork);
       update_stats(terms.t1);
     }
   }
 
-  grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
+  terms.grid.refine(terms.conn[connect_1d::hierarchy::volume], mode, stats);
 }
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void refinement_manager<P>::refine_(
-    connection_patterns const &conns, term_manager<P> const &terms,
-    gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
+void refinement_manager<P>::refine_(gpu::vector<P> const &state, strategy mode,
+                                    term_manager<P> &terms) const
 {
-  int64_t const num_indexes = grid.num_indexes();
-  int64_t const block_size  = fm::ipow(terms.basis.pdof, grid.num_dims());
+  int64_t const num_indexes = terms.grid.num_indexes();
+  int64_t const block_size  = fm::ipow(terms.basis.pdof, terms.grid.num_dims());
 
   P wmax = 0;
   gpu::compute_l2_weights<P>(block_size, num_indexes, state, gweight, wmax);
@@ -148,7 +146,7 @@ void refinement_manager<P>::refine_(
     if (iweights_.is_moment()) {
       iplan.use_moments(true);
 
-      terms.moms.compute_moments(moments_, grid, terms.interp, terms.kwork,
+      terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.kwork,
                                  state, not iweights_.is_gpu());
     } else {
       iplan.use_moments(false);
@@ -157,7 +155,7 @@ void refinement_manager<P>::refine_(
     iplan.use_gpu_func(iweights_.is_gpu());
 
     ghier.resize(state.size());
-    terms.interp(gpu::device{0}, iplan, grid, conns, terms.moms, 0, state.data(),
+    terms.interp(gpu::device{0}, iplan, terms.grid, terms.conn, terms.moms, 0, state.data(),
                  1, iweights_, 0, ghier.data(), terms.kwork);
 
     wmax = 0;
@@ -177,7 +175,7 @@ void refinement_manager<P>::refine_(
   else // no adapt weight, use the current gstats
     gstats.copy_to_host(stats);
 
-  grid.refine(conns[connect_1d::hierarchy::volume], mode, stats);
+  terms.grid.refine(terms.conn[connect_1d::hierarchy::volume], mode, stats);
 
   // - later add an option to do this without the function values, i.e., using source signatures
 }

@@ -754,7 +754,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(terms.conn, terms, f, mode, terms.grid);
+    refinement.refine(f, mode, terms);
   }
   #ifdef ASGARD_USE_GPU
   //! refines the sparse grid using the given strategy and
@@ -762,7 +762,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(terms.conn, terms, f, mode, terms.grid);
+    refinement.refine(f, mode, terms);
   }
   #endif
 
