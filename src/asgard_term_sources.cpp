@@ -12,8 +12,7 @@ namespace asgard
 
 template<typename P>
 template<data_mode dmode>
-void term_manager<P>::apply_sources(
-    group_id group, hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
+void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
   // if lumped size is small, use the addition for-loop
@@ -279,8 +278,7 @@ void term_manager<P>::apply_sources(
 #ifdef ASGARD_USE_GPU
 template<typename P>
 template<data_mode dmode>
-void term_manager<P>::apply_sources_gpu(
-    group_id group, hierarchy_manipulator<P> const &hier, P time, P alpha, P y[])
+void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 {
   // make all sources/bc lumped, except the time-dependent ones
   // if lumped size is small, use the addition for-loop
@@ -530,46 +528,46 @@ void term_manager<P>::apply_sources_gpu(
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template void term_manager<double>::apply_sources<data_mode::replace>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::increment>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_inc>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources<data_mode::scal_rep>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<double>::apply_sources_gpu<data_mode::replace>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::increment>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, hierarchy_manipulator<double> const &, double, double, double[]);
+    group_id, double, double, double[]);
 #endif
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template void term_manager<float>::apply_sources<data_mode::replace>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::increment>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_inc>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources<data_mode::scal_rep>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<float>::apply_sources_gpu<data_mode::replace>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::increment>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, hierarchy_manipulator<float> const &, float, float, float[]);
+    group_id, float, float, float[]);
 #endif
 
 #endif

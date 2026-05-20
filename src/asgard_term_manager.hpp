@@ -65,9 +65,7 @@ struct term_manager
    * conditions and then repeatedly passed into every single call here.
    */
   term_manager(prog_opts const &opts, pde_domain<P> const &domain,
-               pde_scheme<P> &pde, sparse_grid &&grid_in,
-               hierarchy_manipulator<P> const &hier,
-               connection_patterns &&conn_in);
+               pde_scheme<P> &pde, sparse_grid &&grid_in);
   //! number of dimensions, quick access
   int num_dims = 0;
   //! the max level, determines the highest level for operators
@@ -81,6 +79,8 @@ struct term_manager
   sparse_grid grid;
   //! holds the 1D connection pattern for the various matrix operations
   connection_patterns conn;
+  //! holds the algorithms for 1D hierarchical transformations
+  hierarchy_manipulator<P> hier;
 
   //! definition of the mass matrix, usually used in inverse
   mass_md<P> mass_term;
@@ -134,6 +134,13 @@ struct term_manager
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
+  //! returns the degree used for all the terms
+  int degree() const { return hier.degree(); }
+  //! returns the degrees of freedom used by the grid
+  int64_t num_dof() const { return hier.block_size() * grid.num_indexes(); }
+  //! returns the size of the tensor block (degree + 1)^num-dims
+  int64_t block_size() const { return hier.block_size(); }
+
   //! has Poisson solver for the given group
   bool has_poisson(group_id group = group_id::all()) const {
     if (group == group_id::all())
@@ -167,8 +174,7 @@ struct term_manager
   }
 
   //! rebuild all matrices
-  void build_matrices(hierarchy_manipulator<P> const &hier,
-                      precon_method precon = precon_method::none,
+  void build_matrices(precon_method precon = precon_method::none,
                       P alpha = 0)
   {
     tools::time_event timing_("initial coefficients mats");
@@ -177,11 +183,11 @@ struct term_manager
       if (not resources.owns(terms[t].rec))
         continue;
       #endif
-      build_const_terms(t, hier, precon, alpha);
+      build_const_terms(t, precon, alpha);
     }
   }
   //! build the large matrices to the max level
-  void build_mass_matrices(hierarchy_manipulator<P> const &hier)
+  void build_mass_matrices()
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
@@ -224,7 +230,7 @@ struct term_manager
   }
 
   //! rebuild the terms that depend only on the moments
-  void rebuild_moment_terms(group_id group, hierarchy_manipulator<P> const &hier)
+  void rebuild_moment_terms(group_id group)
   {
     tools::time_event timing_("rebuild moment terms (" + ((group() == -1) ? std::string("all") : std::to_string(group())) + ")");
     assert(group.is_valid(term_groups.size()));
@@ -232,7 +238,7 @@ struct term_manager
       auto &te = terms[it];
       for (int d : indexof(num_dims))
         if (resources.owns(te.rec) and te.is_separable() and te.tmd.dim(d).depends() != term_dependence::none)
-          rebuild_term1d(te, d, grid.current_level(d), hier);
+          rebuild_term1d(te, d, grid.current_level(d));
     }
   }
   //! prepares the kronmult workspace
@@ -350,21 +356,18 @@ struct term_manager
   //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
   void apply_sources(group_id group,
-                     hierarchy_manipulator<P> const &hier,
                      P time, P alpha, P y[]);
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
   void apply_sources(group_id group,
-                     hierarchy_manipulator<P> const &hier,
                      P time, P alpha, std::vector<P> &y)
   {
     assert(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(group, hier, time, alpha, y.data());
+    apply_sources<dmode>(group, time, alpha, y.data());
   }
   #ifdef ASGARD_USE_GPU
   template<data_mode dmode>
   void apply_sources_gpu(group_id group,
-                         hierarchy_manipulator<P> const &hier,
                          P time, P alpha, P y[]);
   #endif
 
@@ -385,22 +388,18 @@ protected:
 
   //! rebuild term[tid], loops over all dimensions
   void build_const_terms(int const tid,
-                         hierarchy_manipulator<P> const &hier,
                          precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
-                      hierarchy_manipulator<P> const &hier,
                       precon_method precon = precon_method::none, P alpha = 0,
                       bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
-                    hierarchy_manipulator<P> const &hier,
                     block_diag_matrix<P> const *bmass, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(term_entry<P> &tentry, int dim, int clink, int level,
-                     hierarchy_manipulator<P> const &hier,
                      block_diag_matrix<P> const *bmass,
                      block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
   //! helper method, build a mass matrix with no dependencies

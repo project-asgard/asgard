@@ -1,5 +1,9 @@
 #include "asgard_program_options.hpp"
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 namespace asgard
 {
 
@@ -690,7 +694,11 @@ void prog_opts::print_version_help(std::ostream &os)
 #endif
 
 #ifdef ASGARD_USE_OPENMP
-  os << "OpenMP multithreading    Enablded\n";
+  int const ompt = omp_get_max_threads();
+  if (ompt > 1)
+    os << "OpenMP multithreading    Enablded (using " << ompt << " threads)\n";
+  else
+    os << "OpenMP multithreading    Enablded (using 1 thread)\n";
 #else
   os << "OpenMP multithreading    Disabled\n";
 #endif

@@ -953,7 +953,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 
       if (grid.generation() != gen) {
         if (manager.is_leader())
-          grid.remap(manager.hier.block_size(), next);
+          grid.remap(manager.terms.block_size(), next);
         manager.terms.prapare_kron_workspace();
         if (manager.poisson)
           manager.poisson.update_level(grid.current_level(0));

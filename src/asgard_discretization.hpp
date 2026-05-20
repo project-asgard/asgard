@@ -50,7 +50,7 @@ public:
                          verbosity_level verbosity = verbosity_level::quiet);
 
   //! returns the degree of the discretization
-  int degree() const { return hier.degree(); }
+  int degree() const { return terms.degree(); }
 
   //! returns the number of dimensions
   int num_dims() const { return terms.grid.num_dims(); }
@@ -93,7 +93,7 @@ public:
   int64_t num_dof() const {
     // developer purposes mostly, need to know the state inbetween computations
     // when the state vector has not been updated yet due to GPU/MPI considerations
-    return terms.grid.num_indexes() * hier.block_size();
+    return terms.num_dof();
   }
 
   //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
@@ -564,7 +564,7 @@ public:
     if (aux_fields.back().num_dims == -1) // default num-dims is the current
       aux_fields.back().num_dims = terms.grid.num_dims();
     rassert(aux_fields.back().data.size()
-            == static_cast<size_t>(hier.block_size()
+            == static_cast<size_t>(terms.hier.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
             "incompatible data size and number of cells");
   }
@@ -625,7 +625,7 @@ public:
   resource_set const &get_resources() const { return terms.resources; }
 
   //! return the hierarchy_manipulator
-  hierarchy_manipulator<precision> const &get_hier() const { return hier; }
+  hierarchy_manipulator<precision> const &get_hier() const { return terms.hier; }
   //! return the connection patterns
   connection_patterns const &get_conn() const { return terms.conn; }
 
@@ -638,7 +638,7 @@ public:
     // the cost is so low, that everyone can do it even if it is repeated work
     // when we get to multi-d Poisson problems, the leader will be needed
     // to help the communication process
-    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), terms.hier),
                            terms.moms.edit_poisson_level());
   }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
@@ -794,10 +794,8 @@ private:
   // pde-domain
   pde_domain<precision> domain_;
 
-  // sparse_grid grid;
-  // connection_patterns conn;
-  hierarchy_manipulator<precision> hier;
   #ifdef ASGARD_USE_MPI
+  // last grid generation synced across mpi ranks
   int grid_synced_gen_ = -2;
   #endif
 

@@ -58,11 +58,9 @@ bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
 
 template<typename P>
 term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
-                              pde_scheme<P> &pde, sparse_grid &&grid_in,
-                              hierarchy_manipulator<P> const &hier,
-                              connection_patterns &&conn_in)
-  : num_dims(domain.num_dims()), max_level(options.max_level()),  grid(std::move(grid_in)),
-    conn(std::move(conn_in)), basis(hier.degree()),
+                              pde_scheme<P> &pde, sparse_grid &&grid_in)
+  : num_dims(domain.num_dims()), max_level(options.max_level()), grid(std::move(grid_in)),
+    conn(options.max_level()), hier(options.degree.value(), domain), basis(hier.degree()),
     moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
@@ -70,6 +68,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 {
   if (num_dims == 0)
     return;
+
+  #ifdef ASGARD_USE_GPU
+  grid.gpu_sync();
+  #endif
 
   pde.finalize_term_groups(); // if using groups, else this does nothing
 
@@ -192,7 +194,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   }
 
   // set the mass, needed for the sources below
-  build_mass_matrices(hier); // large, up to max-level
+  build_mass_matrices(); // large, up to max-level
   rebuild_mass_matrices(); // small, up to the current level
 
   {// copy the separable sources, prepare the constant components
@@ -587,8 +589,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 
 template<typename P>
-void term_manager<P>::build_const_terms(
-    int const tid, hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
+void term_manager<P>::build_const_terms(int const tid, precon_method precon, P alpha)
 {
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
     return;
@@ -625,7 +626,7 @@ void term_manager<P>::build_const_terms(
       if (tmd.tmd.dim(d).change() == changes_with::time)
         continue;
 
-      rebuild_term1d(terms[tid], d, max_level, hier, precon, alpha, merge_with_interp);
+      rebuild_term1d(terms[tid], d, max_level, precon, alpha, merge_with_interp);
       if (terms[tid].tmd.dim(d).is_identity())
         id_dirs.push_back(d);
     }
@@ -648,15 +649,14 @@ void term_manager<P>::build_const_terms(
       if (t1d.change() == changes_with::none)
         level = max_level; // build up to the max
 
-      rebuild_term1d(terms[tid], d, level, hier, precon, alpha);
+      rebuild_term1d(terms[tid], d, level, precon, alpha);
     } // move to next dimension d
   }
 }
 
 template<typename P>
 void term_manager<P>::rebuild_term1d(
-    term_entry<P> &tentry, int const dim, int level, hierarchy_manipulator<P> const &hier,
-    precon_method, P, bool merge_with_interp)
+    term_entry<P> &tentry, int const dim, int level, precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -691,9 +691,9 @@ void term_manager<P>::rebuild_term1d(
 
   bool is_diag = t1d.is_diagonal();
   if (t1d.is_chain()) {
-    rebuld_chain(tentry, dim, level, hier, bmass, is_diag, wraw_diag, wraw_tri);
+    rebuld_chain(tentry, dim, level, bmass, is_diag, wraw_diag, wraw_tri);
   } else {
-    build_raw_mat(tentry, dim, 0, level, hier, bmass, wraw_diag, wraw_tri);
+    build_raw_mat(tentry, dim, 0, level, bmass, wraw_diag, wraw_tri);
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
@@ -761,7 +761,6 @@ void term_manager<P>::rebuild_term1d(
 template<typename P>
 void term_manager<P>::build_raw_mat(
     term_entry<P> &tentry, int d, int clink, int level,
-    hierarchy_manipulator<P> const &hier,
     block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
@@ -985,9 +984,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    term_entry<P> &tentry, int const d, int const level,
-    hierarchy_manipulator<P> const &hier,
-    block_diag_matrix<P> const *bmass,
+    term_entry<P> &tentry, int const d, int const level, block_diag_matrix<P> const *bmass,
     bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = tentry.tmd.dim(d);
@@ -1009,14 +1006,14 @@ void term_manager<P>::rebuld_chain(
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, raw_tri);
+    build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, raw_tri);
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
+      build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
       gemm_block_diag(basis.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
-    build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, raw_tri);
+    build_raw_mat(tentry, d, 0, level, bmass, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(basis.pdof, *diag1, *diag0, raw_diag);
 
@@ -1040,11 +1037,11 @@ void term_manager<P>::rebuld_chain(
   // if we start with a diagonal, we will switch to tri at some point
 
   fill current = (t1d.chain_.back().is_diagonal()) ? fill::diag : fill::tri;
-  build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, *tri0);
+  build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
-    build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
+    build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d[i].is_diagonal()) { // computed a diagonal fill
@@ -1073,7 +1070,7 @@ void term_manager<P>::rebuld_chain(
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
-  build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, *tri1);
+  build_raw_mat(tentry, d, 0, level, bmass, *diag1, *tri1);
 
   if (t1d[0].is_diagonal()) {
     // the rest must be a tri-diagonal matrix already
