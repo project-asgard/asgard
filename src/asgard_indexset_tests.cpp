@@ -280,6 +280,66 @@ void sparse_grid_test()
   }
 }
 
+void subgrid_test()
+{
+  current_test name_("subgrid dimension reduction");
+
+  int const degree = 1;
+  int const pdof   = degree + 1;
+
+  {
+    prog_opts opts;
+    opts.degree = degree;
+    opts.start_levels = {2, 1};
+    sparse_grid grid(opts);
+
+    sparse_grid sub = grid.subgrid(0, pdof);
+    tassert(sub.num_dims() == 1);
+    tassert(sub.num_indexes() == 2);
+    tassert(sub.current_level(0) == 1);
+    tassert(fm::diff_inf(sub.indexes(), std::vector<int>{0, 1}) == 0);
+
+    sub = grid.subgrid(1, pdof);
+    tassert(sub.num_dims() == 1);
+    tassert(sub.num_indexes() == 4);
+    tassert(sub.current_level(0) == 2);
+    tassert(fm::diff_inf(sub.indexes(), std::vector<int>{0, 1, 2, 3}) == 0);
+  }
+
+  {
+    prog_opts opts;
+    opts.degree = degree;
+    opts.start_levels = {2, 2, 2};
+    sparse_grid grid(opts);
+
+    tassert(grid.num_dims() == 3);
+    tassert(grid.num_indexes() == 13);
+
+    std::vector<int> ref = {0, 0, 0, 1, 0, 2, 0, 3, 1, 0, 1, 1, 2, 0, 3, 0};
+
+    sparse_grid sub = grid.subgrid(0, pdof);
+
+    tassert(sub.num_dims() == 2);
+    tassert(sub.num_indexes() == 8);
+    tassert(sub.current_level(0) == 2);
+    tassert(fm::diff_inf(sub.indexes(), ref) == 0);
+
+    sub = grid.subgrid(1, pdof);
+
+    tassert(sub.num_dims() == 2);
+    tassert(sub.num_indexes() == 8);
+    tassert(sub.current_level(0) == 2);
+    tassert(fm::diff_inf(sub.indexes(), ref) == 0);
+
+    sub = grid.subgrid(2, pdof);
+
+    tassert(sub.num_dims() == 2);
+    tassert(sub.num_indexes() == 8);
+    tassert(sub.current_level(0) == 2);
+    tassert(fm::diff_inf(sub.indexes(), ref) == 0);
+  }
+}
+
 int main(int argc, char **argv) {
 
   libasgard_runtime running_(argc, argv);
@@ -293,6 +353,7 @@ int main(int argc, char **argv) {
   connect_volume();
   column_transform_connect();
   sparse_grid_test();
+  subgrid_test();
 
   return 0;
 }

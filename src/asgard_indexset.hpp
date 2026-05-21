@@ -586,6 +586,11 @@ public:
    */
   void refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &marked);
 
+  /*!
+   * \brief Extracts a sub-grid by removing the indicated dimension
+   */
+  sparse_grid subgrid(int dim, int pdof) const;
+
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>
   void remap(int block_size, std::vector<P> &state) const;
@@ -659,7 +664,7 @@ public:
         for (auto &cnn : dims)
           cnn.clear();
     if constexpr (not skip_indexes)
-      gpu_indexes_    = iset_.indexes();
+      gpu_indexes_ = iset_.indexes();
     gpu_generation_ = generation_;
   }
   #else
@@ -672,7 +677,7 @@ public:
     // while the load process uses OpenMP and more complex code
     gpu_generation_ = generation_;
     if constexpr (not skip_indexes)
-      gpu_indexes_    = iset_.indexes();
+      gpu_indexes_ = iset_.indexes();
     gpu_load();
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
