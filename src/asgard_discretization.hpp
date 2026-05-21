@@ -647,9 +647,7 @@ public:
     state = ns;
   }
   //! get the current moment manager, allows detailed access to loaded moments
-  moment_manager<precision> const &get_moment_manager() const {
-    return terms.moms;
-  }
+  moment_manager<precision> const &get_moment_manager() const { return terms.moms; }
 
   //! (debugging) prints the term-matrices
   void print_mats() const;
@@ -716,6 +714,7 @@ protected:
   template<data_mode mode>
   void ode_rhs_sources(group_id gid, precision time, precision alpha,
                        std::vector<precision> &src) const;
+
   #ifdef ASGARD_USE_GPU
   //! recompute the moments, assuming moments are set, i.e., has_moments() is true
   void compute_moments_gpu_(group_id gid, precision const f[]) const;

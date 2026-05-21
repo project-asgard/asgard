@@ -35,6 +35,31 @@ discretization_manager<precision>::discretization_manager(
     verb = verbosity_level::quiet;
   #endif
 
+  if (high_verbosity()) {
+    std::cout << '\n';
+    #ifdef ASGARD_HAS_GITINFO
+    std::cout << "ASGarD: git-branch '" << ASGARD_GIT_BRANCH << "'\n";
+    std::cout << "  " << ASGARD_GIT_COMMIT_HASH << ASGARD_GIT_COMMIT_SUMMARY << '\n';
+    #else
+    std::cout << " -- ASGarD release " << ASGARD_RELEASE_INFO << '\n';
+    #endif
+    int const num_threads = kronmult::get_num_omp_threads();
+    if (num_threads > 0) {
+      std::cout << "        OpenMP num-threads: " << num_threads << '\n';
+    } else {
+      std::cout << "        OpenMP: disabled\n";
+    }
+    #ifdef ASGARD_USE_CUDA
+    std::cout << "        GPU Backend: CUDA\n";
+    #else
+    #ifdef ASGARD_USE_ROCM
+    std::cout << "        GPU Backend: ROCM\n";
+    #else
+    std::cout << "        GPU Backend: disabled\n";
+    #endif
+    #endif
+  }
+
   if (options_.restarting())
     restart_from_file(pde);
   else
@@ -46,23 +71,22 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
   int const degree_ = options_.degree.value();
 
-  if (high_verbosity()) {
-    std::cout << '\n';
-    #ifdef ASGARD_HAS_GITINFO
-    std::cout << "ASGarD: git-branch '" << ASGARD_GIT_BRANCH << "'\n";
-    std::cout << "  " << ASGARD_GIT_COMMIT_HASH << ASGARD_GIT_COMMIT_SUMMARY << '\n';
-    std::cout << " -- discretization options --\n";
-    #else
-    std::cout << " -- ASGarD release " << ASGARD_RELEASE_INFO << '\n';
-    #endif
-  } else {
-    if (not stop_verbosity())
-      std::cout << "\n -- ASGarD discretization options --\n";
+  if (not stop_verbosity())
+    std::cout << "\n -- ASGarD discretization options --\n";
+
+  {
+    time_data const dtime = make_time_data(options_);
+
+    if (is_imex(dtime.step_method())) {
+      stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
+    } else {
+      stepper = time_advance_manager<precision>(dtime, options_);
+    }
   }
 
-  sparse_grid grid(options_);
-
-  refinement = refinement_manager<precision>(options_, pde);
+  // first we must initialize the terms, which will also initialize the kron
+  // operations and the interpolation engine
+  terms = term_manager<precision>(options_, domain_, pde, sparse_grid(options_));
 
   if (not stop_verbosity()) {
     if (not options_.title.empty())
@@ -72,105 +96,36 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
     std::cout << "basis degree: " << degree_to_string(degree_) << '\n';
 
-    std::cout << grid;
+    std::cout << terms.grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
     if (options_.adapt_relative)
       std::cout << "  relative tolerance: " << options_.adapt_relative.value() << '\n';
     if (not options_.adapt_threshold and not options_.adapt_relative)
       std::cout << "  non-adaptive\n";
-  }
 
-  { // setting up the time-step approach
-    // if no method is set, defaulting to explicit time-stepping
-    time_method sm = options_.step_method.value_or(time_method::rk3);
-
-    time_data dtime; // initialize below
-
-    precision stop = options_.stop_time.value_or(-1);
-    precision dt   = options_.dt.value_or(-1);
-    int64_t n      = options_.num_time_steps.value_or(-1);
-
-    if (sm == time_method::steady) {
-      stop  = options_.stop_time.value_or(options_.default_stop_time.value_or(0));
-      dtime = time_data(stop);
-    } else {
-      rassert(not (stop >= 0 and dt >= 0 and n >= 0),
-        "Must provide exactly two of the three time-stepping parameters: -dt, -num-steps, -time");
-
-      // replace options with defaults, when appropriate
-      if (n == 0 or stop == 0) { // initial conditions only, no time stepping
-        n = 0;
-        dt = 0;
-        stop = -1; // ignore stop below
-      } else if (n > 0) {
-        if (stop < 0 and dt < 0) {
-          dt = options_.default_dt.value_or(-1);
-          if (dt < 0) {
-            stop = options_.default_stop_time.value_or(-1);
-            if (stop < 0)
-              throw std::runtime_error("number of steps provided, but no dt or stop-time");
-          }
-        }
-      } else if (stop >= 0) { // no num-steps, but dt may be provided or have a default
-        if (dt < 0) {
-          dt = options_.default_dt.value_or(-1);
-          if (dt < 0)
-            throw std::runtime_error("stop-time provided but no time-step or number of steps");
-        }
-      } else if (dt >= 0) { // both n and stop are unspecified
-        stop = options_.default_stop_time.value_or(-1);
-        if (stop < 0)
-          throw std::runtime_error("dt provided, but no stop-time or number of steps");
-      } else { // nothing provided, look for defaults
-        dt   = options_.default_dt.value_or(-1);
-        stop = options_.default_stop_time.value_or(-1);
-        if (dt < 0 or stop < 0)
-          throw std::runtime_error("need at least two time parameters: -dt, -num-steps, -time");
-      }
-
-      if (n >= 0 and stop >= 0 and dt < 0)
-        dtime = time_data(sm, n, time_data::input_stop_time{stop});
-      else if (dt >= 0 and stop >= 0 and n < 0)
-        dtime = time_data(sm, time_data::input_dt{dt},
-                          time_data::input_stop_time{stop});
-      else if (dt >= 0 and n >= 0 and stop < 0)
-        dtime = time_data(sm, time_data::input_dt{dt}, n);
-      else
-        throw std::runtime_error("how did this happen?");
-    }
-
-    if (is_imex(sm)) {
-      stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
-    } else {
-      stepper = time_advance_manager<precision>(dtime, options_);
-    }
-  }
-
-  if (not stop_verbosity())
     std::cout << stepper;
 
-  #ifndef ASGARD_ALWAYS_SAFE_STEP
-  if (safe_step)
-    std::cout << "enabled safety checks for invalid floats\n";
-  #endif
+    #ifndef ASGARD_ALWAYS_SAFE_STEP
+    if (safe_step)
+      std::cout << "enabled safety checks for invalid floats\n";
+    #endif
+  }
 
   if (stepper.needs_solver() and not options_.solver)
     throw std::runtime_error("the selected time-stepping method requires a solver, "
                              "or a default solver set in the pde specification");
 
-  // first we must initialize the terms, which will also initialize the kron
-  // operations and the interpolation engine
-  terms = term_manager<precision>(options_, domain_, pde, std::move(grid));
+  refinement = refinement_manager<precision>(options_, pde);
 
-  set_initial_condition();
+  set_initial_condition(); // uses refinement, must come after the refinement_manager
 
   if (not stop_verbosity())
     std::cout << "initial degrees of freedom: " << tools::split_style(terms.num_dof()) << "\n\n";
 
   start_moments(); // grid may have changes above, wait to start the moments
 
-  terms.build_matrices();
+  terms.build_matrices(); // the matrices may need the moments from above
 
   if (high_verbosity())
     progress_report();
@@ -185,6 +140,7 @@ template<typename precision>
 void discretization_manager<precision>::restart_from_file(pde_scheme<precision> &pde)
 {
 #ifdef ASGARD_USE_HIGHFIVE
+
   if (not stop_verbosity())
     std::cout << "restarting from file: \"" << options_.restart_file << "\"\n";
 
@@ -196,8 +152,6 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
                              options_, domain_, grid,
                              dtime, aux_fields, state);
 
-  refinement = refinement_manager<precision>(options_, pde);
-
   if (is_imex(dtime.step_method())) {
     stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
   } else {
@@ -205,6 +159,8 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   }
 
   terms = term_manager<precision>(options_, domain_, pde, std::move(grid));
+
+  refinement = refinement_manager<precision>(options_, pde);
 
   start_moments();
 

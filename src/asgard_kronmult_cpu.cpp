@@ -366,6 +366,14 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
   }
 }
 
+int get_num_omp_threads() {
+#ifdef _OPENMP
+  return omp_get_max_threads();
+#else
+  return 0;
+#endif
+}
+
 inline int64_t asgard_kronmult_nblocks_ = 0;
 
 template<typename precision, conn_fill fill, int num_dimensions, int dim, int n>

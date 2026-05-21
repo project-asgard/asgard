@@ -98,6 +98,13 @@ struct workspace
 };
 
 /*!
+ * \brief Returns the number of visible OpenMP threads
+ *
+ * If OpenMP is not enable, this returns 0.
+ */
+int get_num_omp_threads();
+
+/*!
  * \brief Computes the action of a sparse Kronecker onto a vector
  *
  * Computes y = alpha * A * x + beta * y, where A is a sparse Kronecker matrix
