@@ -620,6 +620,8 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
   num_entries = grid.num_indexes() * fm::ipow(terms.basis.pdof, grid.num_dims());
   #endif
 
+  int const num_dims = terms.grid.num_dims();
+
   indexrange trange = terms.terms_group_range(group);
 
   if (grid_gen(group, stage) == -1) {
@@ -627,7 +629,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
     for (int i : trange) {
       term_md<P> const &term = terms.terms[i].tmd;
       rassert(term.is_separable(), "non-separable term detected in the scaled-identity solver");
-      for (int d : iindexof(terms.num_dims)) {
+      for (int d : iindexof(num_dims)) {
         term_1d<P> const &t1d = term.dim(d);
         rassert(t1d.is_identity() or t1d.is_volume(),
                 "scaled-identity solver can be used only with volume and identity instances of term1d");
@@ -641,7 +643,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
   for (int i : trange) {
     term_md<P> const &term = terms.terms[i].tmd;
     assert(term.is_separable() and term.flux_dim() == -1);
-    for (int d : iindexof(terms.num_dims)) {
+    for (int d : iindexof(num_dims)) {
       term_1d<P> const &t1d = term.dim(d);
       if (t1d.is_volume())
         scal *= t1d.rhs_const();

@@ -59,13 +59,15 @@ bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
 template<typename P>
 term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
                               pde_scheme<P> &pde, sparse_grid &&grid_in)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), grid(std::move(grid_in)),
+  : max_level(options.max_level()), grid(std::move(grid_in)),
     conn(options.max_level()), hier(options.degree.value(), domain), basis(hier.degree()),
     moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
 #endif
 {
+  int const num_dims = domain.num_dims();
+
   if (num_dims == 0)
     return;
 
@@ -561,6 +563,8 @@ void term_manager<P>::build_const_terms(int const tid, precon_method precon, P a
 
   assert(basis.pdof == hier.degree() + 1);
   assert(not terms[tid].tmd.is_chain());
+
+  int const num_dims = grid.num_dims();
 
   auto &tmd = terms[tid];
 
@@ -1163,6 +1167,8 @@ void term_manager<P>::assign_compute_resources()
 
   std::vector<work_item> work;
   work.reserve(terms.size() + sources.size());
+
+  int const num_dims = grid.num_dims();
 
   auto get_work = [&](term_entry<P> const &tentry)
     -> work_amount {

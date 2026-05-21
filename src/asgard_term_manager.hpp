@@ -66,8 +66,6 @@ struct term_manager
    */
   term_manager(prog_opts const &opts, pde_domain<P> const &domain,
                pde_scheme<P> &pde, sparse_grid &&grid_in);
-  //! number of dimensions, quick access
-  int num_dims = 0;
   //! the max level, determines the highest level for operators
   int max_level = 0;
   //! indicates if there are time dependent sources, build extra data-structures
@@ -199,6 +197,7 @@ struct term_manager
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
+      int const num_dims = grid.num_dims();
       std::vector<int> active_dirs;
       active_dirs.reserve(num_dims);
       for (int d : iindexof(num_dims))
@@ -226,7 +225,7 @@ struct term_manager
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
-      for (int d : iindexof(num_dims))
+      for (int d : iindexof(grid.num_dims()))
         if (not mass_term[d].is_identity()) {
           int const nrows = fm::ipow2(grid.current_level(d));
           if (lmass[d].nrows() != nrows) {
@@ -244,7 +243,7 @@ struct term_manager
     assert(group.is_valid(term_groups.size()));
     for (int it : terms_group_range(group)) {
       auto &te = terms[it];
-      for (int d : indexof(num_dims))
+      for (int d : indexof(grid.num_dims()))
         if (resources.owns(te.rec) and te.is_separable() and te.tmd.dim(d).depends() != term_dependence::none)
           rebuild_term1d(te, d, grid.current_level(d));
     }

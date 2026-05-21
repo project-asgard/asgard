@@ -118,7 +118,7 @@ void term_manager<P>::apply_tmpl(
   }
 
   if (not has_terms_) {
-    int64_t const num = grid.num_indexes() * fm::ipow(basis.pdof, num_dims);
+    int64_t const num = grid.num_dof();
     if (beta == 0) {
       std::fill_n(py, num, 0);
     } else {
@@ -455,6 +455,8 @@ void term_manager<P>::kron_diag(
     term_entry<P> const &tme, int const block_size, std::vector<P> &y) const
 {
   static_assert(mode == data_mode::increment or mode == data_mode::multiply);
+
+  int const num_dims = grid.num_dims();
 
 #pragma omp parallel
   {

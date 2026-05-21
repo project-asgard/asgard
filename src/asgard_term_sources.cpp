@@ -48,6 +48,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     tools::time_event perf2_("sources grid update");
     swork.resize(num_lumped * num_entries);
 
+    int const num_dims = grid.num_dims();
     int const pdof = hier.degree() + 1;
 
     auto tensor_consts = [&, this](auto &entry, P *data = nullptr) -> void
@@ -288,8 +289,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
   compute->set_device(gpu::device{0}); // rework for multi-GPU
 
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
+  int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   auto rechain = [&, this](gpu::device dev, boundary_entry<P> &bc, P al, P data[]) -> void
@@ -332,7 +332,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
           }
         }
 
-        gpu::tensor_by_index(pdof, num_dims, grid.num_indexes(), grid.gpu_indexes(),
+        gpu::tensor_by_index(pdof, grid.num_dims(), grid.num_indexes(), grid.gpu_indexes(),
             entry.gpu_consts[0].data(), entry.gpu_consts[1].data(), entry.gpu_consts[2].data(),
             entry.gpu_consts[3].data(), entry.gpu_consts[4].data(), entry.gpu_consts[5].data(),
             data);

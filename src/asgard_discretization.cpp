@@ -416,9 +416,9 @@ std::vector<precision> discretization_manager<precision>::get_electric() const {
 
 template<typename precision>
 void discretization_manager<precision>::print_mats() const {
-  int const num_dims = terms.num_dims;
+  int const numd = num_dims();
   for (auto tid : iindexof(terms.terms)) {
-    for (int d : iindexof(num_dims)) {
+    for (int d : iindexof(numd)) {
       std::cout << " term = " << tid << "  dim = " << d << '\n';
       if (terms.terms[tid].coeffs[d].empty()) {
         std::cout << "identity\n";
