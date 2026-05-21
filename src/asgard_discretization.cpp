@@ -71,10 +71,24 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
   int const degree_ = options_.degree.value();
 
-  if (not stop_verbosity())
+  if (not stop_verbosity()) {
+    // show general information about the problem
+    // indicate that work has started, should hit this point almost instantaneously after launch
     std::cout << "\n -- ASGarD discretization options --\n";
+    if (not options_.title.empty())
+      std::cout << "    title: " << options_.title << '\n';
+    if (not options_.subtitle.empty())
+      std::cout << "           " << options_.subtitle << '\n';
 
-  {
+    std::cout << "basis degree: " << degree_to_string(degree_) << '\n';
+  }
+
+  // initialize the terms, which will also initialize the kron and interpolation engines
+  // this operation can take some time due to building mass matrices
+  terms = term_manager<precision>(options_, domain_, pde, sparse_grid(options_));
+
+  { // setting up the time-stepper
+    // reading the from the options, user-selected first, if missing fallback to default options
     time_data const dtime = make_time_data(options_);
 
     if (is_imex(dtime.step_method())) {
@@ -84,18 +98,8 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
     }
   }
 
-  // first we must initialize the terms, which will also initialize the kron
-  // operations and the interpolation engine
-  terms = term_manager<precision>(options_, domain_, pde, sparse_grid(options_));
-
   if (not stop_verbosity()) {
-    if (not options_.title.empty())
-      std::cout << "    title: " << options_.title << '\n';
-    if (not options_.subtitle.empty())
-      std::cout << "           " << options_.subtitle << '\n';
-
-    std::cout << "basis degree: " << degree_to_string(degree_) << '\n';
-
+    // continue the report
     std::cout << terms.grid;
     if (options_.adapt_threshold)
       std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
@@ -118,7 +122,10 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   refinement = refinement_manager<precision>(options_, pde);
 
-  set_initial_condition(); // uses refinement, must come after the refinement_manager
+  // setting the initial conditions uses refinement, must come after the refinement_manager
+  // this iterates depending on the adapt-weight and the separable/interpolation conditions
+  // this is the first point of potentially heavy work
+  set_initial_condition();
 
   if (not stop_verbosity())
     std::cout << "initial degrees of freedom: " << tools::split_style(terms.num_dof()) << "\n\n";
@@ -158,6 +165,14 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     stepper = time_advance_manager<precision>(dtime, options_);
   }
 
+  // show general problem properties
+  if (not stop_verbosity()) {
+    if (not options_.title.empty())
+      std::cout << "    title: " << options_.title << '\n';
+    if (not options_.subtitle.empty())
+      std::cout << "           " << options_.subtitle << '\n';
+  }
+
   terms = term_manager<precision>(options_, domain_, pde, std::move(grid));
 
   refinement = refinement_manager<precision>(options_, pde);
@@ -167,11 +182,6 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   terms.build_matrices();
 
   if (not stop_verbosity()) {
-    if (not options_.title.empty())
-      std::cout << "  title: " << options_.title << '\n';
-    if (not options_.subtitle.empty())
-      std::cout << "subtitle: " << options_.subtitle << '\n';
-
     std::cout << "basis degree: " << degree_to_string(terms.degree()) << '\n';
 
     std::cout << grid;
