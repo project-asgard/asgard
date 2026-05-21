@@ -100,7 +100,14 @@ public:
   //! (mostly testing) returns the hierarchical form of the 1d nodes
   std::vector<P> const &nodes1d() const { return nodes1d_; }
   //! returns the nodes corresponding to the grid
-  vector2d<P> const &nodes(sparse_grid const &grid) const;
+  vector2d<P> const &nodes(sparse_grid const &grid) const {
+    if (grid.generation() == grid_gen)
+      return nodes_;
+    grid_gen = grid.generation();
+    return nodes(grid, nodes_);
+  }
+  //! constructs the nodes corresponding to the grid
+  vector2d<P> const &nodes(sparse_grid const &grid, vector2d<P> &vnodes) const;
 
   //! compute nodal values for the field
   void wav2nodal(sparse_grid const &grid, P const f[], P vals[],
@@ -120,14 +127,6 @@ public:
     // tools::time_event performance_("wavelet-to-nodal");
     #endif
     block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
-  }
-  //! compute values for the field, vector overload
-  void wav2nodal(sparse_grid const &grid, P const f[], std::vector<P> &vals,
-                 kronmult::workspace<P> &work) const
-  {
-    size_t const num_entries = static_cast<size_t>(grid.num_indexes() * block_size);
-    vals.resize(num_entries);
-    wav2nodal(grid, f, vals.data(), work);
   }
 
   //! compute nodal values for the moment position coefficients
@@ -157,7 +156,6 @@ public:
                                                    * fm::ipow(pdof, grid.num_dims()));
     vals.resize(num_entries);
     pos2nodal(grid, f, scal, vals.data(), work);
-
   }
 
   //! converts interpolated nodal values to hierarchical coefficients
@@ -298,7 +296,7 @@ public:
   }
 
   //! indicates whether the manager has been initialized
-  operator bool () const { return (num_dims > 0); }
+  operator bool () const { return (pdof > 0); }
 
   //! returns the diagonal form of the hier2wav matrix
   block_diag_matrix<P> const &get_raw_hier2wav() const { return diag_h2w; }
@@ -537,11 +535,13 @@ public:
   mutable std::vector<P> it1;
   //! temporary workspace vector
   mutable std::vector<P> it2;
+  //! provides access to the nodal2hier matrix
+  block_sparse_matrix<P> const &matrix_nodal2hier() const { return nodal2hier_; }
+  //! provides access to the hier2wav matrix
+  block_sparse_matrix<P> const &matrix_hier2wav() const { return hier2wav_; }
 
 private:
-  int num_dims = 0;
   int pdof = 0;
-  int block_size = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
 

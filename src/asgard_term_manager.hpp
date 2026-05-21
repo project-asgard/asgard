@@ -123,6 +123,14 @@ struct term_manager
   //! interpolation data
   interpolation_manager<P> interp;
 
+  // additional data for interpolatory boundary conditions
+  //! grids where one dimension has been removed
+  std::array<sparse_grid, max_num_dimensions> ibc_grid;
+  //! permutations for interpolated boundary conditions
+  kronmult::permutes ibc_perm_low, ibc_perm_up;
+  //! nodes on each boundary wall
+  std::array<vector2d<P>, max_num_dimensions> ibc_nodes;
+
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> swork, sweights; // source workspace and time weights
@@ -137,9 +145,9 @@ struct term_manager
   //! returns the degree used for all the terms
   int degree() const { return hier.degree(); }
   //! returns the degrees of freedom used by the grid
-  int64_t num_dof() const { return hier.block_size() * grid.num_indexes(); }
+  int64_t num_dof() const { return grid.num_dof(); }
   //! returns the size of the tensor block (degree + 1)^num-dims
-  int64_t block_size() const { return hier.block_size(); }
+  int block_size() const { return grid.block_size(); }
 
   //! has Poisson solver for the given group
   bool has_poisson(group_id group = group_id::all()) const {
@@ -362,7 +370,7 @@ struct term_manager
   void apply_sources(group_id group,
                      P time, P alpha, std::vector<P> &y)
   {
-    assert(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
+    assert(static_cast<int64_t>(y.size()) == grid.num_dof());
     apply_sources<dmode>(group, time, alpha, y.data());
   }
   #ifdef ASGARD_USE_GPU

@@ -229,6 +229,7 @@ void sparse_grid_test()
   current_test name_("sparse grid manipulation");
   { // construction - sparse
     prog_opts opts;
+    opts.degree = 1;
     opts.start_levels = {1, 1};
     sparse_grid grid(opts);
     tassert(grid.num_dims() == 2);
@@ -255,6 +256,7 @@ void sparse_grid_test()
   }
   { // construction - dense
     prog_opts opts;
+    opts.degree = 1;
     opts.grid = grid_type::dense;
     opts.start_levels = {2, 1};
     sparse_grid grid(opts);
@@ -264,6 +266,7 @@ void sparse_grid_test()
   }
   { // construction - mixed
     prog_opts opts;
+    opts.degree = 1;
     opts.grid = grid_type::mixed;
     opts.mgrid_group = 2;
     opts.start_levels = {1, 1, 1, 1};

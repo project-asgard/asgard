@@ -548,6 +548,10 @@ public:
   int num_dims() const { return iset_.num_dimensions(); }
   //! Returns the number of indexes
   int64_t num_indexes() const { return iset_.num_indexes(); }
+  //! Returns the block size bases on the dimension and polynomial order (p + 1)^num-dims
+  int block_size() const { return block_size_; }
+  //! Returns the total number of degrees of freedom for this grid and this polynomial order
+  int64_t num_dof() const { return static_cast<int64_t>(block_size_) * iset_.num_indexes(); }
 
   //! returns pointer to the i-th index in the grid
   int const *operator[] (int64_t i) const { return iset_[i]; }
@@ -719,6 +723,8 @@ private:
   std::array<int, max_num_dimensions> max_index_;
 
   std::vector<int> map_;
+
+  int block_size_ = 0;
   #ifdef ASGARD_USE_MPI
   std::vector<int> mpimeta;
   #endif

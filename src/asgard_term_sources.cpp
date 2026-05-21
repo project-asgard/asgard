@@ -20,8 +20,8 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 
   tools::time_event perf_("sources apply");
 
-  int64_t const block_size  = hier.block_size();
-  int64_t const num_entries = grid.num_indexes() * block_size;
+  int64_t const block_size  = grid.block_size();
+  int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   auto rechain = [&, this](boundary_entry<P> &bc, P al, P data[]) -> void

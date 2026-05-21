@@ -292,6 +292,9 @@ sparse_grid::sparse_grid(prog_opts const &options)
 
   int const numd = iset.num_dimensions();
 
+  assert(!!options.degree);
+  block_size_ = fm::ipow(options.degree.value() + 1, numd);
+
   if (options.max_levels.empty()) { // testing or not using adaptivity
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];

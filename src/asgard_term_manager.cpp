@@ -81,8 +81,10 @@ void term_manager<P>::apply_tmpl(
         return y;
       }();
 
-  if (not interp.ifield.empty()) // using interpolation and will need the field
-    interp.wav2nodal(grid, px, interp.ifield, kwork);
+  if (not interp.ifield.empty()) { // using interpolation and will need the field
+    interp.ifield.resize(grid.num_dof());
+    interp.wav2nodal(grid, px, interp.ifield.data(), kwork);
+  }
 
   auto const group = terms_group_range(gid);
   int icurrent = group.ibegin();

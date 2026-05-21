@@ -564,7 +564,7 @@ public:
     if (aux_fields.back().num_dims == -1) // default num-dims is the current
       aux_fields.back().num_dims = terms.grid.num_dims();
     rassert(aux_fields.back().data.size()
-            == static_cast<size_t>(terms.hier.block_size()
+            == static_cast<size_t>(terms.grid.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
             "incompatible data size and number of cells");
   }
