@@ -866,14 +866,16 @@ struct left_boundary_flux {
   explicit left_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for left boundary flux");
+    rassert(std::get<separable_func<P>>(func).is_valid(),
+            "invalid separable function for left boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for left boundary flux");
+    rassert(std::get<separable_func<P>>(func).is_valid(),
+            "invalid separable function for left boundary flux");
     rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
@@ -881,8 +883,15 @@ struct left_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit left_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for left boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -915,8 +924,15 @@ struct right_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit right_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for right boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -954,8 +970,15 @@ struct sym_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit sym_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for symmetric boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -992,7 +1015,7 @@ public:
   //! check if object has been initialized
   operator bool () const { return (side_ != unset); }
   //! returns const-ref to the stored function
-  separable_func<P> const &func() const { return func_; }
+  separable_func<P> const &func() const { return std::get<separable_func<P>>(func_); }
   //! return the chain level for the given dimension, allows modification
   int &chain_level(int dim) { return ch_level_[dim]; }
   //! return the chain level for the given dimension
@@ -1005,7 +1028,7 @@ private:
   enum bf_mode { left_side, right_side, both_sides, unset };
 
   bf_mode side_ = unset;
-  separable_func<P> func_;
+  boundary_func<P> func_;
   std::array<int, max_num_dimensions> ch_level_;
 };
 

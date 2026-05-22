@@ -104,9 +104,13 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
       }
     };
 
-  pde += {divx, asgard::term_interp<P>{eta}, gradx};
-  pde += {divy, asgard::term_interp<P>{eta}, grady};
-  pde += {divz, asgard::term_interp<P>{eta}, gradz};
+  asgard::term_md<P> dxx = {divx, asgard::term_interp<P>{eta}, gradx};
+  asgard::term_md<P> dyy = {divy, asgard::term_interp<P>{eta}, grady};
+  asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{eta}, gradz};
+
+  pde += dxx;
+  pde += dyy;
+  pde += dzz;
 
   P const dx = pde.cell_size(asgard::dimension_id{0});
   P const dy = pde.cell_size(asgard::dimension_id{1});

@@ -562,4 +562,10 @@ struct aux_field_entry {
   std::vector<int> grid;
 };
 
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! boundary flux functions
+template<typename P>
+using boundary_func = std::variant<std::monostate, separable_func<P>, md_func<P>>;
+#endif
+
 } // namespace asgard
