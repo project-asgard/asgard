@@ -104,6 +104,104 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
       }
     };
 
+  auto fx0 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of the solution at x = 0, the nodes are at the wall corresponding to x = 0
+      assert(nodes.stride() == 2);
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        // nodes for the full domain are ordered as (x, y, z), but here
+        // we are setting boundary condition in x, which means that
+        // we are replacing variable x with a fixed 0, so the nodes
+        // are ordered as (y, z)
+        P const y = nodes[i][0];
+        P const z = nodes[i][1];
+
+        f[i] = std::cos(y + 2 * z);
+      }
+    };
+
+  auto fx1 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of the solution at x = 1
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        P const y = nodes[i][0];
+        P const z = nodes[i][1];
+
+        f[i] = std::cos(1 + y + 2 * z);
+      }
+    };
+
+  auto eta_dfy0 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of df/dy at y = 0, the nodes are at the wall corresponding to y = 0
+      // must also multiply by the coefficient eta
+      assert(nodes.stride() == 2);
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        // nodes for the full domain are ordered as (x, y, z)
+        // removing y leaves us as (x, z)
+        P const x = nodes[i][0];
+        P const z = nodes[i][1];
+
+        P const eta = 1 + 0.5 * sin(2 * PI * (x + z));
+
+        f[i] = eta * std::sin(x + 2 * z);
+      }
+    };
+
+  auto eta_dfy1 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of df/dy at y = 1, the nodes are at the wall corresponding to y = 1
+      assert(nodes.stride() == 2);
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        P const x = nodes[i][0];
+        P const z = nodes[i][1];
+
+        P const eta = 1 + 0.5 * sin(2 * PI * (x + 1 + z));
+
+        f[i] = -eta * std::sin(x + 1 + 2 * z);
+      }
+    };
+
+  auto eta_dfz0 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of df/dz at z = 0, the nodes are at the wall corresponding to z = 0
+      // must also multiply by the coefficient eta
+      assert(nodes.stride() == 2);
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        // nodes for the full domain are ordered as (x, y, z)
+        // removing y leaves us as (x, y)
+        P const x = nodes[i][0];
+        P const y = nodes[i][1];
+
+        P const eta = 1 + 0.5 * sin(2 * PI * (x + y));
+
+        f[i] = eta * std::sin(x + y);
+      }
+    };
+
+  auto eta_dfz1 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
+    void {
+      // value of df/dz at z = 1, the nodes are at the wall corresponding to z = 1
+      assert(nodes.stride() == 2);
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        P const x = nodes[i][0];
+        P const y = nodes[i][1];
+
+        P const eta = 1 + 0.5 * sin(2 * PI * (x + y + 1));
+
+        f[i] = -eta * std::sin(x + y + 2);
+      }
+    };
+
+  gradx += asgard::left_boundary_flux<P>(fx0);
+  gradx += asgard::right_boundary_flux<P>(fx1);
+
+  divy += asgard::left_boundary_flux<P>(eta_dfy0);
+  divy += asgard::right_boundary_flux<P>(eta_dfy1);
+
+  divz += asgard::left_boundary_flux<P>(eta_dfz0);
+  divz += asgard::right_boundary_flux<P>(eta_dfz1);
+
   asgard::term_md<P> dxx = {divx, asgard::term_interp<P>{eta}, gradx};
   asgard::term_md<P> dyy = {divy, asgard::term_interp<P>{eta}, grady};
   asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{eta}, gradz};
@@ -119,6 +217,22 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   pde += { asgard::term_penalty<P>{P{1} / dx}, I, I};
   pde += { I, asgard::term_penalty<P>{P{1} / dy}, I};
   pde += { I, I, asgard::term_penalty<P>{P{1} / dz}};
+
+  auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
+    void {
+      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+        P const x = nodes[i][0];
+        P const y = nodes[i][1];
+        P const z = nodes[i][2];
+
+        P const eta = 1 + 0.5 * sin(2 * PI * (x + y + z));
+
+        s[i] = 6 * eta * std::cos(x + y + 2 * z)
+              + 4 * PI * std::cos(2 * PI * (x + y + z)) * std::sin(x + y + 2 * z);
+      }
+    };
+
+  pde += asgard::source<P>(source);
 
   // if an initial condition is specified, it will be used as the initial guess
   // of an iterative solver, otherwise zeros is used as the initial guess

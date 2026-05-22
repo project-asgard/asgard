@@ -107,9 +107,20 @@ struct boundary_entry {
   //! defines the flux, moved out of the term
   boundary_flux<P> flux;
 
+  //! true if the flux is separable
+  bool is_separable() const { return flux.is_separable(); }
+
+  // those apply only to separable boundary conditions
   bool is_time_const() const { return flux.func().is_time_const(); }
   bool is_time_sep() const { return flux.func().is_time_sep(); }
   bool is_time_non_sep() const { return flux.func().is_time_non_sep(); }
+
+  P const_for_flux_dim(dimension_id dim_id) const {
+    if (is_separable())
+      return flux.func().const_at(dim_id);
+    else
+      return 1; // using 1 in the flux dimension
+  }
 
   //! vector for the current grid
   std::vector<P> val;

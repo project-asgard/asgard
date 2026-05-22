@@ -177,13 +177,15 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                                           ? (tt.tmd.dim(d).num_chain() - 1) : 0;
         }
       }
-      if (bcs.back().is_time_non_sep()) { // non-separable in time
-        bcs_have_time_dep = true;
-        for (int d : iindexof(num_dims)) {
-          rassert(not tt.tmd.dim(d).is_chain(),
-                  "cannot use non-separable in time boundary conditions with 1d-chains, "
-                  "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
-                  "data cannot be pre-computed, an md-chain must be used instead");
+      if (bcs.back().is_separable()) {
+        if (bcs.back().is_time_non_sep()) { // non-separable in time
+          bcs_have_time_dep = true;
+          for (int d : iindexof(num_dims)) {
+            rassert(not tt.tmd.dim(d).is_chain(),
+                    "cannot use non-separable in time boundary conditions with 1d-chains, "
+                    "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
+                    "data cannot be pre-computed, an md-chain must be used instead");
+          }
         }
       }
     }
@@ -271,7 +273,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     {
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      return (not bc.is_time_non_sep());
+      if (bc.is_separable())
+        return (not bc.is_time_non_sep());
+      else
+        return true; // non-separable bc involve interpolation and are active
     };
 
   for (auto const &src : sources)
@@ -845,7 +850,7 @@ void term_manager<P>::build_raw_mat(
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
-    if (bentry.flux.chain_level(d) > clink) {
+    if (not bentry.is_separable() or bentry.flux.chain_level(d) > clink) {
       assert(not bentry.consts[d].empty());
       if (t1d.is_diagonal()) {
         raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
@@ -871,7 +876,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
-          P const fc = bentry.flux.func().const_at(dimension_id{d});
+          P const fc = bentry.const_for_flux_dim(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, basis.leg_left, bentry.consts[d].data());
@@ -886,7 +891,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
-          P const fc = bentry.flux.func().const_at(dimension_id{d});
+          P const fc = bentry.const_for_flux_dim(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, basis.leg_right,
@@ -900,8 +905,9 @@ void term_manager<P>::build_raw_mat(
         if (bmass)
           bmass->solve(pdof, bentry.consts[d]);
 
-      } else {
-        if (bentry.is_time_non_sep()) // no constant components to pre-compute
+      } else if (bentry.is_separable()) {
+        // non-separable or time-dependant fluxes have no constant components to pre-compute
+        if (bentry.is_time_non_sep())
           continue;
 
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
@@ -1115,7 +1121,7 @@ void term_manager<P>::rebuld_chain(
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
     if (bentry.flux.is_left()) {
-      P const fc = bentry.flux.func().const_at(dimension_id{d});
+      P const fc = bentry.const_for_flux_dim(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, -scale, basis.leg_left, dest);
       } else {
@@ -1124,7 +1130,7 @@ void term_manager<P>::rebuld_chain(
     }
 
     if (bentry.flux.is_right()) {
-      P const fc = bentry.flux.func().const_at(dimension_id{d});
+      P const fc = bentry.const_for_flux_dim(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, scale, basis.leg_right, dest + num_entries - pdof);
       } else {

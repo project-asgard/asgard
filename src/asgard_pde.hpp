@@ -1021,6 +1021,11 @@ public:
   //! return the chain level for the given dimension
   int const &chain_level(int dim) const { return ch_level_[dim]; }
 
+  //! true if the term contains a separable function
+  bool is_separable() const {
+    return std::holds_alternative<separable_func<P>>(func_);
+  }
+
   // allow access by the term_manager
   friend struct term_manager<P>;
 
@@ -1303,13 +1308,15 @@ public:
   //! add new inhomogeneous boundary function to the term
   term_md<P> operator += (boundary_flux<P> bf) {
     rassert(is_separable(), "cannot add separable boundary conditions to non-separable term_md");
-    rassert(bf.func().num_dims() == num_dims_,
-            "wrong dimension set for boundary flux given to term_md");
     int fd = flux_dim();
     rassert(fd != -1,
             "cannot set boundary conditions for term_md with no derivatives");
-    rassert(bf.func().is_const(dimension_id{fd}),
-            "the flux function has to be constant in the dimension of term_md::flux_dim()")
+    if (bf.is_separable()) {
+      rassert(bf.func().num_dims() == num_dims_,
+              "wrong dimension set for boundary flux given to term_md");
+      rassert(bf.func().is_const(dimension_id{fd}),
+              "the flux function has to be constant in the dimension of term_md::flux_dim()")
+    }
     bc_flux_.emplace_back(std::move(bf));
     return *this;
   }
@@ -1347,10 +1354,10 @@ public:
   friend struct term_manager<P>;
 
 private:
-  // get the const-array for the separable functions
+  // get the const-array for the separable terms
   std::array<term_1d<P>, max_num_dimensions> const &
   get_sep() const { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
-  // get the array for the separable functions
+  // get the array for the separable terms
   std::array<term_1d<P>, max_num_dimensions> &
   get_sep() { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
 
