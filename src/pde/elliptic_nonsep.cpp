@@ -142,9 +142,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const z = nodes[i][1];
 
-        P const eta = 1 + 0.5 * sin(2 * PI * (x + z));
+        P const e = 1 + 0.5 * sin(2 * PI * (x + z));
 
-        f[i] = eta * std::sin(x + 2 * z);
+        f[i] = e * std::sin(x + 2 * z);
       }
     };
 
@@ -156,9 +156,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const z = nodes[i][1];
 
-        P const eta = 1 + 0.5 * sin(2 * PI * (x + 1 + z));
+        P const e = 1 + 0.5 * sin(2 * PI * (x + 1 + z));
 
-        f[i] = -eta * std::sin(x + 1 + 2 * z);
+        f[i] = -e * std::sin(x + 1 + 2 * z);
       }
     };
 
@@ -173,9 +173,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const eta = 1 + 0.5 * sin(2 * PI * (x + y));
+        P const e = 1 + 0.5 * sin(2 * PI * (x + y));
 
-        f[i] = eta * std::sin(x + y);
+        f[i] = e * std::sin(x + y);
       }
     };
 
@@ -187,9 +187,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const eta = 1 + 0.5 * sin(2 * PI * (x + y + 1));
+        P const e = 1 + 0.5 * sin(2 * PI * (x + y + 1));
 
-        f[i] = -eta * std::sin(x + y + 2);
+        f[i] = -e * std::sin(x + y + 2);
       }
     };
 
@@ -225,9 +225,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][1];
         P const z = nodes[i][2];
 
-        P const eta = 1 + 0.5 * sin(2 * PI * (x + y + z));
+        P const e = 1 + 0.5 * sin(2 * PI * (x + y + z));
 
-        s[i] = 6 * eta * std::cos(x + y + 2 * z)
+        s[i] = 6 * e * std::cos(x + y + 2 * z)
               + 4 * PI * std::cos(2 * PI * (x + y + z)) * std::sin(x + y + 2 * z);
       }
     };
