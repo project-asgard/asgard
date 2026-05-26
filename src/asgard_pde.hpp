@@ -1016,6 +1016,8 @@ public:
   operator bool () const { return (side_ != unset); }
   //! returns const-ref to the stored function
   separable_func<P> const &func() const { return std::get<separable_func<P>>(func_); }
+  //! returns the variant storing the function
+  boundary_func<P> const &var_func() const { return func_; }
   //! return the chain level for the given dimension, allows modification
   int &chain_level(int dim) { return ch_level_[dim]; }
   //! return the chain level for the given dimension
@@ -1335,6 +1337,15 @@ public:
   }
   //! get the moment ids for interpolation
   std::vector<moment_id> const &get_interp_moments() const { return mids_; }
+  //! get the boundary fluxes
+  std::vector<boundary_flux<P>> const &get_bc_flux() const { return bc_flux_; }
+  //! returns true if the boundary condition returns interpolation flux
+  bool has_interp_bc() const {
+    for (auto const &b : bc_flux_)
+      if (not b.is_separable())
+        return true;
+    return false;
+  }
 
   //! applies the function on the GPU device, vals = f(n, t, x, f)
   void interp(int64_t num_points, P t, P const x[], P const f[], P vals[]) const {
@@ -1884,6 +1895,7 @@ private:
   int max_level_ = 1;
 
   bool has_interp_funcs = false;
+  bool has_interp_bc = false;
 
   md_func<P> initial_md_;
   std::vector<separable_func<P>> initial_sep_;

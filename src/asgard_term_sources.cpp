@@ -122,7 +122,9 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     // update the constant components
     for (auto &bc : bcs)
     {
-      if (bc.is_time_non_sep() or not resources.owns(terms[bc.term_index].rec))
+      if (not bc.is_separable()
+          or bc.is_time_non_sep()
+          or not resources.owns(terms[bc.term_index].rec))
         continue;
 
       // In addition to the tensoring, the boundary condition case
@@ -211,7 +213,55 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
+    auto const &trm = terms[bc.term_index];
     if (not resources.owns(terms[bc.term_index].rec)) continue;
+
+    if (not bc.is_separable()) {
+      // this works like the time-dependent case, the assumption is that we cannot reuse
+      // the vector that has been computed ... should probably fix that
+
+      // 1. check-update the grid
+      int const flux_dim = trm.flux_dim; // direction of the flux
+      sparse_grid &subgrid = ibc_grid[flux_dim];
+      if (subgrid.generation() != grid.generation()) {
+        subgrid = grid.subgrid(flux_dim, basis.pdof);
+        switch (flux_dim) {
+          case 0: interp.template nodes<0>(ibc_grid[flux_dim], ibc_nodes[0]); break;
+          case 1: interp.template nodes<1>(ibc_grid[flux_dim], ibc_nodes[1]); break;
+          case 2: interp.template nodes<2>(ibc_grid[flux_dim], ibc_nodes[2]); break;
+          case 3: interp.template nodes<3>(ibc_grid[flux_dim], ibc_nodes[3]); break;
+          case 4: interp.template nodes<4>(ibc_grid[flux_dim], ibc_nodes[4]); break;
+          case 5: interp.template nodes<5>(ibc_grid[flux_dim], ibc_nodes[5]); break;
+          default: // unreachable
+            break;
+        }
+      }
+
+      // 2. set the interpolation work-spaces
+      size_t const nwork = interp.it1.size(); // needed to restore the size
+
+      interp.it1.resize(subgrid.num_dof());
+      interp.it2.resize(interp.it1.size());
+
+      // 3. call the interpolated function on the nodes
+      std::visit([&](auto const &func) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>)
+            func(time, ibc_nodes[flux_dim], interp.it1);
+        }, bc.flux.var_func());
+
+      // 4. construct hierarchical basis and project back on the interpolation nodes
+      block_cpu(basis.pdof, ibc_grid[flux_dim], conn, ibc_perm_low, interp.matrix_nodal2hier(),
+                P{1}, interp.it1.data(), P{0}, interp.it2.data(), kwork);
+      block_cpu(basis.pdof, ibc_grid[flux_dim], conn, ibc_perm_up, interp.matrix_hier2wav(),
+                ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
+
+      //
+
+      interp.it1.resize(nwork);
+      interp.it2.resize(nwork);
+
+      continue;
+    }
 
     switch (bc.flux.func().get_time_mode()) {
       case separable_func<P>::time_mode::constant:

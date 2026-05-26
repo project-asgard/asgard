@@ -109,6 +109,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   { // copy the terms from the pde_scheme
     // label chain-links and mark if interp or extra workspace is needed
     bool has_interp = pde.has_interp_funcs;
+    bool has_ibc    = pde.has_interp_bc;
 
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
@@ -123,23 +124,49 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           t2.resize(1);
 
         has_interp = has_interp or pde_terms[i].chain_[0].is_interpolatory();
+        has_ibc    = has_ibc or pde_terms[i].chain_[0].has_interp_bc();
 
         *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
         ir++->num_chain = num_chain;
         for (int c = 1; c < num_chain; c++) {
           has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
+          has_ibc    = has_ibc or pde_terms[i].chain_[c].has_interp_bc();
 
           *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
           ir++->mark_as_chain_link();
         }
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
+        has_ibc    = has_ibc or pde_terms[i].has_interp_bc();
 
         *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
     if (has_interp)
       interp = interpolation_manager<P>(options, domain, hier, conn);
+
+    if (has_ibc) {
+      // using a negative index will force re-init on first use
+      ibc_grid.fill(sparse_grid(sparse_grid::generation_index{-1}));
+      ibc_perm_up  = kronmult::permutes(num_dims - 1, conn_fill::upper);
+      ibc_perm_low = kronmult::permutes(num_dims - 1, conn_fill::lower);
+
+      // ibc_iwavscale[d] must be the product of xright(i) - xleft(i) for all i except i == d
+      P w = 1;
+      ibc_iwavscale[0] = 1;
+      for (int d = 1; d < num_dims; d++) {
+        w *= domain.xright(d - 1) - domain.xleft(d - 1);
+        ibc_iwavscale[d] = w;
+      }
+      w = 1;
+      for (int d = num_dims - 2; d >= 0; d--) {
+        w *= domain.xright(d + 1) - domain.xleft(d + 1);
+        ibc_iwavscale[d] *= w;
+      }
+      ASGARD_OMP_SIMD
+      for (int d = 0; d < num_dims; d++)
+        ibc_iwavscale[d] = std::sqrt(ibc_iwavscale[d]);
+    }
   }
 
   int num_bc = 0;
@@ -850,12 +877,15 @@ void term_manager<P>::build_raw_mat(
     // handle the non-separable in time, keep rhs values
     boundary_entry<P> &bentry = bcs[b];
 
-    if (not bentry.is_separable() or bentry.flux.chain_level(d) > clink) {
-      assert(not bentry.consts[d].empty());
-      if (t1d.is_diagonal()) {
-        raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
-      } else {
-        raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+    if (bentry.flux.chain_level(d) > clink) {
+      if (tentry.flux_dim == d) {
+        // careful here, chaining non-separable BC with a chain derivative term
+        assert(not bentry.consts[d].empty());
+        if (t1d.is_diagonal()) {
+          raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+        } else {
+          raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+        }
       }
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry

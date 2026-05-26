@@ -128,6 +128,8 @@ struct term_manager
   kronmult::permutes ibc_perm_low, ibc_perm_up;
   //! nodes on each boundary wall
   std::array<vector2d<P>, max_num_dimensions> ibc_nodes;
+  //! scaling weights for the interpolation
+  std::array<P, max_num_dimensions> ibc_iwavscale;
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

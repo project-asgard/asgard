@@ -538,9 +538,16 @@ public:
     //! simultaneously add and remove indexes
     adapt
   };
+  //! allows for expressive creation of a grid with pre-defined generation index
+  enum class generation_index : int {};
 
   //! makes and empty grid, reinit before use
   sparse_grid() = default;
+  //! make an empty sparse grid with negative (invalid) generation index, will force reinit of the grid
+  sparse_grid(generation_index gen_id) : sparse_grid() {
+    assert(static_cast<int>(gen_id) < 0);
+    generation_ = static_cast<int>(gen_id);
+  }
   //! number of dimensions and levels
   sparse_grid(prog_opts const &options);
 
@@ -548,6 +555,8 @@ public:
   int num_dims() const { return iset_.num_dimensions(); }
   //! Returns the number of indexes
   int64_t num_indexes() const { return iset_.num_indexes(); }
+  //! Returns true if the grid is empty, i.e., no indexes
+  bool empty() const { return iset_.empty(); }
   //! Returns the block size bases on the dimension and polynomial order (p + 1)^num-dims
   int block_size() const { return block_size_; }
   //! Returns the total number of degrees of freedom for this grid and this polynomial order

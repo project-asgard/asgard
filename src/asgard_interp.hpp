@@ -107,6 +107,7 @@ public:
     return nodes(grid, nodes_);
   }
   //! constructs the nodes corresponding to the grid
+  template<int missing_dim = -1>
   vector2d<P> const &nodes(sparse_grid const &grid, vector2d<P> &vnodes) const;
 
   //! compute nodal values for the field
