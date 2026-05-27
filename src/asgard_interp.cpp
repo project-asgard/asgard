@@ -365,6 +365,7 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid,
 
   span2d<P const> const nd1d(pdof, -1, nodes1d_.data());
 
+  // TODO: reenable this
   #pragma omp parallel
   {
     std::array<P const *, max_num_dimensions> offs;

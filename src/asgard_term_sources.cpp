@@ -10,6 +10,111 @@
 namespace asgard
 {
 
+// ib_dim is the interpolated boundary dimension
+template<typename P, data_mode dmode, int ib_dim>
+void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
+                          std::vector<P> const &con1d, std::vector<P> const &bnd,
+                          int pdof, P alpha, P y[])
+{
+  int const num_dims = grid.num_dims();
+  assert(0 <= ib_dim and ib_dim < num_dims);
+
+  assert(not con1d.empty());
+  assert(bnd.size() == static_cast<size_t>(subgrid.num_dof()));
+
+  for (int64_t i = 0; i < grid.num_indexes(); i++)
+  {
+    int const *idx = grid[i];
+
+    std::array<int, max_num_dimensions> v;
+    for (int d = 0; d < ib_dim; d++) v[d] = idx[d];
+    for (int d = ib_dim + 1; d < num_dims; d++) v[d - 1] = idx[d];
+
+    int64_t const isub = subgrid.iset().find(v.data());
+    assert(isub != -1);
+
+    P *out = y + i * grid.block_size();
+
+    P const *block1d  = con1d.data() + pdof * idx[ib_dim];
+    P const *subblock = bnd.data() + subgrid.block_size() * isub;
+
+    std::fill_n(v.begin(), num_dims, 0);
+
+    int const ib_init = (ib_dim == num_dims - 1) ? num_dims - 2 : num_dims - 1;
+    int const ib_post = (ib_dim == num_dims - 1) ? num_dims - 3 : ib_dim - 1;
+
+    bool is_in = true;
+    int c = 0;
+    while (is_in or c > 0)
+    {
+      if (is_in)
+      {
+        int ib = v[ib_init];
+        for (int d = num_dims - 2; d > ib_dim; d--) {
+          ib *= pdof;
+          ib += v[d];
+        }
+        for (int d = ib_post; d >= 0; d--) {
+          ib *= pdof;
+          ib += v[d];
+        }
+
+        P const b1 = block1d[v[ib_dim]];
+        P const b2 = subblock[ib];
+
+        if constexpr (dmode == data_mode::replace)
+          *out++ = b1 * b2;
+        else if constexpr (dmode == data_mode::scal_rep)
+          *out++ = alpha * b1 * b2;
+        else if constexpr (dmode == data_mode::increment)
+          *out++ += b1 * b2;
+        else if constexpr (dmode == data_mode::scal_inc)
+          *out++ += alpha * b1 * b2;
+
+        c = num_dims - 1;
+        v[c]++;
+      }
+      else
+      {
+        std::fill(v.begin() + c, v.begin() + num_dims, 0);
+        v[--c]++;
+      }
+
+      is_in = (v[c] < pdof);
+    }
+  }
+}
+
+template<typename P, data_mode dmode>
+void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          std::vector<P> const &con1d, std::vector<P> const &bnd,
+                          int pdof, P alpha, P y[])
+{
+  switch(flux_dim) {
+      case 0: merge_boundary_grids<P, dmode, 0>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      case 1: merge_boundary_grids<P, dmode, 1>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      case 2: merge_boundary_grids<P, dmode, 2>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      case 3: merge_boundary_grids<P, dmode, 3>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      case 4: merge_boundary_grids<P, dmode, 4>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      case 5: merge_boundary_grids<P, dmode, 5>
+              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              break;
+      default:
+        break;
+    };
+}
+
+
 template<typename P>
 template<data_mode dmode>
 void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
@@ -24,7 +129,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
   int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
-  auto rechain = [&, this](boundary_entry<P> &bc, P al, P data[]) -> void
+  auto rechain = [&, this](boundary_entry<P> &bc, P al, P data[], P beta = 0) -> void
     {
       // push the vectors through the term_md chain
       // assuming the current data is in t1, using t1/t2 as workspace
@@ -39,7 +144,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(terms[tid - 1], al, t1.data(), 0, data);
+      kron_term(terms[tid - 1], al, t1.data(), beta, data);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -245,17 +350,47 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 
       // 3. call the interpolated function on the nodes
       std::visit([&](auto const &func) {
-          if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>)
+          if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>) {
             func(time, ibc_nodes[flux_dim], interp.it1);
+          }
         }, bc.flux.var_func());
 
       // 4. construct hierarchical basis and project back on the interpolation nodes
-      block_cpu(basis.pdof, ibc_grid[flux_dim], conn, ibc_perm_low, interp.matrix_nodal2hier(),
+      // tools::dump(interp.it1, "func vals");
+
+      block_cpu(basis.pdof, subgrid, conn, ibc_perm_low, interp.matrix_nodal2hier(),
                 P{1}, interp.it1.data(), P{0}, interp.it2.data(), kwork);
-      block_cpu(basis.pdof, ibc_grid[flux_dim], conn, ibc_perm_up, interp.matrix_hier2wav(),
+      // tools::dump(interp.it2, "hier");
+      block_cpu(basis.pdof, subgrid, conn, ibc_perm_up, interp.matrix_hier2wav(),
                 ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
 
-      //
+      // tools::dump(interp.it1, "wavs at edge");
+      // tools::dump(10, interp.it1.data(), "wavs at edge");
+
+      if (terms[bc.term_index].is_chain_link())
+      {
+        merge_boundary_grids<P, data_mode::replace>
+            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+             interp.it1, basis.pdof, 1, t1.data());
+
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          rechain(bc, P{-1}, y, 1);
+        else
+          rechain(bc, -alpha, y, 1);
+      }
+      else
+      {
+        constexpr data_mode effective_mode = [&]() -> data_mode {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            return data_mode::increment;
+          else
+            return data_mode::scal_inc;
+        }();
+
+        merge_boundary_grids<P, effective_mode>
+            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+             interp.it1, basis.pdof, -alpha, y);
+      }
 
       interp.it1.resize(nwork);
       interp.it2.resize(nwork);

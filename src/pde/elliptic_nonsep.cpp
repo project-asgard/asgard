@@ -77,7 +77,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_iterations = 1000;
+  options.default_isolver_iterations = 5;
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
@@ -100,7 +100,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][1];
         P const z = nodes[i][2];
 
-        vals[i] = 1 + 0.5 * sin(2 * PI * (x + y + z));
+        vals[i] = 1 + 0.5 * std::sin(2 * PI * (x + y + z));
       }
     };
 
@@ -142,7 +142,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const z = nodes[i][1];
 
-        P const e = 1 + 0.5 * sin(2 * PI * (x + z));
+        P const e = 1 + 0.5 * std::sin(2 * PI * (x + z));
 
         f[i] = e * std::sin(x + 2 * z);
       }
@@ -156,7 +156,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const z = nodes[i][1];
 
-        P const e = 1 + 0.5 * sin(2 * PI * (x + 1 + z));
+        P const e = 1 + 0.5 * std::sin(2 * PI * (x + 1 + z));
 
         f[i] = -e * std::sin(x + 1 + 2 * z);
       }
@@ -173,7 +173,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const e = 1 + 0.5 * sin(2 * PI * (x + y));
+        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y));
 
         f[i] = e * std::sin(x + y);
       }
@@ -187,14 +187,14 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const e = 1 + 0.5 * sin(2 * PI * (x + y + 1));
+        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y + 1));
 
         f[i] = -e * std::sin(x + y + 2);
       }
     };
 
   gradx += asgard::left_boundary_flux<P>(fx0);
-  gradx += asgard::right_boundary_flux<P>(fx1);
+  // gradx += asgard::right_boundary_flux<P>(fx1);
 
   divy += asgard::left_boundary_flux<P>(eta_dfy0);
   divy += asgard::right_boundary_flux<P>(eta_dfy1);
@@ -207,16 +207,16 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{eta}, gradz};
 
   pde += dxx;
-  pde += dyy;
-  pde += dzz;
+  // pde += dyy;
+  // pde += dzz;
 
   P const dx = pde.cell_size(asgard::dimension_id{0});
   P const dy = pde.cell_size(asgard::dimension_id{1});
   P const dz = pde.cell_size(asgard::dimension_id{2});
 
-  pde += { asgard::term_penalty<P>{P{1} / dx}, I, I};
-  pde += { I, asgard::term_penalty<P>{P{1} / dy}, I};
-  pde += { I, I, asgard::term_penalty<P>{P{1} / dz}};
+  pde += { asgard::term_penalty<P>{P{1} / dx}, I, I };
+  pde += { I, asgard::term_penalty<P>{P{1} / dy}, I };
+  pde += { I, I, asgard::term_penalty<P>{P{1} / dz} };
 
   auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
     void {
@@ -225,7 +225,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][1];
         P const z = nodes[i][2];
 
-        P const e = 1 + 0.5 * sin(2 * PI * (x + y + z));
+        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y + z));
 
         s[i] = 6 * e * std::cos(x + y + 2 * z)
               + 4 * PI * std::cos(2 * PI * (x + y + z)) * std::sin(x + y + 2 * z);
@@ -260,48 +260,36 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
  * \snippet elliptic_nonsep.cpp ellipticns get-err
  */
 template<typename P>
-double get_error_l2(asgard::discretization_manager<P> const &disc)
+double get_error_max(asgard::discretization_manager<P> const &disc)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [ellipticns get-err]
 #endif
 
-  int const num_dims = disc.num_dims();
+  int const np = 20;
 
-  // see the continuity example for the orthogonality trick
+  // makes a dense grid over the domain using np points each direction
+  asgard::vector2d<double> const mesh = asgard::make_grid<double>(disc.domain(), np);
 
-  // construct the exact solution, since there is no initial condition
-  auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      for (size_t i = 0; i < x.size(); i++)
-        fx[i] = x[i] * (P{2} - x[i]);
-    };
+  std::vector<double> ref(mesh.num_strips());
+  std::vector<double> con(mesh.num_strips());
 
-  // set the right-hand-side for each dimension
-  std::vector<asgard::svector_func1d<P>> func(num_dims, s1d);
+  #pragma omp parallel for
+  for (int64_t i = 0; i < mesh.num_strips(); i++)
+    ref[i] = std::cos(mesh[i][0] + mesh[i][1] + 2 * mesh[i][2]);
 
-  std::vector<P> const eref = disc.project_function(asgard::separable_func<P>(func));
+  auto shot = disc.get_snapshot_mpi();
 
-  double constexpr space1d = 8.0 / 15.0; // integral of (2x - x^2)^2 over (0, 1)
+  shot.reconstruct(mesh[0], mesh.num_strips(), con.data());
 
-  // this is the L^2 norm-squared of the exact solution
-  double const enorm = asgard::fm::powi(space1d, num_dims);
-
-  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
-  std::vector<P> const &state = disc.current_state();
-  assert(eref.size() == state.size());
-
-  double nself = 0;
-  double ndiff = 0;
-  for (size_t i = 0; i < state.size(); i++)
-  {
-    double const e = eref[i] - state[i];
-    ndiff += e * e;
-    double const r = eref[i];
-    nself += r * r;
+  double err = 0;
+  double nrm = 0;
+  for (size_t i = 0; i < ref.size(); i++) {
+    err = std::max(err, std::abs(con[i] - ref[i]));
+    nrm = std::max(nrm, std::abs(ref[i]));
   }
 
-  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
+  return err / nrm;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [ellipticns get-err]
@@ -363,7 +351,7 @@ R"help(<< additional options for this file >>
 
   disc.final_output();
 
-  P const err = get_error_l2(disc);
+  P const err = get_error_max(disc);
   if (not disc.stop_verbosity())
     std::cout << " -- steady state error: " << err << '\n';
 
@@ -395,7 +383,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
   disc.advance_time();
 
-  double const err = get_error_l2(disc);
+  double const err = get_error_max(disc);
   // std::cout << err << '\n';
   tcheckless(1, err, tol);
 }

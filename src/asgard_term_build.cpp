@@ -149,7 +149,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       // using a negative index will force re-init on first use
       ibc_grid.fill(sparse_grid(sparse_grid::generation_index{-1}));
       ibc_perm_up  = kronmult::permutes(num_dims - 1, conn_fill::upper);
-      ibc_perm_low = kronmult::permutes(num_dims - 1, conn_fill::lower);
+      ibc_perm_low = kronmult::permutes(num_dims - 1, conn_fill::lower_udiag);
 
       // ibc_iwavscale[d] must be the product of xright(i) - xleft(i) for all i except i == d
       P w = 1;
@@ -303,7 +303,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       if (bc.is_separable())
         return (not bc.is_time_non_sep());
       else
-        return true; // non-separable bc involve interpolation and are active
+        return false; // non-separable bc involve interpolation and are active
     };
 
   for (auto const &src : sources)

@@ -611,6 +611,8 @@ void block_cpu(
         std::is_same_v<coeff_type, std::array<block_sparse_matrix<precision>, max_num_dimensions>>);
   tools::time_event performance_("block-cpu");
 
+  int64_t const num_entries = grid.num_dof();
+
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
 
@@ -654,8 +656,6 @@ void block_cpu(
 
       std::swap(w1, w2);
     }
-
-    int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
       if (beta == 0) {

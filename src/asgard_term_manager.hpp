@@ -364,20 +364,17 @@ struct term_manager
 
   //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(group_id group,
-                     P time, P alpha, P y[]);
+  void apply_sources(group_id group, P time, P alpha, P y[]);
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
-  void apply_sources(group_id group,
-                     P time, P alpha, std::vector<P> &y)
+  void apply_sources(group_id group, P time, P alpha, std::vector<P> &y)
   {
     assert(static_cast<int64_t>(y.size()) == grid.num_dof());
     apply_sources<dmode>(group, time, alpha, y.data());
   }
   #ifdef ASGARD_USE_GPU
   template<data_mode dmode>
-  void apply_sources_gpu(group_id group,
-                         P time, P alpha, P y[]);
+  void apply_sources_gpu(group_id group, P time, P alpha, P y[]);
   #endif
 
   //! prints the total memory used
