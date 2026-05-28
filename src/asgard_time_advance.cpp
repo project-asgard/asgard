@@ -64,13 +64,12 @@ void steady_state<P>::next_step(
 
     switch (precon.method()) {
     case precon_method::none:
-      // TODO: reenable this
       solver.iterate_solve(
         [&](P alpha, P const x[], P beta, P y[]) -> void
         {
           disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
-      // endstep = work;
+      // endstep = work; // returns the rhs in place of the solution
     break;
     case precon_method::jacobi:
       solver.iterate_solve(

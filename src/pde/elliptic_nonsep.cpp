@@ -73,11 +73,12 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   options.force_step_method(asgard::time_method::steady);
 
   // OK for small problems, larger one should switch to gmres or bicgstab
-  options.default_solver = asgard::solver_method::bicgstab;
+  options.default_solver = asgard::solver_method::gmres;
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_iterations = 5;
+  options.default_isolver_inner_iterations = 50;
+  options.default_isolver_iterations = 500;
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
@@ -91,7 +92,11 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> grady = { I, asgard::term_div<P>{1}, I};
   asgard::term_md<P> gradz = { I, I, asgard::term_div<P>{1}};
 
-  auto eta = [=](P, asgard::vector2d<P> const &nodes,
+  auto eta = [](P x, P y, P z) -> P { return (1 + P{0.5} * std::sin(P{2 * PI} * (x + y + z))); };
+
+  auto exact = [](P x, P y, P z) -> P { return std::cos(x + y + 2 * z); };
+
+  auto coeff = [=](P, asgard::vector2d<P> const &nodes,
                  std::vector<P> const &f, std::vector<P> &vals) ->
     void {
       // ignore the first input, it is time but it is not implemented yet
@@ -100,7 +105,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][1];
         P const z = nodes[i][2];
 
-        vals[i] = 1 + 0.5 * std::sin(2 * PI * (x + y + z));
+        vals[i] = f[i] * eta(x, y, z);
       }
     };
 
@@ -116,7 +121,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][0];
         P const z = nodes[i][1];
 
-        f[i] = std::cos(y + 2 * z);
+        f[i] = exact(0, y, z);
       }
     };
 
@@ -127,7 +132,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const y = nodes[i][0];
         P const z = nodes[i][1];
 
-        f[i] = std::cos(1 + y + 2 * z);
+        f[i] = exact(1, y, z);
       }
     };
 
@@ -140,11 +145,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         // nodes for the full domain are ordered as (x, y, z)
         // removing y leaves us as (x, z)
         P const x = nodes[i][0];
-        P const z = nodes[i][1];
+        P const z = nodes[i][1];;
 
-        P const e = 1 + 0.5 * std::sin(2 * PI * (x + z));
-
-        f[i] = e * std::sin(x + 2 * z);
+        f[i] = -eta(x, 0, z) * std::sin(x + 2 * z);
       }
     };
 
@@ -156,9 +159,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const z = nodes[i][1];
 
-        P const e = 1 + 0.5 * std::sin(2 * PI * (x + 1 + z));
-
-        f[i] = -e * std::sin(x + 1 + 2 * z);
+        f[i] = -eta(x, 1, z) * std::sin(x + 1 + 2 * z);
       }
     };
 
@@ -173,9 +174,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y));
-
-        f[i] = e * std::sin(x + y);
+        f[i] = -eta(x, y, 0) * std::sin(x + y);
       }
     };
 
@@ -187,9 +186,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y + 1));
-
-        f[i] = -e * std::sin(x + y + 2);
+        f[i] = -eta(x, y, 1) * std::sin(x + y + 2);
       }
     };
 
@@ -202,9 +199,9 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   divz += asgard::left_boundary_flux<P>(eta_dfz0);
   divz += asgard::right_boundary_flux<P>(eta_dfz1);
 
-  asgard::term_md<P> dxx = {divx, asgard::term_interp<P>{eta}, gradx};
-  asgard::term_md<P> dyy = {divy, asgard::term_interp<P>{eta}, grady};
-  asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{eta}, gradz};
+  asgard::term_md<P> dxx = {divx, asgard::term_interp<P>{coeff}, gradx};
+  asgard::term_md<P> dyy = {divy, asgard::term_interp<P>{coeff}, grady};
+  asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{coeff}, gradz};
 
   pde += dxx;
   // pde += dyy;
@@ -218,8 +215,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> peny = { I, asgard::term_penalty<P>{P{1} / dy}, I };
   asgard::term_md<P> penz = { I, I, asgard::term_penalty<P>{P{1} / dz} };
 
-  penx += asgard::left_boundary_flux<P>(fx0);
-  penx += asgard::right_boundary_flux<P>(fx1);
+  // penx += asgard::left_boundary_flux<P>(fx0);
+  // penx += asgard::right_boundary_flux<P>(fx1);
 
   // peny += asgard::left_boundary_flux<P>(eta_dfy0);
   // peny += asgard::right_boundary_flux<P>(eta_dfy1);
@@ -233,15 +230,28 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
 
   auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
     void {
-      for (int64_t i = 0; i < nodes.num_strips(); i++) {
+      for (int64_t i = 0; i < nodes.num_strips(); i++)
+      {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
         P const z = nodes[i][2];
 
-        P const e = 1 + 0.5 * std::sin(2 * PI * (x + y + z));
+        P const e   = 1 + 0.5 * std::sin(2 * PI * (x + y + z));
+        P const de  = PI * std::cos(2 * PI * (x + y + z));
+        P const dde = -2 * PI * PI * std::sin(2 * PI * (x + y + z));
 
-        s[i] = 6 * e * std::cos(x + y + 2 * z)
-              + 4 * PI * std::cos(2 * PI * (x + y + z)) * std::sin(x + y + 2 * z);
+        P const f   =  std::cos(x + y + 2 * z);
+        P const df  = -std::sin(x + y + 2 * z); // the z component is multiplied by 2
+        P const ddf = -std::cos(x + y + 2 * z); // the z component is multiplied by 4
+
+        // 3 comes from adding eta_xx * f + eta_yy * f + eta_zz * f
+        // 8 comes from 2 * eta_x * f_x + 2 * eta_y * f_y + 2 * 2 * eta_z * f_z
+        // 6 comes from eta * f_xx + eta * f_yy + 4 * eta * f_zz
+        // s[i] = -3 * dde * f - 8 * de * df - 6 * e * ddf;
+
+        // using only derivative in x
+        s[i] = -dde * f - 2 * de * df - e * ddf;
+
       }
     };
 
