@@ -4,7 +4,7 @@
 
 using namespace asgard;
 
-enum class pde_mode { first, second, first_nonsep };
+enum class pde_mode { first, second, first_nonsep, second_nonsep };
 
 template<typename P = asgard::default_precision, pde_mode mode>
 asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
@@ -14,6 +14,8 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
     options.title += " (first order)";
   } else if constexpr (mode == pde_mode::first_nonsep) {
     options.title += " (first order, non-sep)";
+  } else if constexpr (mode == pde_mode::second_nonsep) {
+    options.title += " (second order, non-sep)";
   } else {
     options.title += " (second order)";
   }
@@ -55,17 +57,24 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 
     P const dx = pde.cell_size(dimension_id{0});
 
-    term_md<P> pen = { term_penalty<P>{P{1} / dx, boundary_type::right}, I, I };
+    pde += { term_penalty<P>{P{1} / dx}, I, I };
 
-    pen += right_boundary_flux<P>(fx1);
-
-    pde += pen;
-
-    auto src = [=](P, vector2d<P> const &nodes, std::vector<P> &s) ->
-      void {
-        std::ignore = nodes;
-        std::fill(s.begin(), s.end(), P{-1});
-      };
+    // source is the same (constant -1), set in 2 ways for stress-testing
+    auto src = [&]() -> auto {
+        if constexpr (mode == pde_mode::first) {
+          // set via separable function
+          auto s = separable_func<P>::const_one(number_of_dimensions{3});
+          s.set(dimension_id{0}, -1);
+          return s;
+        } else {
+          // set as if it is non-separable
+          return [=](P, vector2d<P> const &nodes, std::vector<P> &s) ->
+              void {
+                std::ignore = nodes;
+                std::fill(s.begin(), s.end(), P{-1});
+              };
+        }
+      }();
 
     pde += source<P>(src);
   }
@@ -74,10 +83,34 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
     term_md<P> divx  = { term_div<P>{-1}, I, I };
     term_md<P> gradx = { term_grad<P>{1, boundary_type::bothsides}, I, I };
 
-    auto fx1 = [=](P, vector2d<P> const &, std::vector<P> &f) ->
+    auto fx0 = [=](P, vector2d<P> const &nodes, std::vector<P> &f) ->
       void {
-        std::fill(f.begin(), f.end(), P{1});
+        if constexpr (mode == pde_mode::second) {
+          std::ignore = nodes;
+          std::fill(f.begin(), f.end(), P{0});
+        } else {
+          for (int64_t i = 0; i < nodes.num_strips(); i++) {
+            f[i] = nodes[i][0] + nodes[i][1];
+          }
+        }
       };
+
+    auto fx1 = [=](P, vector2d<P> const &nodes, std::vector<P> &f) ->
+      void {
+        if constexpr (mode == pde_mode::second) {
+          std::ignore = nodes;
+          std::fill(f.begin(), f.end(), P{1});
+        } else {
+          for (int64_t i = 0; i < nodes.num_strips(); i++)
+            f[i] = P{1} + nodes[i][0] + nodes[i][1];
+        }
+      };
+
+    if constexpr (mode == pde_mode::second_nonsep) {
+      gradx += left_boundary_flux<P>(fx0);
+    } else {
+      std::ignore = fx0;
+    }
 
     gradx += right_boundary_flux<P>(fx1);
 
@@ -85,18 +118,7 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 
     P const dx = pde.cell_size(dimension_id{0});
 
-    term_md<P> pen = { term_penalty<P>{P{1} / dx, boundary_type::bothsides}, I, I };
-
-    pen += right_boundary_flux<P>(fx1);
-
-    pde += pen;
-
-    auto src = [=](P, vector2d<P> const &, std::vector<P> &s) ->
-      void {
-        std::fill(s.begin(), s.end(), P{0});
-      };
-
-    pde += source<P>(src);
+    pde += { term_penalty<P>{P{1} / dx}, I, I };
   }
 
   return pde;
@@ -106,7 +128,8 @@ template<typename P = asgard::default_precision>
 asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 {
   int count = 0;
-  for (auto const &s : {std::string("-second"), std::string("-nonsep-1")})
+  for (auto const &s : {std::string("-first"), std::string("-second"),
+                        std::string("-nonsep-1"), std::string("-nonsep-2")})
     if (options.has_cli_entry(s))
       count++;
   rassert(count < 2, "cannot use multiple PDE type switches, e.g., -second and -nonsep-1");
@@ -115,6 +138,8 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
     return make_3d_pde<P, pde_mode::second>(options);
   else if (options.has_cli_entry("-nonsep-1"))
     return make_3d_pde<P, pde_mode::first_nonsep>(options);
+  else if (options.has_cli_entry("-nonsep-2"))
+    return make_3d_pde<P, pde_mode::second_nonsep>(options);
   else
     return make_3d_pde<P, pde_mode::first>(options);
 }
@@ -174,14 +199,16 @@ int main(int argc, char** argv)
     options.print_help(std::cout);
     std::cout <<
 R"help(<< additional options for this file >>
--second                             use a second order problem (default is first order)
+-first                              use a first order problem (default)
+-second                             use a second order problem
 -nonsep-1                           using first order pde with non-separable solution
+-nonsep-2                           using second order pde with non-separable solution
 -test                               perform self-testing
 )help";
     return 0;
   }
 
-  options.throw_if_argv_not_in({"-test", "-second", "-nonsep-1"}, {});
+  options.throw_if_argv_not_in({"-test", "-first", "-second", "-nonsep-1", "-nonsep-2"}, {});
 
   if (options.has_cli_entry("-test")) {
     self_test();
@@ -225,6 +252,11 @@ void self_test() {
   dotest<double>(5.E-9, "-d 2 -l 2");
   dotest<double>(1.E-9, "-d 2 -l 2 -second");
   dotest<double>(1.E-9, "-d 3 -l 1 -second");
+
+  dotest<double>(1.E-9, "-d 2 -l 3 -nonsep-1");
+  dotest<double>(1.E-9, "-d 2 -l 3 -nonsep-2");
+
+  dotest<double>(1.E-9, "-d 2 -l 5 -nonsep-2");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT

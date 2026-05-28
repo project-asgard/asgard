@@ -609,7 +609,7 @@ void block_cpu(
   bool constexpr single_matrix = std::is_same_v<coeff_type, block_sparse_matrix<precision>>;
   static_assert(single_matrix or
         std::is_same_v<coeff_type, std::array<block_sparse_matrix<precision>, max_num_dimensions>>);
-  tools::time_event performance_("block-cpu");
+  tools::time_event performance_("kronecker block-cpu");
 
   int64_t const num_entries = grid.num_dof();
 
