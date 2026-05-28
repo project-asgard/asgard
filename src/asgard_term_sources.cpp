@@ -137,14 +137,13 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       // rechain until the top link
       int tid = bc.term_index - 1;
       while (tid > 0 and terms[tid - 1].is_chain_link()) {
-        // TODO: move this to the GPU with the rest of the sources/bc terms
         kron_term(terms[tid], 1, t1, 0, t2);
         std::swap(t1, t2);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(terms[tid - 1], al, t1.data(), beta, data);
+      kron_term(terms[tid], al, t1.data(), beta, data);
     };
 
   // update the const-components of the sources, if the grid has updated

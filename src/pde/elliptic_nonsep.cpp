@@ -194,7 +194,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
     };
 
   gradx += asgard::left_boundary_flux<P>(fx0);
-  // gradx += asgard::right_boundary_flux<P>(fx1);
+  gradx += asgard::right_boundary_flux<P>(fx1);
 
   divy += asgard::left_boundary_flux<P>(eta_dfy0);
   divy += asgard::right_boundary_flux<P>(eta_dfy1);
@@ -214,9 +214,22 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   P const dy = pde.cell_size(asgard::dimension_id{1});
   P const dz = pde.cell_size(asgard::dimension_id{2});
 
-  pde += { asgard::term_penalty<P>{P{1} / dx}, I, I };
-  pde += { I, asgard::term_penalty<P>{P{1} / dy}, I };
-  pde += { I, I, asgard::term_penalty<P>{P{1} / dz} };
+  asgard::term_md<P> penx = { asgard::term_penalty<P>{P{1} / dx}, I, I };
+  asgard::term_md<P> peny = { I, asgard::term_penalty<P>{P{1} / dy}, I };
+  asgard::term_md<P> penz = { I, I, asgard::term_penalty<P>{P{1} / dz} };
+
+  penx += asgard::left_boundary_flux<P>(fx0);
+  penx += asgard::right_boundary_flux<P>(fx1);
+
+  // peny += asgard::left_boundary_flux<P>(eta_dfy0);
+  // peny += asgard::right_boundary_flux<P>(eta_dfy1);
+  //
+  // penz += asgard::left_boundary_flux<P>(eta_dfz0);
+  // penz += asgard::right_boundary_flux<P>(eta_dfz1);
+
+  pde += penx;
+  // pde += peny;
+  // pde += penz;
 
   auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
     void {

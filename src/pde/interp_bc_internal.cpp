@@ -4,118 +4,128 @@
 
 using namespace asgard;
 
-template<typename P = asgard::default_precision>
+enum class pde_order { first, second };
+
+template<typename P = asgard::default_precision, pde_order pdeorder>
 asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 {
-  options.title = "Non-separable elliptic PDE";
+  options.title = "Non-separable boundary value PDE, 3D";
+  if constexpr (pdeorder == pde_order::first) {
+    options.title += " (first order)";
+  } else {
+    options.title += " (second order)";
+  }
 
-  asgard::pde_domain<P> domain({{0, 1}, {0, 1}, {0, 1}});
+  pde_domain<P> domain({{0, 1}, {0, 1}, {0, 1}});
 
   options.default_degree = 2;
   options.default_start_levels = {4, };
 
-  options.force_step_method(asgard::time_method::steady);
+  options.force_step_method(time_method::steady);
 
-  options.default_solver = asgard::solver_method::bicgstab;
+  options.default_solver = solver_method::bicgstab;
 
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 1000;
 
-  asgard::pde_scheme<P> pde(options, std::move(domain));
+  pde_scheme<P> pde(options, std::move(domain));
 
-  asgard::term_1d<P> I = asgard::term_identity{};
+  term_1d<P> I = term_identity{};
 
-  asgard::term_md<P> divx  = { asgard::term_div<P>{-1, asgard::boundary_type::right}, I, I};
+  if constexpr (pdeorder == pde_order::first)
+  {
+    term_md<P> divx = { term_div<P>{-1, boundary_type::right}, I, I };
 
-  auto fx1 = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &f) ->
-    void {
-      // value of the solution at x = 0, the nodes are at the wall corresponding to x = 0
-      assert(nodes.stride() == 2);
-      for (int64_t i = 0; i < nodes.num_strips(); i++)
-        f[i] = 1;
-    };
+    auto fx1 = [=](P, vector2d<P> const &, std::vector<P> &f) ->
+      void {
+        std::fill(f.begin(), f.end(), P{1});
+      };
 
-  divx += asgard::right_boundary_flux<P>(fx1);
+    divx += right_boundary_flux<P>(fx1);
 
-  pde += divx;
+    pde += divx;
 
-  P const dx = pde.cell_size(asgard::dimension_id{0});
+    P const dx = pde.cell_size(dimension_id{0});
 
-  pde += { asgard::term_penalty<P>{P{1} / dx}, I, I};
+    term_md<P> pen = { term_penalty<P>{P{1} / dx, boundary_type::right}, I, I };
 
-  auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
-    void {
-      for (int64_t i = 0; i < nodes.num_strips(); i++)
-        s[i] = 1;
-    };
+    pen += right_boundary_flux<P>(fx1);
 
-  pde += asgard::source<P>(source);
+    pde += pen;
+
+    auto src = [=](P, vector2d<P> const &, std::vector<P> &s) ->
+      void {
+        std::fill(s.begin(), s.end(), P{-1});
+      };
+
+    pde += source<P>(src);
+  }
+  else
+  {
+    term_md<P> divx  = { term_div<P>{-1}, I, I };
+    term_md<P> gradx = { term_grad<P>{1, boundary_type::bothsides}, I, I };
+
+    auto fx1 = [=](P, vector2d<P> const &, std::vector<P> &f) ->
+      void {
+        std::fill(f.begin(), f.end(), P{1});
+      };
+
+    gradx += right_boundary_flux<P>(fx1);
+
+    pde += term_md<P>{divx, gradx};
+
+    P const dx = pde.cell_size(dimension_id{0});
+
+    term_md<P> pen = { term_penalty<P>{P{1} / dx, boundary_type::bothsides}, I, I };
+
+    pen += right_boundary_flux<P>(fx1);
+
+    pde += pen;
+
+    auto src = [=](P, vector2d<P> const &, std::vector<P> &s) ->
+      void {
+        std::fill(s.begin(), s.end(), P{0});
+      };
+
+    pde += source<P>(src);
+  }
 
   return pde;
 }
 
 template<typename P>
-double get_error_l2(asgard::discretization_manager<P> const &disc)
+double get_error_max(discretization_manager<P> const &disc)
 {
-  int const num_dims = disc.num_dims();
+  int const np = 20;
 
-  // construct the exact solution, since there is no initial condition
-  auto s1d = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
-    void {
-      for (size_t i = 0; i < x.size(); i++)
-        fx[i] = x[i] * (P{2} - x[i]);
-    };
+  // makes a dense grid over the domain using np points each direction
+  vector2d<double> const mesh = make_grid<double>(disc.domain(), np);
 
-  // set the right-hand-side for each dimension
-  std::vector<asgard::svector_func1d<P>> func(num_dims, s1d);
+  std::vector<double> ref(mesh.num_strips());
+  std::vector<double> con(mesh.num_strips());
 
-  std::vector<P> const eref = disc.project_function(asgard::separable_func<P>(func));
+  #pragma omp parallel for
+  for (int64_t i = 0; i < mesh.num_strips(); i++)
+    ref[i] = mesh[i][0];
 
-  double constexpr space1d = 8.0 / 15.0; // integral of (2x - x^2)^2 over (0, 1)
+  auto shot = disc.get_snapshot_mpi();
 
-  // this is the L^2 norm-squared of the exact solution
-  double const enorm = asgard::fm::powi(space1d, num_dims);
+  shot.reconstruct(mesh[0], mesh.num_strips(), con.data());
 
-  disc.sync_mpi_state(); // is using multiple ranks, sync across the ranks
-  std::vector<P> const &state = disc.current_state();
-  assert(eref.size() == state.size());
-
-  double nself = 0;
-  double ndiff = 0;
-  for (size_t i = 0; i < state.size(); i++)
-  {
-    double const e = eref[i] - state[i];
-    ndiff += e * e;
-    double const r = eref[i];
-    nself += r * r;
+  double err = 0;
+  double nrm = 0;
+  for (size_t i = 0; i < ref.size(); i++) {
+    err = std::max(err, std::abs(con[i] - ref[i]));
+    nrm = std::max(nrm, std::abs(ref[i]));
   }
 
-  return std::sqrt((ndiff + std::abs(enorm - nself)) / enorm);
-
-#ifndef __ASGARD_DOXYGEN_SKIP
-//! [ellipticns get-err]
-#endif
+  return err / nrm;
 }
 
-#ifndef __ASGARD_DOXYGEN_SKIP
-// self-consistency testing, not part of the example/tutorial
 void self_test();
-#endif
 
-/*!
- * \ingroup asgard_examples_ellipticns
- * \brief main() for the sine-wave example
- *
- * The main() processes the command line arguments and calls both
- * make_elliptic_pde() and get_error_l2().
- *
- * \snippet elliptic_nonsep.cpp elliptic main
- */
 int main(int argc, char** argv)
 {
-#ifndef __ASGARD_DOXYGEN_SKIP
-//! [elliptic main]
-#endif
   // if MPI is enabled, call MPI_Init(), otherwise do nothing
   asgard::libasgard_runtime running_(argc, argv);
 
@@ -132,27 +142,29 @@ int main(int argc, char** argv)
     options.print_help(std::cout);
     std::cout <<
 R"help(<< additional options for this file >>
+-second                             use a second order problem (default is first order)
 -test                               perform self-testing
 )help";
     return 0;
   }
 
-  options.throw_if_argv_not_in({"-test", }, {});
+  options.throw_if_argv_not_in({"-test", "-second"}, {});
 
   if (options.has_cli_entry("-test")) {
     self_test();
     return 0;
   }
 
-  auto pde = make_3d_pde<P>(options);
-
-  asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::low);
+  pde_scheme<P> pde = (options.has_cli_entry("-second"))
+                      ? make_3d_pde<P, pde_order::second>(options)
+                      : make_3d_pde<P, pde_order::first>(options);
+  discretization_manager<P> disc(std::move(pde), verbosity_level::low);
 
   disc.advance_time();
 
   disc.final_output();
 
-  P const err = get_error_l2(disc);
+  P const err = get_error_max(disc);
   if (not disc.stop_verbosity())
     std::cout << " -- steady state error: " << err << '\n';
 
@@ -172,7 +184,7 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 
   disc.advance_time();
 
-  double const err = get_error_l2(disc);
+  double const err = get_error_max(disc);
   // std::cout << err << '\n';
   tcheckless(1, err, tol);
 }

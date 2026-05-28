@@ -280,6 +280,7 @@ public:
       rassert(fdomain[i], "cannot use null function in dimension " + std::to_string(i));
       funcs_[i] = std::move(fdomain[i]);
     }
+    std::cout << " constructor svector_func1d<P>, time index " << time_func_.index() << '\n';
   }
   //! do not set simultaneously svector_func1d and time function, those can be merged
   separable_func(std::vector<svector_func1d<P>>, scalar_func<P>) : separable_func()
@@ -338,6 +339,7 @@ public:
     rassert(static_cast<int>(num_dims) >= 1, "the number of dimensions must be at least 1");
     separable_func<P> result;
     for (int d : iindexof(static_cast<int>(num_dims))) result.funcs_[d] = P{1};
+    result.time_func_ = P{1};
     return result;
   }
 
@@ -365,7 +367,7 @@ public:
   }
   //! returns true if the function is time-depend and separable in time
   bool is_time_sep() const {
-    return std::holds_alternative<scalar_func<P>>(time_func_);
+    return not std::holds_alternative<std::monostate>(time_func_);
   }
   //! returns true if the function is constant in time
   bool is_time_const() const {
@@ -487,7 +489,16 @@ public:
           }
         }, funcs_[d]);
     }
-    if (is_time_sep()) v *= std::get<scalar_func<P>>(time_func_)(t);
+    v *= std::visit([&](auto const &f) -> P {
+        using current_type = std::decay_t<decltype(f)>;
+        if constexpr (std::is_same_v<current_type, std::monostate>) {
+          return 1; // ignore this dimension
+        } else if constexpr (std::is_same_v<current_type, P>) {
+          return f;
+        } else {
+          return f(t);
+        }
+      }, time_func_);
     return v;
   }
 

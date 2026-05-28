@@ -80,7 +80,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
     term_md<P> div_md(ops);
 
-    separable_func<P> bc(std::vector<P>(num_dims, 1));
+    separable_func<P> bc = separable_func<P>::const_one(number_of_dimensions{num_dims});
 
     div_md += right_boundary_flux{bc};
 

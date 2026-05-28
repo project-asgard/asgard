@@ -118,8 +118,8 @@ void interp_identity(P tol, int degree, int max_level)
 {
   pde_domain<P> domain(2); // work in 2d
   separable_func<P> ic = separable_func<P>::const_one(number_of_dimensions{2});
-  ic.set(dimension_id{0}, vectorize_t<P>([](P x)->P { return std::sin(x); }));
-  ic.set(dimension_id{1}, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+  ic.set(dimension_id{0}, vectorize<P>([](P x)->P { return std::sin(x); }));
+  ic.set(dimension_id{1}, vectorize<P>([](P x)->P { return std::exp(x); }));
 
   std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
                                      {2, "quadratic"}, {3, "cubic"}};
@@ -166,8 +166,8 @@ void interp_identity_domain(P tol, int degree, int max_level)
   auto ic = separable_func<P>::const_one(number_of_dimensions{2});
   static_assert(std::is_same_v<decltype(ic), separable_func<P>>,
                 "incorrect return type for separable_func<P>::const_one");
-  ic.set(asgard::dimension_id{0}, vectorize_t<P>([](P x)->P { return std::sin(x); }));
-  ic.set(asgard::dimension_id{1}, vectorize_t<P>([](P x)->P { return std::exp(x); }));
+  ic.set(asgard::dimension_id{0}, vectorize<P>([](P x)->P { return std::sin(x); }));
+  ic.set(asgard::dimension_id{1}, vectorize<P>([](P x)->P { return std::exp(x); }));
 
   std::map<int, std::string> mode = {{0, "constant"}, {1, "linear"},
                                      {2, "quadratic"}, {3, "cubic"}};
