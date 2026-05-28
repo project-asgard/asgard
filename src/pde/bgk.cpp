@@ -738,7 +738,7 @@ void test_energy(pde_mode const mode, std::string const &opt_str) {
 
     P const mass = disc.get_moment(m0)[0];
 
-    std::cout << std::abs(mass - mass0) << "  " << mass << "  " << mass0 << "\n";
+    // std::cout << std::abs(mass - mass0) << "  " << mass << "  " << mass0 << "\n";
     tassert(std::abs(mass - mass0) < tol);
 
     if (dims == 1) {

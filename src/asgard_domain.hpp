@@ -280,7 +280,6 @@ public:
       rassert(fdomain[i], "cannot use null function in dimension " + std::to_string(i));
       funcs_[i] = std::move(fdomain[i]);
     }
-    std::cout << " constructor svector_func1d<P>, time index " << time_func_.index() << '\n';
   }
   //! do not set simultaneously svector_func1d and time function, those can be merged
   separable_func(std::vector<svector_func1d<P>>, scalar_func<P>) : separable_func()

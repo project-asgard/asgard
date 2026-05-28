@@ -49,6 +49,7 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   full_block = fm::ipow(pdof, domain.num_dims());
 
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
+  pos_grid.block_size_ = pos_block;
 
   wav_scale  = 1;
   for (int d : iindexof(pos_grid.num_dims())) {
