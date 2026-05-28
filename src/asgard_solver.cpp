@@ -271,6 +271,7 @@ int bicgstab<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
 {
   tools::time_event timing_("bicgstab::solve");
+
   int64_t const n = static_cast<int64_t>(rhs.size());
   if (v.size() != rhs.size()) // the other temps are initialized with a copy
     v.resize(n);

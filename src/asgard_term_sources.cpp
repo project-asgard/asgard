@@ -355,16 +355,10 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         }, bc.flux.var_func());
 
       // 4. construct hierarchical basis and project back on the interpolation nodes
-      // tools::dump(interp.it1, "func vals");
-
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_low, interp.matrix_nodal2hier(),
                 P{1}, interp.it1.data(), P{0}, interp.it2.data(), kwork);
-      // tools::dump(interp.it2, "hier");
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_up, interp.matrix_hier2wav(),
                 ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
-
-      // tools::dump(interp.it1, "wavs at edge");
-      // tools::dump(10, interp.it1.data(), "wavs at edge");
 
       if (terms[bc.term_index].is_chain_link())
       {

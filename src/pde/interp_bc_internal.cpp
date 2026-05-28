@@ -27,9 +27,10 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 
   options.force_step_method(time_method::steady);
 
-  options.default_solver = solver_method::bicgstab;
+  options.default_solver = solver_method::gmres;
 
   options.default_isolver_tolerance  = 1.E-8;
+  options.default_isolver_inner_iterations = 50;
   options.default_isolver_iterations = 1000;
 
   pde_scheme<P> pde(options, std::move(domain));
@@ -240,16 +241,16 @@ void dotest(double tol, std::string const &opts) {
   disc.advance_time();
 
   double const err = get_error_max(disc);
-  // std::cout << err << '\n';
+  // std::cout << err << "    " << tol << '\n';
   tcheckless(1, err, tol);
 }
 
 void self_test() {
-  all_tests testing_("elliptic steady state problem", " div.grad f = sources");
+  all_tests testing_("non-separable bc", " using different PDEs");
 
   #ifdef ASGARD_ENABLE_DOUBLE
-  dotest<double>(1.E-8, "-d 1 -l 2");
-  dotest<double>(5.E-9, "-d 2 -l 2");
+  dotest<double>(1.E-9, "-d 1 -l 2");
+  dotest<double>(1.E-9, "-d 2 -l 2");
   dotest<double>(1.E-9, "-d 2 -l 2 -second");
   dotest<double>(1.E-9, "-d 3 -l 1 -second");
 
@@ -260,7 +261,8 @@ void self_test() {
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
-  // dotest<float>(5.E-3, 1, "-d 1 -l 5");
+  dotest<float>(5.E-6, "-d 1 -l 2");
+  dotest<float>(5.E-6, "-d 2 -l 3 -nonsep-1");
   #endif
 }
 
