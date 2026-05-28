@@ -44,12 +44,11 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   num_vel_  = domain.num_vel();
   pdof      = hier.degree() + 1;
 
-  pos_block  = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   vel_block  = fm::ipow(pdof, domain.num_vel());
   full_block = fm::ipow(pdof, domain.num_dims());
 
+  pos_grid.block_size_ = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
-  pos_grid.block_size_ = pos_block;
 
   wav_scale  = 1;
   for (int d : iindexof(pos_grid.num_dims())) {
@@ -317,8 +316,10 @@ template<int nvel, int tpdof>
 void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
                                  std::vector<P> const &state, std::vector<P> &vals) const
 {
-  int const num = pos_grid.num_indexes();
-  vals.resize(pos_block * num);
+  int const num       = pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  vals.resize(pos_grid.num_dof());
 
   moment const mom = mlist[id]; // using this to get the necessary powers
 
@@ -585,6 +586,8 @@ void moment_manager<P>::make_nodal(
   interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
+
+  int const pos_block = pos_grid.block_size();
 
   #pragma omp parallel for
   for (int i = 0; i < pos_grid.num_indexes(); i++)
