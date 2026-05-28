@@ -4,14 +4,16 @@
 
 using namespace asgard;
 
-enum class pde_order { first, second };
+enum class pde_mode { first, second, first_nonsep };
 
-template<typename P = asgard::default_precision, pde_order pdeorder>
+template<typename P = asgard::default_precision, pde_mode mode>
 asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 {
   options.title = "Non-separable boundary value PDE, 3D";
-  if constexpr (pdeorder == pde_order::first) {
+  if constexpr (mode == pde_mode::first) {
     options.title += " (first order)";
+  } else if constexpr (mode == pde_mode::first_nonsep) {
+    options.title += " (first order, non-sep)";
   } else {
     options.title += " (second order)";
   }
@@ -32,13 +34,19 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 
   term_1d<P> I = term_identity{};
 
-  if constexpr (pdeorder == pde_order::first)
+  if constexpr (mode == pde_mode::first or mode == pde_mode::first_nonsep)
   {
     term_md<P> divx = { term_div<P>{-1, boundary_type::right}, I, I };
 
-    auto fx1 = [=](P, vector2d<P> const &, std::vector<P> &f) ->
+    auto fx1 = [=](P, vector2d<P> const &nodes, std::vector<P> &f) ->
       void {
-        std::fill(f.begin(), f.end(), P{1});
+        if constexpr (mode == pde_mode::first) {
+          std::ignore = nodes;
+          std::fill(f.begin(), f.end(), P{1});
+        } else {
+          for (int64_t i = 0; i < nodes.num_strips(); i++)
+            f[i] = P{1} + nodes[i][0] + nodes[i][1];
+        }
       };
 
     divx += right_boundary_flux<P>(fx1);
@@ -53,8 +61,9 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
 
     pde += pen;
 
-    auto src = [=](P, vector2d<P> const &, std::vector<P> &s) ->
+    auto src = [=](P, vector2d<P> const &nodes, std::vector<P> &s) ->
       void {
+        std::ignore = nodes;
         std::fill(s.begin(), s.end(), P{-1});
       };
 
@@ -93,6 +102,23 @@ asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
   return pde;
 }
 
+template<typename P = asgard::default_precision>
+asgard::pde_scheme<P> make_3d_pde(asgard::prog_opts options)
+{
+  int count = 0;
+  for (auto const &s : {std::string("-second"), std::string("-nonsep-1")})
+    if (options.has_cli_entry(s))
+      count++;
+  rassert(count < 2, "cannot use multiple PDE type switches, e.g., -second and -nonsep-1");
+
+  if (options.has_cli_entry("-second"))
+    return make_3d_pde<P, pde_mode::second>(options);
+  else if (options.has_cli_entry("-nonsep-1"))
+    return make_3d_pde<P, pde_mode::first_nonsep>(options);
+  else
+    return make_3d_pde<P, pde_mode::first>(options);
+}
+
 template<typename P>
 double get_error_max(discretization_manager<P> const &disc)
 {
@@ -104,9 +130,15 @@ double get_error_max(discretization_manager<P> const &disc)
   std::vector<double> ref(mesh.num_strips());
   std::vector<double> con(mesh.num_strips());
 
-  #pragma omp parallel for
-  for (int64_t i = 0; i < mesh.num_strips(); i++)
-    ref[i] = mesh[i][0];
+  if (disc.title_contains("non-sep")) {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < mesh.num_strips(); i++)
+      ref[i] = mesh[i][0] + mesh[i][1] + mesh[i][2];
+  } else {
+    #pragma omp parallel for
+    for (int64_t i = 0; i < mesh.num_strips(); i++)
+      ref[i] = mesh[i][0];
+  }
 
   auto shot = disc.get_snapshot_mpi();
 
@@ -143,22 +175,20 @@ int main(int argc, char** argv)
     std::cout <<
 R"help(<< additional options for this file >>
 -second                             use a second order problem (default is first order)
+-nonsep-1                           using first order pde with non-separable solution
 -test                               perform self-testing
 )help";
     return 0;
   }
 
-  options.throw_if_argv_not_in({"-test", "-second"}, {});
+  options.throw_if_argv_not_in({"-test", "-second", "-nonsep-1"}, {});
 
   if (options.has_cli_entry("-test")) {
     self_test();
     return 0;
   }
 
-  pde_scheme<P> pde = (options.has_cli_entry("-second"))
-                      ? make_3d_pde<P, pde_order::second>(options)
-                      : make_3d_pde<P, pde_order::first>(options);
-  discretization_manager<P> disc(std::move(pde), verbosity_level::low);
+  discretization_manager<P> disc(make_3d_pde<P>(options), verbosity_level::low);
 
   disc.advance_time();
 
@@ -173,14 +203,12 @@ R"help(<< additional options for this file >>
 
 #ifndef __ASGARD_DOXYGEN_SKIP
 template<typename P>
-void dotest(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
+void dotest(double tol, std::string const &opts) {
+  current_test<P> test_(opts, 3);
 
   auto options = make_opts(opts);
 
-  auto pde = make_3d_pde<P>(options);
-
-  asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::quiet);
+  asgard::discretization_manager<P> disc(make_3d_pde<P>(options), asgard::verbosity_level::quiet);
 
   disc.advance_time();
 
@@ -193,7 +221,10 @@ void self_test() {
   all_tests testing_("elliptic steady state problem", " div.grad f = sources");
 
   #ifdef ASGARD_ENABLE_DOUBLE
-  // dotest<double>(5.E-3, 1, "-d 1 -l 3");
+  dotest<double>(1.E-8, "-d 1 -l 2");
+  dotest<double>(5.E-9, "-d 2 -l 2");
+  dotest<double>(1.E-9, "-d 2 -l 2 -second");
+  dotest<double>(1.E-9, "-d 3 -l 1 -second");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
