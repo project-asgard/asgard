@@ -43,8 +43,8 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
 
     std::fill_n(v.begin(), num_dims, 0);
 
-    int const ib_init = (ib_dim == num_dims - 1) ? num_dims - 2 : num_dims - 1;
-    int const ib_post = (ib_dim == num_dims - 1) ? num_dims - 3 : ib_dim - 1;
+    int const ib_init = (ib_dim == 0) ? 1 : 0;
+    int const ib_post = (ib_dim == 0) ? 2 : ib_dim + 1;
 
     // std::cout << "-------------------------------------------\n";
     // std::cout << "  isub = " << isub << "  subblock = " << subgrid.block_size() << '\n';
@@ -60,11 +60,11 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
       if (is_in)
       {
         int ib = v[ib_init];
-        for (int d = num_dims - 2; d > ib_dim; d--) {
+        for (int d = ib_init + 1; d < ib_dim; d++) {
           ib *= pdof;
           ib += v[d];
         }
-        for (int d = ib_post; d >= 0; d--) {
+        for (int d = ib_post; d < num_dims; d++) {
           ib *= pdof;
           ib += v[d];
         }
@@ -387,12 +387,13 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
              interp.it1, basis.pdof, 1, t1.data());
 
          // tools::dump(t1, "merged");
-         std::copy(t1.begin(), t1.end(), y);
+         // std::copy(t1.begin(), t1.end(), y);
+         for (auto i : indexof(t1)) y[i] += t1[i];
 
-        //if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        //  rechain(bc, P{-1}, y, 1);
-        //else
-        //  rechain(bc, -alpha, y, 1);
+         // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+         //   rechain(bc, P{-1}, y, 1);
+         // else
+         //   rechain(bc, -alpha, y, 1);
 
         // tools::dump(t1.size(), y, "rechained");
       }

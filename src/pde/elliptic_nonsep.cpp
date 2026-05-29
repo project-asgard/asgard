@@ -191,7 +191,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
     };
 
   gradx += asgard::left_boundary_flux<P>(fx0);
-  // gradx += asgard::right_boundary_flux<P>(fx1);
+  gradx += asgard::right_boundary_flux<P>(fx1);
 
   divy += asgard::left_boundary_flux<P>(eta_dfy0);
   divy += asgard::right_boundary_flux<P>(eta_dfy1);
