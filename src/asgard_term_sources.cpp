@@ -43,6 +43,13 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
     int const ib_init = (ib_dim == num_dims - 1) ? num_dims - 2 : num_dims - 1;
     int const ib_post = (ib_dim == num_dims - 1) ? num_dims - 3 : ib_dim - 1;
 
+    // std::cout << "-------------------------------------------\n";
+    // std::cout << "  isub = " << isub << "  subblock = " << subgrid.block_size() << '\n';
+
+    // std::cout << " idx = ";
+    // for (int d = 0; d < num_dims; d++) std::cout << idx[d] << "   ";
+    // std::cout << "\n";
+
     bool is_in = true;
     int c = 0;
     while (is_in or c > 0)
@@ -59,8 +66,13 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
           ib += v[d];
         }
 
+        // for (int d = 0; d < num_dims; d++) std::cout << v[d] << "   ";
+        // std::cout << "\n";
+
         P const b1 = block1d[v[ib_dim]];
         P const b2 = subblock[ib];
+
+        // std::cout << "   v[ib_dim] = " << v[ib_dim] << "    ib = " << ib << '\n';
 
         if constexpr (dmode == data_mode::replace)
           *out++ = b1 * b2;
@@ -363,7 +375,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_up, interp.matrix_hier2wav(),
                 ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
 
-      // tools::dump(interp.it1, "wav");
+      tools::dump(interp.it1, "wav");
 
       if (terms[bc.term_index].is_chain_link())
       {
@@ -371,10 +383,15 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
             (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          rechain(bc, P{-1}, y, 1);
-        else
-          rechain(bc, -alpha, y, 1);
+         tools::dump(t1, "merged");
+         std::copy(t1.begin(), t1.end(), y);
+
+        //if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+        //  rechain(bc, P{-1}, y, 1);
+        //else
+        //  rechain(bc, -alpha, y, 1);
+
+        tools::dump(t1.size(), y, "rechained");
       }
       else
       {

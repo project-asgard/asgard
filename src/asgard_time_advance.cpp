@@ -69,7 +69,7 @@ void steady_state<P>::next_step(
         {
           disc.mpi_leader_apply(alpha, x, beta, y);
         }, work, endstep);
-      // endstep = work; // returns the rhs in place of the solution
+      endstep = work; // returns the rhs in place of the solution
     break;
     case precon_method::jacobi:
       solver.iterate_solve(
