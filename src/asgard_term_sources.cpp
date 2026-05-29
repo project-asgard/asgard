@@ -38,6 +38,9 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
     P const *block1d  = con1d.data() + pdof * idx[ib_dim];
     P const *subblock = bnd.data() + subgrid.block_size() * isub;
 
+    std::cout << "  subgrid.block_size() * isub = " << subgrid.block_size() * isub << '\n';
+    std::cout << "  pdof * idx[ib_dim] = " << pdof * idx[ib_dim] << '\n';
+
     std::fill_n(v.begin(), num_dims, 0);
 
     int const ib_init = (ib_dim == num_dims - 1) ? num_dims - 2 : num_dims - 1;
@@ -375,7 +378,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_up, interp.matrix_hier2wav(),
                 ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
 
-      tools::dump(interp.it1, "wav");
+      // tools::dump(interp.it1, "wav");
 
       if (terms[bc.term_index].is_chain_link())
       {
@@ -383,7 +386,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
             (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
-         tools::dump(t1, "merged");
+         // tools::dump(t1, "merged");
          std::copy(t1.begin(), t1.end(), y);
 
         //if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -391,7 +394,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         //else
         //  rechain(bc, -alpha, y, 1);
 
-        tools::dump(t1.size(), y, "rechained");
+        // tools::dump(t1.size(), y, "rechained");
       }
       else
       {
