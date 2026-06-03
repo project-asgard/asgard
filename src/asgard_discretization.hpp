@@ -50,10 +50,10 @@ public:
                          verbosity_level verbosity = verbosity_level::quiet);
 
   //! returns the degree of the discretization
-  int degree() const { return hier.degree(); }
+  int degree() const { return terms.degree(); }
 
   //! returns the number of dimensions
-  int num_dims() const { return grid.num_dims(); }
+  int num_dims() const { return terms.grid.num_dims(); }
   //! returns the max level of the grid
   int max_level() const { return terms.max_level; }
   //! returns the user provided program options
@@ -93,7 +93,7 @@ public:
   int64_t num_dof() const {
     // developer purposes mostly, need to know the state inbetween computations
     // when the state vector has not been updated yet due to GPU/MPI considerations
-    return grid.num_indexes() * hier.block_size();
+    return terms.num_dof();
   }
 
   //! return a snapshot of the current solution (in MPI context, only rank 0 gets a valid snapshot)
@@ -243,7 +243,7 @@ public:
   //! computes the l-2 norm, taking the mass matrix into account
   precision normL2(std::vector<precision> const &x) const {
     rassert(x.size() == state.size(), "the vector size must match the state_size()");
-    return terms.normL2(grid, conn, x);
+    return terms.normL2(x);
   }
 
   //! applies all terms, does not recompute moments
@@ -251,53 +251,52 @@ public:
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all());
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
+    int64_t const flops = terms.flop_count(group_id::all());
     tools::time_event performance_("terms_apply_all kronmult", flops);
     #else
     tools::time_event performance_("terms_apply_all kronmult");
     #endif
-    terms.apply(group_id::all(), grid, conn, alpha, x, beta, y);
+    terms.apply(group_id::all(), alpha, x, beta, y);
   }
   //! applies terms for the given group, does not recompute moments
   void terms_apply(group_id gid, precision alpha, std::vector<precision> const &x, precision beta,
                    std::vector<precision> &y) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, alpha, x, beta, y);
   }
   //! applies all terms, non-owning array signature
   void terms_apply(group_id gid, precision alpha, precision const x[], precision beta,
                    precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply(gid, grid, conn, alpha, x, beta, y);
+    terms.apply(gid, alpha, x, beta, y);
   }
   #ifdef ASGARD_USE_GPU
   //! applies all terms, non-owning array signature
-  void terms_apply_gpu(precision alpha, precision const x[], precision beta,
-                       precision y[]) const
+  void terms_apply_gpu(precision alpha, precision const x[], precision beta, precision y[]) const
   {
     terms_apply_gpu(group_id::all(), alpha, x, beta, y);
   }
@@ -306,12 +305,12 @@ public:
                        precision y[]) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(gid, grid, conn);
+    int64_t const flops = terms.flop_count(gid);
     tools::time_event performance_("terms_apply kronmult", flops);
     #else
     tools::time_event performance_("terms_apply kronmult");
     #endif
-    terms.apply_gpu(gid, grid, conn, alpha, x, beta, y);
+    terms.apply_gpu(gid, alpha, x, beta, y);
   }
   #endif
 
@@ -494,7 +493,7 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(grid.num_indexes());
+    os << "  grid size: " << std::setw(12) << tools::split_style(terms.grid.num_indexes());
     if (ndof >= 0) {
       os << "  dof: " << std::setw(14) << tools::split_style(ndof);
     } else {
@@ -561,11 +560,11 @@ public:
   void add_aux_field(aux_field_entry<precision> f) {
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
-      aux_fields.back().grid = grid.get_cells(); // assume the current grid
+      aux_fields.back().grid = terms.grid.get_cells(); // assume the current grid
     if (aux_fields.back().num_dims == -1) // default num-dims is the current
-      aux_fields.back().num_dims = grid.num_dims();
+      aux_fields.back().num_dims = terms.grid.num_dims();
     rassert(aux_fields.back().data.size()
-            == static_cast<size_t>(hier.block_size()
+            == static_cast<size_t>(terms.grid.block_size()
                                    * (aux_fields.back().grid.size() / num_dims())),
             "incompatible data size and number of cells");
   }
@@ -607,17 +606,17 @@ public:
 
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
   //! returns a ref to the sparse grid
-  sparse_grid const &get_grid() const { return grid; }
+  sparse_grid const &get_grid() const { return terms.grid; }
   //! returns the current grid generation
-  int grid_generation() const { return grid.generation(); }
+  int grid_generation() const { return terms.grid.generation(); }
   //! synchronizes the grid across MPI ranks and GPU devices
   void grid_sync() {
     #ifdef ASGARD_USE_MPI
-    grid.mpi_sync(terms.resources, grid_synced_gen_);
-    grid_synced_gen_ = grid.generation();
+    terms.grid.mpi_sync(terms.resources, grid_synced_gen_);
+    grid_synced_gen_ = terms.grid.generation();
     #endif
     #ifdef ASGARD_USE_GPU
-    grid.gpu_sync();
+    terms.grid.gpu_sync();
     #endif
   }
   //! returns the term manager
@@ -626,9 +625,9 @@ public:
   resource_set const &get_resources() const { return terms.resources; }
 
   //! return the hierarchy_manipulator
-  hierarchy_manipulator<precision> const &get_hier() const { return hier; }
+  hierarchy_manipulator<precision> const &get_hier() const { return terms.hier; }
   //! return the connection patterns
-  connection_patterns const &get_conn() const { return conn; }
+  connection_patterns const &get_conn() const { return terms.conn; }
 
   //! recomputes the Poisson term for the given group
   void compute_poisson(group_id gid = group_id::all()) const {
@@ -639,7 +638,7 @@ public:
     // the cost is so low, that everyone can do it even if it is repeated work
     // when we get to multi-d Poisson problems, the leader will be needed
     // to help the communication process
-    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), terms.hier),
                            terms.moms.edit_poisson_level());
   }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
@@ -648,9 +647,7 @@ public:
     state = ns;
   }
   //! get the current moment manager, allows detailed access to loaded moments
-  moment_manager<precision> const &get_moment_manager() const {
-    return terms.moms;
-  }
+  moment_manager<precision> const &get_moment_manager() const { return terms.moms; }
 
   //! (debugging) prints the term-matrices
   void print_mats() const;
@@ -717,6 +714,7 @@ protected:
   template<data_mode mode>
   void ode_rhs_sources(group_id gid, precision time, precision alpha,
                        std::vector<precision> &src) const;
+
   #ifdef ASGARD_USE_GPU
   //! recompute the moments, assuming moments are set, i.e., has_moments() is true
   void compute_moments_gpu_(group_id gid, precision const f[]) const;
@@ -738,7 +736,7 @@ protected:
   reconstruct_solution get_local_snapshot() const
   {
     reconstruct_solution shot(
-        num_dims(), grid.num_indexes(), grid[0], degree(), state.data());
+        num_dims(), terms.grid.num_indexes(), terms.grid[0], degree(), state.data());
 
     std::array<double, max_num_dimensions> xmin, xmax;
     for (int d : iindexof(num_dims())) {
@@ -755,7 +753,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, grid);
+    refinement.refine(f, mode, terms);
   }
   #ifdef ASGARD_USE_GPU
   //! refines the sparse grid using the given strategy and
@@ -763,7 +761,7 @@ protected:
   {
     if (not is_leader())
       return;
-    refinement.refine(conn, terms, f, mode, grid);
+    refinement.refine(f, mode, terms);
   }
   #endif
 
@@ -795,10 +793,8 @@ private:
   // pde-domain
   pde_domain<precision> domain_;
 
-  sparse_grid grid;
-  connection_patterns conn;
-  hierarchy_manipulator<precision> hier;
   #ifdef ASGARD_USE_MPI
+  // last grid generation synced across mpi ranks
   int grid_synced_gen_ = -2;
   #endif
 

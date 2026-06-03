@@ -58,17 +58,22 @@ bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
 
 template<typename P>
 term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &domain,
-                              pde_scheme<P> &pde, sparse_grid const &grid,
-                              hierarchy_manipulator<P> const &hier,
-                              connection_patterns const &conn)
-  : num_dims(domain.num_dims()), max_level(options.max_level()), basis(hier.degree()),
+                              pde_scheme<P> &pde, sparse_grid &&grid_in)
+  : max_level(options.max_level()), grid(std::move(grid_in)),
+    conn(options.max_level()), hier(options.degree.value(), domain), basis(hier.degree()),
     moms(domain, max_level, basis, hier, std::move(pde.mlist), pde.mom_groups)
 #ifdef ASGARD_USE_MPI
     , resources(options.mpicomm)
 #endif
 {
+  int const num_dims = domain.num_dims();
+
   if (num_dims == 0)
     return;
+
+  #ifdef ASGARD_USE_GPU
+  grid.gpu_sync();
+  #endif
 
   pde.finalize_term_groups(); // if using groups, else this does nothing
 
@@ -104,6 +109,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   { // copy the terms from the pde_scheme
     // label chain-links and mark if interp or extra workspace is needed
     bool has_interp = pde.has_interp_funcs;
+    bool has_ibc    = pde.has_interp_bc;
 
     auto ir = terms.begin();
     for (int i : iindexof(pde_terms.size()))
@@ -118,23 +124,49 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           t2.resize(1);
 
         has_interp = has_interp or pde_terms[i].chain_[0].is_interpolatory();
+        has_ibc    = has_ibc or pde_terms[i].chain_[0].has_interp_bc();
 
         *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
         ir++->num_chain = num_chain;
         for (int c = 1; c < num_chain; c++) {
           has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
+          has_ibc    = has_ibc or pde_terms[i].chain_[c].has_interp_bc();
 
           *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
           ir++->mark_as_chain_link();
         }
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
+        has_ibc    = has_ibc or pde_terms[i].has_interp_bc();
 
         *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
     if (has_interp)
       interp = interpolation_manager<P>(options, domain, hier, conn);
+
+    if (has_ibc) {
+      // using a negative index will force re-init on first use
+      ibc_grid.fill(sparse_grid(sparse_grid::generation_index{-1}));
+      ibc_perm_up  = kronmult::permutes(num_dims - 1, conn_fill::upper);
+      ibc_perm_low = kronmult::permutes(num_dims - 1, conn_fill::lower_udiag);
+
+      // ibc_iwavscale[d] must be the product of xright(i) - xleft(i) for all i except i == d
+      P w = 1;
+      ibc_iwavscale[0] = 1;
+      for (int d = 1; d < num_dims; d++) {
+        w *= domain.xright(d - 1) - domain.xleft(d - 1);
+        ibc_iwavscale[d] = w;
+      }
+      w = 1;
+      for (int d = num_dims - 2; d >= 0; d--) {
+        w *= domain.xright(d + 1) - domain.xleft(d + 1);
+        ibc_iwavscale[d] *= w;
+      }
+      ASGARD_OMP_SIMD
+      for (int d = 0; d < num_dims; d++)
+        ibc_iwavscale[d] = std::sqrt(ibc_iwavscale[d]);
+    }
   }
 
   int num_bc = 0;
@@ -172,13 +204,15 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
                                           ? (tt.tmd.dim(d).num_chain() - 1) : 0;
         }
       }
-      if (bcs.back().is_time_non_sep()) { // non-separable in time
-        bcs_have_time_dep = true;
-        for (int d : iindexof(num_dims)) {
-          rassert(not tt.tmd.dim(d).is_chain(),
-                  "cannot use non-separable in time boundary conditions with 1d-chains, "
-                  "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
-                  "data cannot be pre-computed, an md-chain must be used instead");
+      if (bcs.back().is_separable()) {
+        if (bcs.back().is_time_non_sep()) { // non-separable in time
+          bcs_have_time_dep = true;
+          for (int d : iindexof(num_dims)) {
+            rassert(not tt.tmd.dim(d).is_chain(),
+                    "cannot use non-separable in time boundary conditions with 1d-chains, "
+                    "the purpose of the 1d chain is to pre-compute and cache entries but non-separable "
+                    "data cannot be pre-computed, an md-chain must be used instead");
+          }
         }
       }
     }
@@ -191,8 +225,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
   }
 
   // set the mass, needed for the sources below
-  build_mass_matrices(hier, conn); // large, up to max-level
-  rebuild_mass_matrices(grid); // small, up to the current level
+  build_mass_matrices(); // large, up to max-level
+  rebuild_mass_matrices(); // small, up to the current level
 
   {// copy the separable sources, prepare the constant components
     std::vector<separable_func<P>> &sep = pde.sources_sep_;
@@ -247,7 +281,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
   }
 
-  prapare_kron_workspace(grid); // setup kronmult workspace
+  prapare_kron_workspace(); // setup kronmult workspace
 
   // reshuffle the terms and sources across MPI ranks and GPU devices
   has_terms_ = not terms.empty();
@@ -266,7 +300,10 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     {
       if (not resources.owns(terms[bc.term_index].rec))
         return false;
-      return (not bc.is_time_non_sep());
+      if (bc.is_separable())
+        return (not bc.is_time_non_sep());
+      else
+        return false; // non-separable bc involve interpolation and are active
     };
 
   for (auto const &src : sources)
@@ -453,41 +490,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       remove_repeated(skip_interp[gid]);
     }
 
-    // if (mpi::is_world_rank(1)) {
-    //   std::cout << " gpu-moms - num-groups: " << cpu_raw.size() << '\n';
-    //   for (auto const &dev : gpu_moms) {
-    //     std::cout << " -- dev --\n";
-    //     for (auto const &grp : dev) {
-    //       for (auto m : grp) {
-    //         std::cout << m() << "    ";
-    //       }
-    //       std::cout << '\n';
-    //     }
-    //     std::cout << '\n';
-    //   }
-    //
-    //   std::cout << " cpu_raw\n";
-    //   for (auto const &grp : cpu_raw) {
-    //     for (auto m : grp) {
-    //       std::cout << m() << "    ";
-    //     }
-    //     std::cout << '\n';
-    //   }
-    //   std::cout << " cpu_interp\n";
-    //   for (auto const &grp : cpu_interp) {
-    //     for (auto m : grp) {
-    //       std::cout << m() << "    ";
-    //     }
-    //     std::cout << '\n';
-    //   }
-    //   std::cout << " skip_interp\n";
-    //   for (auto const &grp : skip_interp) {
-    //     for (auto m : grp) {
-    //       std::cout << m() << "    ";
-    //     }
-    //     std::cout << '\n';
-    //   }
-    // }
     moms.set_moment_distribution(gpu_moms, cpu_raw, cpu_interp, skip_interp);
     #endif
 
@@ -586,15 +588,15 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
 
 template<typename P>
-void term_manager<P>::build_const_terms(
-    int const tid, sparse_grid const &grid, connection_patterns const &conn,
-    hierarchy_manipulator<P> const &hier, precon_method precon, P alpha)
+void term_manager<P>::build_const_terms(int const tid, precon_method precon, P alpha)
 {
   if (terms[tid].tmd.is_interpolatory()) // skip interpolation terms
     return;
 
   assert(basis.pdof == hier.degree() + 1);
   assert(not terms[tid].tmd.is_chain());
+
+  int const num_dims = grid.num_dims();
 
   auto &tmd = terms[tid];
 
@@ -625,7 +627,7 @@ void term_manager<P>::build_const_terms(
       if (tmd.tmd.dim(d).change() == changes_with::time)
         continue;
 
-      rebuild_term1d(terms[tid], d, max_level, conn, hier, precon, alpha, merge_with_interp);
+      rebuild_term1d(terms[tid], d, max_level, precon, alpha, merge_with_interp);
       if (terms[tid].tmd.dim(d).is_identity())
         id_dirs.push_back(d);
     }
@@ -648,16 +650,14 @@ void term_manager<P>::build_const_terms(
       if (t1d.change() == changes_with::none)
         level = max_level; // build up to the max
 
-      rebuild_term1d(terms[tid], d, level, conn, hier, precon, alpha);
+      rebuild_term1d(terms[tid], d, level, precon, alpha);
     } // move to next dimension d
   }
 }
 
 template<typename P>
 void term_manager<P>::rebuild_term1d(
-    term_entry<P> &tentry, int const dim, int level,
-    connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    precon_method, P, bool merge_with_interp)
+    term_entry<P> &tentry, int const dim, int level, precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -692,9 +692,9 @@ void term_manager<P>::rebuild_term1d(
 
   bool is_diag = t1d.is_diagonal();
   if (t1d.is_chain()) {
-    rebuld_chain(tentry, dim, level, hier, bmass, is_diag, wraw_diag, wraw_tri);
+    rebuld_chain(tentry, dim, level, bmass, is_diag, wraw_diag, wraw_tri);
   } else {
-    build_raw_mat(tentry, dim, 0, level, hier, bmass, wraw_diag, wraw_tri);
+    build_raw_mat(tentry, dim, 0, level, bmass, wraw_diag, wraw_tri);
   }
 
   // the build/rebuild put the result in raw_diag or raw_tri
@@ -762,7 +762,6 @@ void term_manager<P>::rebuild_term1d(
 template<typename P>
 void term_manager<P>::build_raw_mat(
     term_entry<P> &tentry, int d, int clink, int level,
-    hierarchy_manipulator<P> const &hier,
     block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
@@ -879,11 +878,14 @@ void term_manager<P>::build_raw_mat(
     boundary_entry<P> &bentry = bcs[b];
 
     if (bentry.flux.chain_level(d) > clink) {
-      assert(not bentry.consts[d].empty());
-      if (t1d.is_diagonal()) {
-        raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
-      } else {
-        raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+      if (tentry.flux_dim == d) {
+        // careful here, chaining non-separable BC with a chain derivative term
+        assert(not bentry.consts[d].empty());
+        if (t1d.is_diagonal()) {
+          raw_diag.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+        } else {
+          raw_tri.inplace_gemv(basis.pdof, bentry.consts[d], t1);
+        }
       }
     } else if (bentry.flux.chain_level(d) == clink) {
       // create a new entry
@@ -904,7 +906,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
-          P const fc = bentry.flux.func().const_at(dimension_id{d});
+          P const fc = bentry.const_for_flux_dim(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, - rhs_left * scale, basis.leg_left, bentry.consts[d].data());
@@ -919,7 +921,7 @@ void term_manager<P>::build_raw_mat(
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
 
-          P const fc = bentry.flux.func().const_at(dimension_id{d});
+          P const fc = bentry.const_for_flux_dim(dimension_id{d});
           if (fc == 0) { // non-separable in time
             // single-point value is always separable, so we can pre-compute in d-direction
             smmat::axpy(pdof, rhs_right * scale, basis.leg_right,
@@ -933,8 +935,9 @@ void term_manager<P>::build_raw_mat(
         if (bmass)
           bmass->solve(pdof, bentry.consts[d]);
 
-      } else {
-        if (bentry.is_time_non_sep()) // no constant components to pre-compute
+      } else if (bentry.is_separable()) {
+        // non-separable or time-dependant fluxes have no constant components to pre-compute
+        if (bentry.is_time_non_sep())
           continue;
 
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
@@ -986,9 +989,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    term_entry<P> &tentry, int const d, int const level,
-    hierarchy_manipulator<P> const &hier,
-    block_diag_matrix<P> const *bmass,
+    term_entry<P> &tentry, int const d, int const level, block_diag_matrix<P> const *bmass,
     bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = tentry.tmd.dim(d);
@@ -1010,14 +1011,14 @@ void term_manager<P>::rebuld_chain(
     // the last product has to be written to raw_diag
     block_diag_matrix<P> *diag0 = &raw_diag0;
     block_diag_matrix<P> *diag1 = &raw_diag1;
-    build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, raw_tri);
+    build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, raw_tri);
     for (int i = num_chain - 2; i > 0; i--) {
-      build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
+      build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
       diag1->check_resize(raw_diag);
       gemm_block_diag(basis.pdof, raw_diag, *diag0, *diag1);
       std::swap(diag0, diag1);
     }
-    build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, raw_tri);
+    build_raw_mat(tentry, d, 0, level, bmass, *diag1, raw_tri);
     raw_diag.check_resize(*diag1);
     gemm_block_diag(basis.pdof, *diag1, *diag0, raw_diag);
 
@@ -1041,11 +1042,11 @@ void term_manager<P>::rebuld_chain(
   // if we start with a diagonal, we will switch to tri at some point
 
   fill current = (t1d.chain_.back().is_diagonal()) ? fill::diag : fill::tri;
-  build_raw_mat(tentry, d, num_chain - 1, level, hier, bmass, *diag0, *tri0);
+  build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
   {
-    build_raw_mat(tentry, d, i, level, hier, bmass, raw_diag, raw_tri);
+    build_raw_mat(tentry, d, i, level, bmass, raw_diag, raw_tri);
     // the result is in either raw_diag or raw_tri and must be multiplied and put
     // into either diag1 or tri1, then those should swap with diag0 and tri0
     if (t1d[i].is_diagonal()) { // computed a diagonal fill
@@ -1074,7 +1075,7 @@ void term_manager<P>::rebuld_chain(
   }
 
   // last term, compute in diag1/tri1 and multiply into raw_tri
-  build_raw_mat(tentry, d, 0, level, hier, bmass, *diag1, *tri1);
+  build_raw_mat(tentry, d, 0, level, bmass, *diag1, *tri1);
 
   if (t1d[0].is_diagonal()) {
     // the rest must be a tri-diagonal matrix already
@@ -1150,7 +1151,7 @@ void term_manager<P>::rebuld_chain(
     P const scale = -t1d.penalty() / std::sqrt( (xright[d] - xleft[d]) / num_cells );
 
     if (bentry.flux.is_left()) {
-      P const fc = bentry.flux.func().const_at(dimension_id{d});
+      P const fc = bentry.const_for_flux_dim(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, -scale, basis.leg_left, dest);
       } else {
@@ -1159,7 +1160,7 @@ void term_manager<P>::rebuld_chain(
     }
 
     if (bentry.flux.is_right()) {
-      P const fc = bentry.flux.func().const_at(dimension_id{d});
+      P const fc = bentry.const_for_flux_dim(dimension_id{d});
       if (fc == 0) { // non-separable in time
         smmat::axpy(pdof, scale, basis.leg_right, dest + num_entries - pdof);
       } else {
@@ -1202,6 +1203,8 @@ void term_manager<P>::assign_compute_resources()
 
   std::vector<work_item> work;
   work.reserve(terms.size() + sources.size());
+
+  int const num_dims = grid.num_dims();
 
   auto get_work = [&](term_entry<P> const &tentry)
     -> work_amount {

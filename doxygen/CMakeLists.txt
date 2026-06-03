@@ -65,6 +65,7 @@ doxygen_add_docs(asgard_doxygen
                  src/pde/continuity.cpp
                  src/pde/diffusion.cpp
                  src/pde/elliptic.cpp
+                 src/pde/elliptic_nonsep.cpp
                  src/pde/robin_bc.cpp
                  src/pde/spherical_diffusion.cpp
                  src/pde/sinwav.cpp

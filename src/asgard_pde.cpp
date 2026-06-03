@@ -638,6 +638,18 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
     for (int i = 0; i < tmd.num_chain(); i++)
       update_deps(tmd.chain(i));
   }
+
+  // check the boundary conditions, interpolation BC require at least 3D
+  int const nd = domain_.num_dims();
+  for (boundary_flux<P> const &bc : tmd.get_bc_flux()) {
+    if (not bc.is_separable()) {
+      has_interp_funcs = true;
+      has_interp_bc    = true;
+      rassert(nd >= 3,
+              "non-separable boundary conditions set for a 1D or 2D problem, "
+              "but those can always be expressed in a separable form");
+    }
+  }
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

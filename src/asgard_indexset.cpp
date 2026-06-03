@@ -292,6 +292,9 @@ sparse_grid::sparse_grid(prog_opts const &options)
 
   int const numd = iset.num_dimensions();
 
+  assert(!!options.degree);
+  block_size_ = fm::ipow(options.degree.value() + 1, numd);
+
   if (options.max_levels.empty()) { // testing or not using adaptivity
     for (int d : iindexof(numd)) {
       level_[d]     = levels[d];
@@ -625,6 +628,56 @@ void sparse_grid::remap(int block_size, std::vector<P> &state) const
   }
 
   state = std::move(snew);
+}
+
+sparse_grid sparse_grid::subgrid(int dim, int pdof) const
+{
+  int const numd = num_dims();
+
+  assert(block_size_ == fm::ipow(pdof, numd));
+  assert(numd > 1); // cannot remove only one dimension
+  assert(0 <= dim and dim < numd); // make sure the removed dimension is valid
+
+  int num_reduced = 0;
+  for (int64_t i = 0; i < iset_.num_indexes(); i++)
+    if (iset_[i][dim] == 0)
+      num_reduced++;
+
+  std::vector<int> indexes(num_reduced * (numd - 1));
+
+  int *dest = indexes.data();
+  for (int64_t i = 0; i < iset_.num_indexes(); i++) {
+    if (iset_[i][dim] == 0) {
+      int const *src = iset_[i];
+
+      for (int k = 0; k < dim; k++)
+        *dest++ = *src++;
+      src++;
+      for (int k = dim + 1; k < numd; k++)
+        *dest++ = *src++;
+    }
+  }
+
+  sparse_grid result;
+
+  result.iset_  = indexset(numd - 1, std::move(indexes));
+  result.dsort_ = dimension_sort(result.iset_);
+
+  result.generation_ = generation_;
+  result.block_size_ = fm::ipow(pdof, numd - 1);
+
+  for (int d = 0; d < dim; d++) {
+    result.level_[d]     = level_[d];
+    result.max_index_[d] = max_index_[d];
+  }
+  for (int d = dim + 1; d < numd; d++) {
+    result.level_[d - 1]     = level_[d];
+    result.max_index_[d - 1] = max_index_[d];
+  }
+
+  result.gpu_sync();
+
+  return result;
 }
 
 #ifdef ASGARD_USE_GPU

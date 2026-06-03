@@ -338,6 +338,7 @@ public:
     rassert(static_cast<int>(num_dims) >= 1, "the number of dimensions must be at least 1");
     separable_func<P> result;
     for (int d : iindexof(static_cast<int>(num_dims))) result.funcs_[d] = P{1};
+    result.time_func_ = P{1};
     return result;
   }
 
@@ -365,7 +366,7 @@ public:
   }
   //! returns true if the function is time-depend and separable in time
   bool is_time_sep() const {
-    return std::holds_alternative<scalar_func<P>>(time_func_);
+    return not std::holds_alternative<std::monostate>(time_func_);
   }
   //! returns true if the function is constant in time
   bool is_time_const() const {
@@ -487,7 +488,16 @@ public:
           }
         }, funcs_[d]);
     }
-    if (is_time_sep()) v *= std::get<scalar_func<P>>(time_func_)(t);
+    v *= std::visit([&](auto const &f) -> P {
+        using current_type = std::decay_t<decltype(f)>;
+        if constexpr (std::is_same_v<current_type, std::monostate>) {
+          return 1; // ignore this dimension
+        } else if constexpr (std::is_same_v<current_type, P>) {
+          return f;
+        } else {
+          return f(t);
+        }
+      }, time_func_);
     return v;
   }
 
@@ -561,5 +571,11 @@ struct aux_field_entry {
   //! multi-indexes
   std::vector<int> grid;
 };
+
+#ifndef __ASGARD_DOXYGEN_SKIP
+//! boundary flux functions
+template<typename P>
+using boundary_func = std::variant<std::monostate, separable_func<P>, md_func<P>>;
+#endif
 
 } // namespace asgard

@@ -410,13 +410,13 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   if (mode == pde_mode::poisson)
   {
     // separable initial conditions in x and v
-    auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
+    auto ic_x = [](std::vector<P> const &x, std::vector<P> &fx) ->
       void {
         for (size_t i = 0; i < x.size(); i++)
           fx[i] = 1.0 + 1.E-4 * std::cos(0.5 * x[i]);
       };
 
-    auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
+    auto ic_v = [](std::vector<P> const &v, std::vector<P> &fv) ->
       void {
         P const c = P{1} / std::sqrt(2 * PI);
 

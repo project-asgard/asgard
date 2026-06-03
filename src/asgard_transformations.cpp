@@ -204,10 +204,12 @@ void hierarchy_manipulator<P>::project_separable(
 
   int const pdof = degree_ + 1;
 
+  int const block_size = grid.block_size();
+
   #pragma omp parallel for
   for (int64_t j = 0; j < grid.num_indexes(); j++)
   {
-    P *proj = f + j * block_size_;
+    P *proj = f + j * block_size;
 
     std::array<P const *, max_num_dimensions> data1d;
 
