@@ -815,7 +815,9 @@ void moment_manager<P>::compute_moments(
 
   prepare_pos_grid_gpu(group, grid);
 
-  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  int64_t const num_entries = pos_grid.num_dof();
 
   int const num_gpus = compute->num_gpus();
   #pragma omp parallel for schedule(static, 1)
@@ -905,7 +907,9 @@ void moment_manager<P>::compute_moments(
 
   prepare_pos_grid_gpu(group_id::all(), grid);
 
-  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  int64_t const num_entries = pos_grid.num_dof();
 
   compute->set_device(gpu::device{0});
   assert(work1[0].size() >= num_entries);

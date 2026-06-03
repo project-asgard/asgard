@@ -18,6 +18,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
 {
   int const num_dims = grid.num_dims();
   assert(0 <= ib_dim and ib_dim < num_dims);
+  assert(num_dims <= max_num_dimensions);
 
   assert(not con1d.empty());
   assert(bnd.size() == static_cast<size_t>(subgrid.num_dof()));
@@ -38,20 +39,10 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
     P const *block1d  = con1d.data() + pdof * idx[ib_dim];
     P const *subblock = bnd.data() + subgrid.block_size() * isub;
 
-    std::cout << "  subgrid.block_size() * isub = " << subgrid.block_size() * isub << '\n';
-    std::cout << "  pdof * idx[ib_dim] = " << pdof * idx[ib_dim] << '\n';
-
     std::fill_n(v.begin(), num_dims, 0);
 
     int const ib_init = (ib_dim == 0) ? 1 : 0;
     int const ib_post = (ib_dim == 0) ? 2 : ib_dim + 1;
-
-    // std::cout << "-------------------------------------------\n";
-    // std::cout << "  isub = " << isub << "  subblock = " << subgrid.block_size() << '\n';
-
-    // std::cout << " idx = ";
-    // for (int d = 0; d < num_dims; d++) std::cout << idx[d] << "   ";
-    // std::cout << "\n";
 
     bool is_in = true;
     int c = 0;
@@ -69,13 +60,8 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
           ib += v[d];
         }
 
-        // for (int d = 0; d < num_dims; d++) std::cout << v[d] << "   ";
-        // std::cout << "\n";
-
         P const b1 = block1d[v[ib_dim]];
         P const b2 = subblock[ib];
-
-        // std::cout << "   v[ib_dim] = " << v[ib_dim] << "    ib = " << ib << '\n';
 
         if constexpr (dmode == data_mode::replace)
           *out++ = b1 * b2;
@@ -373,12 +359,8 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_low, interp.matrix_nodal2hier(),
                 P{1}, interp.it1.data(), P{0}, interp.it2.data(), kwork);
 
-      // tools::dump(interp.it2, "hier");
-
       block_cpu(basis.pdof, subgrid, conn, ibc_perm_up, interp.matrix_hier2wav(),
                 ibc_iwavscale[flux_dim], interp.it2.data(), P{0}, interp.it1.data(), kwork);
-
-      // tools::dump(interp.it1, "wav");
 
       if (terms[bc.term_index].is_chain_link())
       {
@@ -386,16 +368,10 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
             (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
-         // tools::dump(t1, "merged");
-         // std::copy(t1.begin(), t1.end(), y);
-         for (auto i : indexof(t1)) y[i] += t1[i];
-
-         // if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-         //   rechain(bc, P{-1}, y, 1);
-         // else
-         //   rechain(bc, -alpha, y, 1);
-
-        // tools::dump(t1.size(), y, "rechained");
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          rechain(bc, P{-1}, y, 1);
+        else
+          rechain(bc, -alpha, y, 1);
       }
       else
       {
@@ -554,9 +530,13 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
     // update the constant components
     for (auto &bc : bcs)
     {
-      if (not resources.owns(terms[bc.term_index].rec)) continue;
+      if (not bc.is_separable()) continue;
 
-      if (bc.is_time_non_sep())
+
+
+      if (not bc.is_separable()
+          or bc.is_time_non_sep()
+          or not resources.owns(terms[bc.term_index].rec))
         continue;
 
       // In addition to the tensoring, the boundary condition case
@@ -638,6 +618,8 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
     if (not resources.owns(terms[bc.term_index].rec)) continue;
+
+    if (not bc.is_separable()) continue;
 
     switch (bc.flux.func().get_time_mode()) {
       case separable_func<P>::time_mode::constant:

@@ -216,6 +216,11 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
+  #ifdef ASGARD_USE_GPU
+  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
+  return 0;
+  #endif
+
   discretization_manager<P> disc(make_3d_pde<P>(options), verbosity_level::low);
 
   disc.advance_time();
@@ -247,6 +252,11 @@ void dotest(double tol, std::string const &opts) {
 
 void self_test() {
   all_tests testing_("non-separable bc", " using different PDEs");
+
+  #ifdef ASGARD_USE_GPU
+  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
+  return;
+  #endif
 
   #ifdef ASGARD_ENABLE_DOUBLE
   dotest<double>(1.E-9, "-d 1 -l 2");

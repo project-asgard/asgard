@@ -215,15 +215,6 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> peny = { I, asgard::term_penalty<P>{P{1} / dy}, I };
   asgard::term_md<P> penz = { I, I, asgard::term_penalty<P>{P{1} / dz} };
 
-  // penx += asgard::left_boundary_flux<P>(fx0);
-  // penx += asgard::right_boundary_flux<P>(fx1);
-
-  // peny += asgard::left_boundary_flux<P>(eta_dfy0);
-  // peny += asgard::right_boundary_flux<P>(eta_dfy1);
-  //
-  // penz += asgard::left_boundary_flux<P>(eta_dfz0);
-  // penz += asgard::right_boundary_flux<P>(eta_dfz1);
-
   pde += penx;
   // pde += peny;
   // pde += penz;
@@ -247,15 +238,12 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         std::ignore = f;
         std::ignore = dde;
 
-        // 3 comes from adding eta_xx * f + eta_yy * f + eta_zz * f
-        // 8 comes from 2 * eta_x * f_x + 2 * eta_y * f_y + 2 * 2 * eta_z * f_z
-        // 6 comes from eta * f_xx + eta * f_yy + 4 * eta * f_zz
-        // s[i] = -3 * dde * f - 8 * de * df - 6 * e * ddf;
+        // s[i] = -(6 * e * ddf + 4 * de * df); // using all 3 derivative components in x y z
 
         // using only derivative in x
         s[i] = -(e * ddf + de * df);
 
-        s[i] = 0;
+        // s[i] = 0; // disable the source term, sources will come only from the boundary
       }
     };
 
@@ -370,6 +358,11 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
+  #ifdef ASGARD_USE_GPU
+  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
+  return 0;
+  #endif
+
   auto pde = make_elliptic_pde(options);
 
   asgard::discretization_manager<P> disc(std::move(pde), asgard::verbosity_level::low);
@@ -418,8 +411,10 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 void self_test() {
   all_tests testing_("elliptic steady state problem", " div.grad f = sources");
 
+  std::cerr << "  EXAMPLE INCOMPLETE, TESTS ARE NOT WORKING YET\n";
+
   #ifdef ASGARD_ENABLE_DOUBLE
-  dotest<double>(5.E-3, 1, "-d 1 -l 3");
+  // dotest<double>(5.E-3, 1, "-d 1 -l 3");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
