@@ -55,10 +55,11 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
           ib *= pdof;
           ib += v[d];
         }
-        for (int d = ib_post; d < num_dims; d++) {
-          ib *= pdof;
-          ib += v[d];
-        }
+        if constexpr (ib_dim < 5)
+          for (int d = ib_post; d < num_dims; d++) {
+            ib *= pdof;
+            ib += v[d];
+          }
 
         P const b1 = block1d[v[ib_dim]];
         P const b2 = subblock[ib];
