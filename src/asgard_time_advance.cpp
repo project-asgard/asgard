@@ -955,8 +955,13 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
         if (manager.is_leader())
           grid.remap(manager.terms.block_size(), next);
         manager.terms.prapare_kron_workspace();
-        if (manager.poisson)
-          manager.poisson.update_level(grid.current_level(0));
+        if (manager.has_poisson())
+          std::visit([&](auto &p)
+          {
+            if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson::poisson_1d<P>>) {
+              p.update_level(grid.current_level(0));
+            }
+          }, manager.get_poisson());
         if (stepper.is_steady_state()) {
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::refine;

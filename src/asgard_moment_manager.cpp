@@ -42,6 +42,7 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
 
   num_dims_ = domain.num_dims();
   num_vel_  = domain.num_vel();
+  num_pos_  = domain.num_pos();
   pdof      = hier.degree() + 1;
 
   vel_block  = fm::ipow(pdof, domain.num_vel());
@@ -70,6 +71,28 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
     else
       set_mass(d, domain.xleft(domain.num_pos() + d), domain.xright(domain.num_pos() + d),
                max_level, basis, hier, 1, coeff);
+  }
+}
+
+template<typename P>
+void moment_manager<P>::set_poisson(int const max_level, sparse_grid const &grid,
+                                    std::array<P, max_num_dimensions> const &xleft,
+                                    std::array<P, max_num_dimensions> const &xright,
+                                    connection_patterns const &conn,
+                                    hierarchy_manipulator<P> const &hier,
+                                    poisson::build_term_func<P> build_func,
+                                    poisson::iter_solve_func<P> iter_func)
+{
+  if (mlist.has_electric()) {
+    moment_id const m0 = find_id(moment::zero(num_vel_));
+    if (num_pos_ == 1) {
+      moment_id const melectric = find_id(moment::electric(dimension_id(0)));
+      poisson_solver = poisson::poisson_1d<P>(hier.degree(), xleft[0], xright[0],
+                                              grid.current_level(0), m0, melectric);
+    } else {
+      poisson_solver = poisson::poisson_md<P>(num_pos_, max_level, xleft, xright, conn, hier,
+                                              mlist, build_func, iter_func, m0);
+    }
   }
 }
 
@@ -319,9 +342,10 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
   int const num       = pos_grid.num_indexes();
   int const pos_block = pos_grid.block_size();
 
-  vals.resize(pos_grid.num_dof());
-
   moment const mom = mlist[id]; // using this to get the necessary powers
+  rassert(not mom.is_electric(), "mcompute shouldn't be called on electric field moments, use solve_poisson instead")
+
+  vals.resize(pos_grid.num_dof());
 
   bool allzero = all_levels_zero;
   std::array<bool, max_mom_dims> lzero;
@@ -523,22 +547,30 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
 
 template<typename P>
 void moment_manager<P>::cache_moments(
-    group_id group, sparse_grid const &grid, std::vector<P> const &state) const
+    group_id group, sparse_grid const &grid, std::vector<P> const &state,
+    connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+    kronmult::workspace<P> &work) const
 {
   if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
     for (auto mid : raw_moments_) {
-      if (mid == moment_id::unset()) continue;
+      if (mid == moment_id::unset() or needs_poisson(mid)) continue;
       mcompute(grid, mid, state, raw_vals.get(mid));
       full_level.get(mid).resize(0);
     }
+    solve_poisson(conn, hier, work);
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
+    bool has_poisson = false;
     for (auto mid = first_in(group, raw_moments_);
          *mid != moment_id::unset(); mid++) {
-      mcompute(grid, *mid, state, raw_vals.get(*mid));
+      if (needs_poisson(*mid))
+        has_poisson = true;
+      else
+        mcompute(grid, *mid, state, raw_vals.get(*mid));
       full_level.get(*mid).resize(0);
     }
+    if (has_poisson) solve_poisson(conn, hier, work);
   }
 }
 
@@ -546,6 +578,7 @@ template<typename P>
 void moment_manager<P>::cache_moment(moment_id id, sparse_grid const &grid,
                                      std::vector<P> const &state) const
 {
+  rassert(not needs_poisson(id), "Electric field moments should not be cached individually.");
   mcompute(grid, id, state, raw_vals.get(id));
   full_level.get(id).resize(0);
   interps.get(id).resize(0);
@@ -572,9 +605,22 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
 }
 
 template<typename P>
-void moment_manager<P>::make_nodal(
-    moment_id id, interpolation_manager<P> const &interp,
-    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
+void moment_manager<P>::solve_poisson(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                                      kronmult::workspace<P> &work) const
+{
+  std::visit([&](auto &p) {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson::poisson_1d<P>>) {
+        p.solve_periodic(get_cached_level(p.moment0(), hier), raw_vals.get(p.moment_electric()));
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson::poisson_md<P>>) {
+        update_position_grid_dsort();
+        p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
+      }
+    },
+    poisson_solver);
+}
+
+template<typename P>
+void moment_manager<P>::update_position_grid_dsort() const
 {
   if (dsort_generation != pos_grid.generation()) {
     pos_grid.dsort_ = dimension_sort(pos_grid.iset_);
@@ -582,6 +628,14 @@ void moment_manager<P>::make_nodal(
     pos_grid.gpu_sync<skip_indexes>();
     dsort_generation = pos_grid.generation();
   }
+}
+
+template<typename P>
+void moment_manager<P>::make_nodal(
+    moment_id id, interpolation_manager<P> const &interp,
+    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
+{
+  update_position_grid_dsort();
 
   interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
@@ -606,13 +660,20 @@ template<typename P>
 void moment_manager<P>::compute_interps(
     std::vector<moment_id> const &ids, sparse_grid const &grid,
     std::vector<P> const &state, interpolation_manager<P> const &interp,
+    connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
     kronmult::workspace<P> &work) const
 {
   size_t const num_entries = interp.it1.size();
+  bool has_poisson = false;
   for (auto const &id : ids) {
-    cache_moment(id, grid, state);
-    make_nodal(id, interp, work, interp.it1);
+    if (needs_poisson(id))
+      has_poisson = true;
+    else
+      cache_moment(id, grid, state);
   }
+  if (has_poisson) solve_poisson(conn, hier, work);
+  for (auto const &id : ids)
+    make_nodal(id, interp, work, interp.it1);
   interp.it1.resize(num_entries);
 }
 
@@ -638,11 +699,7 @@ void moment_manager<P>::load_interp(
 
 template<typename P>
 size_t moment_manager<P>::used_bytes() const {
-  size_t t = raw_vals.used_bytes() + full_level.used_bytes() + interps.used_bytes();
-  t += poisson_raw_.size() * sizeof(P);
-  t += poisson_level_.size() * sizeof(P);
-  t += poisson_interp_.size() * sizeof(P);
-  return t;
+  return raw_vals.used_bytes() + full_level.used_bytes() + interps.used_bytes();
 }
 
 template<typename P>

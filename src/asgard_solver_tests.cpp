@@ -6,11 +6,11 @@ using namespace asgard;
 // returns the result from comparison against the du_ref, which should be u_x
 template<typename P>
 P test_poisson(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, P xright,
-               P dleft, P dright, solvers::poisson_bc const bc, int degree, int level)
+               P dleft, P dright, poisson::poisson_bc const bc, int degree, int level)
 {
-  solvers::poisson<P> solver(degree, xleft, xright, level, moment_id{0});
+  poisson::poisson_1d<P> solver(degree, xleft, xright, level, moment_id{0}, moment_id{1});
 
-  // construct the cell-by-cell Legenre expansion of the rhs
+  // construct the cell-by-cell Legendre expansion of the rhs
   // we must switch to std::vector functions
   auto lrhs = [&](std::vector<P> const &x, std::vector<P> &fx)
       -> void {
@@ -64,7 +64,7 @@ void poisson_tests()
     auto du  = [](TestType)->TestType { return TestType{1}; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, -2, 3, poisson::poisson_bc::dirichlet, degree, level);
 
     tassert(err < tol);
   }
@@ -78,7 +78,7 @@ void poisson_tests()
     auto du  = [](TestType)->TestType { return TestType{1}; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, -2, 3, solvers::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, -2, 3, poisson::poisson_bc::dirichlet, degree, level);
 
     tassert(err < tol);
   }
@@ -92,7 +92,7 @@ void poisson_tests()
     auto du  = [](TestType x)->TestType { return TestType{2} * x; };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -2, 3, 4, 9, solvers::poisson_bc::dirichlet, degree, level);
+        du, rhs, -2, 3, 4, 9, poisson::poisson_bc::dirichlet, degree, level);
 
     tassert(err < tol);
   }
@@ -113,7 +113,7 @@ void poisson_tests()
     auto du  = [](TestType x)->TestType { return pi * std::cos(pi * x); };
 
     TestType err = test_poisson<TestType>(
-        du, rhs, -1, 1, 5, 11, solvers::poisson_bc::periodic, degree, level);
+        du, rhs, -1, 1, 5, 11, poisson::poisson_bc::periodic, degree, level);
 
     tassert(err < 1.E-8);
   }

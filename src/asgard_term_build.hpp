@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asgard_interp.hpp"
 #include "asgard_term_sources.hpp"
 
 namespace asgard
@@ -11,7 +12,7 @@ namespace asgard
  *
  * Each term_md entry from the asgard::pde_scheme definition will yield a term entry,
  * for chain of term_md only the internal links will be added with the last
- * link marked by setting num_chians > 1 and the chain links marked with num_chains == 1.
+ * link marked by setting num_chains > 1 and the chain links marked with num_chains == 1.
  * For a regular non-chain term, num_chains == 1.
  *
  * The entry will store the term_md in tmd together with interpolation and term_1d
@@ -34,7 +35,7 @@ struct term_entry {
   //! make default entry, needs to be re-initialized
   term_entry() = default;
   //! initialize the entry with the given term
-  term_entry(term_md<P> tin);
+  term_entry(term_md<P> tin, moments_list const &mlist);
   //! resource (mpi-rank/gpu) that will own this term
   resource rec;
   //! the term, moved from the pde definition
@@ -77,7 +78,7 @@ struct term_entry {
   bool is_chain_link() const { return (num_chain < 0); }
   //! mark the entry as being part of a chain
   void mark_as_chain_link() { num_chain = -1; }
-  //! retrun true if the term is separable
+  //! return true if the term is separable
   bool is_separable() const { return (not is_interpolatory()); }
 
   //! plan for the interpolation options

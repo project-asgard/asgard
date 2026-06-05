@@ -20,7 +20,7 @@ public:
   static void write(prog_opts const &options, pde_domain<P> const &domain, int degree,
                     sparse_grid const &grid, time_data const &tdata,
                     std::vector<P> const &state,
-                    moment_manager<P> const &moms,
+                    term_manager<P> const &terms,
                     std::vector<aux_field_entry<P>> const &aux_fields,
                     std::string const &filename);
 

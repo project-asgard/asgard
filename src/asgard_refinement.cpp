@@ -110,7 +110,7 @@ void refinement_manager<P>::refine_(std::vector<P> const &state, strategy mode,
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
     if (iweights_.is_moment()) {
-      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.kwork);
+      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.conn, terms.hier, terms.kwork);
       iplan.use_moments(true);
       terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
                    1, iweights_, 0, terms.t1.data(), terms.kwork);

@@ -11,81 +11,6 @@ namespace asgard::solvers
 {
 
 template<typename P>
-void poisson<P>::solve(std::vector<P> const &density, P dleft, P dright,
-                       poisson_bc const bc, std::vector<P> &efield)
-{
-  tools::time_event psolve_("poisson_solver");
-
-  if (current_level == 0)
-  {
-    efield.resize(1);
-    efield[0] = -(dright - dleft) / (xmax - xmin);
-    return;
-  }
-
-  int const nelem = fm::ipow2(current_level);
-
-  P const dx = (xmax - xmin) / static_cast<P>(nelem);
-
-  int const pdof = degree + 1;
-
-  int const nnodes = nelem - 1;
-
-  // integrals of hat-basis functions x, 1-x vs Legendre basis 1, sqrt(3) * 2x-1
-  // over canonical element (0, 1)
-  // the input coefficients are l-2 normalized over sub-cells, hence the sqrt-scaling
-  P const c0 = std::sqrt(dx) * 0.5;
-  P const c1 = std::sqrt(dx) * std::sqrt(3.0) * P{1} / P{6}; // the integral with the left basis is negative
-
-  span2d<P const> rho(pdof, nelem, density.data());
-
-  // building the right-hand-side vector
-  if (bc == poisson_bc::periodic)
-  {
-    dleft = dright = P{0};
-
-    P average = 0;
-    for (int i : iindexof(nelem))
-      average += rho[i][0]; // reading the constant
-    // the extra 2 below is because the correction is applied to 2 elements
-    average *= P{2} * dx / (xmax - xmin);
-
-    if (pdof == 1) { // consider only constant functions
-      for (int i : iindexof(nnodes))
-        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0] - average);
-    } else {
-      for (int i : iindexof(nnodes))
-        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0] - average)
-                + c1 * rho[i][1] - c1 * rho[i + 1][1];
-    }
-  }
-  else
-  {
-    if (pdof == 1) { // consider only constant functions
-      for (int i : iindexof(nnodes))
-        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0]);
-    } else {
-      for (int i : iindexof(nnodes))
-        rhs[i] = c0 * (rho[i][0] + rho[i + 1][0])
-                + c1 * rho[i][1] - c1 * rho[i + 1][1];
-    }
-    rhs.front() += dleft / dx;
-    rhs.back()  += dright / dx;
-  }
-
-  // Linear Solve //
-  compute->pttrs(diag, subdiag, rhs);
-
-  // Set Potential and Electric Field in DG Nodes //
-  efield.resize(nelem);
-
-  efield[0] = - (rhs[0] - dleft) / dx;
-  for (int i = 1; i < nelem - 1; i++)
-    efield[i] = - (rhs[i] - rhs[i - 1]) / dx;
-  efield.back() = - (dright - rhs.back()) / dx;
-}
-
-template<typename P>
 void direct<P>::update(
     group_id group, size_t stage, sparse_grid const &grid, connection_patterns const &conn,
     term_manager<P> const &terms, P alpha)
@@ -688,10 +613,6 @@ template class direct<double>;
 template class bicgstab<double>;
 template class gmres<double>;
 template class scaled_identity<double>;
-
-template void poisson<double>::solve(
-    std::vector<double> const &, double, double, poisson_bc const, std::vector<double> &);
-
 #endif // ASGARD_ENABLE_DOUBLE
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -699,10 +620,6 @@ template class direct<float>;
 template class bicgstab<float>;
 template class gmres<float>;
 template class scaled_identity<float>;
-
-template void poisson<float>::solve(
-    std::vector<float> const &, float, float, poisson_bc const, std::vector<float> &);
-
 #endif // ASGARD_ENABLE_FLOAT
 
 } // namespace asgard::solvers

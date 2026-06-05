@@ -583,7 +583,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
       case term_dependence::electric_field_only:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
-        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())), };
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())), this->register_electric_moment(dimension_id(d))};
         break;
       case term_dependence::moment_divided_by_density:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
@@ -633,6 +633,9 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
         break;
       };
     }
+  } else if (tmd.is_interpolatory() and tmd.is_electric(mlist)) {
+    moment_id m0 = this->register_moment(moment::zero(domain_.num_vel()));
+    tmd.mids_.push_back(m0);
   } else if (tmd.is_chain()) {
     // recursively process the chain
     for (int i = 0; i < tmd.num_chain(); i++)

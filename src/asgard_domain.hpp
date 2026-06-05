@@ -37,23 +37,6 @@ struct velocity_dims {
 };
 /*!
  * \ingroup asgard_pde_definition
- * \brief Strong-type, usage separable_func<double> func; func.set(dimension_id{2}, val);
- */
-struct dimension_id {
-  //! do not create an empty dimension id
-  dimension_id() = delete;
-  //! set the index dimension
-  explicit dimension_id(int n) : id(n) {
-    rassert(0 <= n and n < max_num_dimensions,
-            "invalid dimension, must be in 0 ... 5 for 1D through 6D problems");
-  }
-  //! holds the id of the position dimensions
-  int const id;
-  //! returns the index with a simple call
-  int operator()() const { return id; }
-};
-/*!
- * \ingroup asgard_pde_definition
  * \brief Strong-type, usage auto func = separable_func<double>::const_one(number_of_dimensions{3});
  */
 enum class number_of_dimensions : int {};

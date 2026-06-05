@@ -8,12 +8,13 @@ namespace asgard
 {
 
 template<typename P>
-term_entry<P>::term_entry(term_md<P> tin)
+term_entry<P>::term_entry(term_md<P> tin, moments_list const &mlist)
   : tmd(std::move(tin)), has_poisson(false)
 {
   assert(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
-    return; // interpolation poisson dependence goes here
+    has_poisson = tmd.is_electric(mlist);
+    return;
   }
 
   int const num_dims = tmd.num_dims();
@@ -126,20 +127,20 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         has_interp = has_interp or pde_terms[i].chain_[0].is_interpolatory();
         has_ibc    = has_ibc or pde_terms[i].chain_[0].has_interp_bc();
 
-        *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
+        *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]), moms.moments());
         ir++->num_chain = num_chain;
         for (int c = 1; c < num_chain; c++) {
           has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
           has_ibc    = has_ibc or pde_terms[i].chain_[c].has_interp_bc();
 
-          *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
+          *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]), moms.moments());
           ir++->mark_as_chain_link();
         }
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
         has_ibc    = has_ibc or pde_terms[i].has_interp_bc();
 
-        *ir++ = term_entry<P>(std::move(pde_terms[i]));
+        *ir++ = term_entry<P>(std::move(pde_terms[i]), moms.moments());
       }
     }
     if (has_interp)
@@ -657,7 +658,7 @@ void term_manager<P>::build_const_terms(int const tid, precon_method precon, P a
 
 template<typename P>
 void term_manager<P>::rebuild_term1d(
-    term_entry<P> &tentry, int const dim, int level, precon_method, P, bool merge_with_interp)
+    term_entry<P> &tentry, int const dim, int const level, precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -773,16 +774,19 @@ void term_manager<P>::build_raw_mat(
     case operation_type::volume:
       switch (t1d.depends()) {
         case term_dependence::electric_field_only:
+        {
+          moment_id mid_electric = moms.find_id(moment::electric(dimension_id(d)));
           if (t1d.rhs()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
-            t1d.rhs(moms.poisson_level(), kwork.w1);
+            t1d.rhs(moms.get_cached_raws()[mid_electric], kwork.w1);
             gen_diag_cmat_pwc<P>(basis, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
           } else {
-            gen_diag_cmat_pwc<P>(basis, level, moms.poisson_level(), raw_diag);
+            gen_diag_cmat_pwc<P>(basis, level, moms.get_cached_raws()[mid_electric], raw_diag);
           }
           break;
+        }
         case term_dependence::electric_field:
           throw std::runtime_error("el-field with position depend is not done (yet)");
           break;

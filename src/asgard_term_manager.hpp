@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_term_build.hpp"
+#include "asgard_moment_manager.hpp"
 
 namespace asgard
 {
@@ -20,7 +20,7 @@ namespace asgard
  *
  * Managing a large amount of functionality is challenging while breaking it into separate
  * modules, components or classes will create artificial API walls and even more overall
- * complexity, e.g., more dependencies for each function call, grant access with fiend classes,
+ * complexity, e.g., more dependencies for each function call, grant access with friend classes,
  * setter/getter methods, or incur computational cost by recomputing the same result more
  * than once. The solution here is to keep relevant data together but have the methods
  * split across multiple files.
@@ -396,7 +396,7 @@ protected:
   void build_const_terms(int const tid,
                          precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
-  void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
+  void rebuild_term1d(term_entry<P> &tentry, int const dim, int const level,
                       precon_method precon = precon_method::none, P alpha = 0,
                       bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
@@ -427,6 +427,8 @@ protected:
   void raw2cells(bool is_diag, int level, std::vector<P> &out);
   //! assign compute resources to the terms
   void assign_compute_resources();
+
+  friend class discretization_manager<P>;
 
 private:
   // workspace and workspace matrices

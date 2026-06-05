@@ -82,7 +82,7 @@ public:
       build_connections<hierarchy::volume>();
       break;
     default:
-      // maybe redundant with the excpect above
+      // maybe redundant with the expect above
       throw std::runtime_error("constructor for full or volume only");
       break;
     }
