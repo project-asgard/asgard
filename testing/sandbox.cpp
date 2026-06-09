@@ -11,15 +11,15 @@ int main(int argc, char **argv)
   std::ignore = argc;
   std::ignore = argv;
 
-  int const degree = 3;
+  int const degree = 2;
   int const pdof   = degree + 1;
 
   auto diff = legendre::poly2diff(degree);
 
-  std::cout << " ------ diff --------- \n";
+  std::cout << " ------ res --------- \n";
   for (int i = 0; i < pdof; i++) {
     for (int j = 0; j < pdof; j++)
-      std::cout << diff[j][i] << "    ";
+      std::cout << diff[i][j] << "    ";
     std::cout << '\n';
   }
 
