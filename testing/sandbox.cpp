@@ -14,20 +14,12 @@ int main(int argc, char **argv)
   int const degree = 3;
   int const pdof   = degree + 1;
 
-  auto leg = legendre::poly<P, asgard::legendre::integ_range::full>(degree);
-
-  for (int i = 0; i < pdof; i++) {
-    for (int j = 0; j < pdof; j++)
-      std::cout << leg[i][j] << "    ";
-    std::cout << '\n';
-  }
-
-  std::cout << " --------------- \n";
   auto diff = legendre::poly2diff(degree);
 
+  std::cout << " ------ diff --------- \n";
   for (int i = 0; i < pdof; i++) {
     for (int j = 0; j < pdof; j++)
-      std::cout << diff[i][j] << "    ";
+      std::cout << diff[j][i] << "    ";
     std::cout << '\n';
   }
 

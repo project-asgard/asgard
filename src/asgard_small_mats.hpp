@@ -465,6 +465,15 @@ void neg_transp_swap(int const &n, P A[], P B[])
     }
   }
 }
+//! in-place transpose of a square matrix
+template<typename P>
+void transp_swap(int const n, P A[])
+{
+  for (int c = 1; c < n; c++) {
+    for (int r = 0; r < c; r++)
+      std::swap(A[c * n + r], A[r * n + c]);
+  }
+}
 
 //! C += (dir) A B, dir must be +1/0/-1
 template<int dir = 0, typename P>

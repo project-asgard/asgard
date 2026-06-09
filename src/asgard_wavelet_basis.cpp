@@ -147,6 +147,9 @@ vector2d<double> poly2diff(int const degree)
   vector2d<double> leg = poly<double, integ_range::full>(degree);
 
   int const pdof = degree + 1;
+
+  smmat::scal(pdof * pdof, std::sqrt(2), leg[0]);
+
   vector2d<double> diff(pdof, pdof);
   for (int i = 0; i < pdof; i++) {
     for (int k = 1; k < pdof; k++)
@@ -154,10 +157,7 @@ vector2d<double> poly2diff(int const degree)
     diff[i][degree] = 0;
   }
 
-  smmat::getrf(pdof, leg[0]);
-
-  smmat::getrs_l(pdof, leg[0], diff[0]);
-  smmat::getrs_u(pdof, leg[0], diff[0]);
+  smmat::transp_swap(pdof, leg[0]);
 
   return diff;
 }
