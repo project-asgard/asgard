@@ -239,11 +239,87 @@ void test_custom_transform()
 }
 
 template<typename P>
+void differentiate_tests()
+{
+  current_test<P> name_("differentiation");
+
+  auto f1 = [](P x) -> double { return std::sin(x); };
+  // auto f2 = [](P x) -> double { return std::cos(x); };
+  // auto f3 = [](P x) -> double { return std::sin(3 * x); };
+
+  auto df1 = [](P x) -> double { return  std::cos(x); };
+  // auto df2 = [](P x) -> double { return -std::sin(x); };
+  // auto df3 = [](P x) -> double { return 3 * std::cos(3 * x); };
+
+  std::array<kronmult::permutes, 3> perm;
+  for (int i = 0; i < 3; i++) perm[i] = kronmult::permutes(std::vector<int>{i, });
+
+  std::array<vector2d<P>, 3> dblock;
+  for (size_t i = 0; i < dblock.size(); i++)
+    dblock[i] = legendre::poly2diff(static_cast<int>(i));
+
+  { // differentiate one function, 1d
+    int const degree = 2;
+    int constexpr level = 4;
+    sparse_grid grid(make_opts("-l " + std::to_string(level) + " -d " + std::to_string(degree)));
+    connection_patterns const conns(level);
+
+    kronmult::workspace<P> kwork;
+    kwork.w1.resize(grid.num_dof());
+    kwork.w2.resize(grid.num_dof());
+
+    int constexpr num_dims = 1;
+
+    hierarchy_manipulator<P> hier(degree, num_dims, {0,}, {1,});
+
+    int const num_cells = fm::ipow2(level);
+    int const pdof = degree + 1;
+    auto diag_diff = block_diag_matrix<P>(pdof * pdof, num_cells);
+    std::vector<P> sblock(pdof * pdof);
+    std::copy_n(dblock[degree][0], pdof * pdof, sblock.begin());
+    smmat::scal(pdof * pdof, P{num_cells}, sblock.data());
+    fill_pattern(sblock.data(), diag_diff);
+
+    block_sparse_matrix<P> const mat_diff = hier.diag2hierarchical(diag_diff,  level, conns);
+
+    separable_func func{{vectorize<P>(f1), }};
+    separable_func dfunc{{vectorize<P>(df1), }};
+
+    std::vector<P> proj(grid.num_dof());
+    std::vector<P> dproj(grid.num_dof());
+    std::vector<P> ref_proj(grid.num_dof());
+
+    hier.project_separable(func, grid, {}, 0, 1, proj.data());
+    hier.project_separable(dfunc, grid, {}, 0, 1, ref_proj.data());
+
+    block_cpu(pdof, grid, conns, perm[0], mat_diff, P{1}, proj.data(), P{0}, dproj.data(), kwork);
+
+    std::cout << " size = " << proj.size() << "  " << ref_proj.size() << '\n';
+
+    tools::dump(4, dproj.data(), " d-prod ");
+    tools::dump(4, ref_proj.data(), " ref-prod ");
+    // for (int i : iindexof(proj)) {
+    //     std::cout << dproj[i] << "   " << ref_proj[i] << '\n';
+    // }
+
+// template<typename precision, typename coeff_type>
+// void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
+//                permutes const &perm, coeff_type const &cmats,
+//                precision alpha, precision const x[], precision beta, precision y[],
+//                workspace<precision> &work);
+
+
+  }
+
+}
+
+template<typename P>
 void all_templated_tests()
 {
   test_transform<P>();
   test_permute<P>();
   test_custom_transform<P>();
+  differentiate_tests<P>();
 }
 
 int main(int argc, char **argv)

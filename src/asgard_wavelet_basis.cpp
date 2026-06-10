@@ -176,9 +176,9 @@ vector2d<double> poly2diff(int const degree)
   vector2d<double> result(pdof, pdof);
   for (int i = 0; i < pdof; i++) {
     for (int j = 0; j < pdof; j++) {
-        std::cout << leg[j][0] << "    " << leg[j][1] << "    " << diff[i][0] << "    " << diff[i][1];
+      // std::cout << leg[j][0] << "    " << leg[j][1] << "    " << diff[i][0] << "    " << diff[i][1];
       result[i][j] = integ.integrate_left(leg[j], diff[i]) + integ.integrate_right(leg[j], diff[i]);
-      std::cout << "    " << result[i][j] << '\n';
+      // std::cout << "    " << result[i][j] << '\n';
     }
   }
 
