@@ -146,12 +146,10 @@ vector2d<P> poly(int const degree)
 
       for (int k = 1; k < n; k++)
         if constexpr (range == integ_range::full)
-          lpoly[n][k] = (alpha * lpoly[n - 1][k - 1]
-                         - beta * lpoly[n - 2][k]) / n;
+          lpoly[n][k] = (alpha * lpoly[n - 1][k - 1] - beta * lpoly[n - 2][k]) / n;
         else
-          lpoly[n][k] = (alpha * lpoly[n - 1][k - 1]
-                         + gamma * lpoly[n - 1][k]
-                          - beta * lpoly[n - 2][k]) / n;
+          lpoly[n][k] =
+             (alpha * lpoly[n - 1][k - 1] + gamma * lpoly[n - 1][k] - beta * lpoly[n - 2][k]) / n;
       lpoly[n][n] = alpha * lpoly[n - 1][n - 1] / n;
     }
   }
@@ -173,6 +171,11 @@ vector2d<P> poly(int const degree)
 
   return lpoly;
 }
+
+/*!
+ * \brief Constructs the matrix that maps Legendre polynomials to their derivatives
+ */
+vector2d<double> poly2diff(int const degree);
 
 /*!
  * \brief Holds the quadrature points and weights for integration
