@@ -277,6 +277,7 @@ void differentiate_tests()
   kronmult::workspace<P> kwork;
 
   struct test_entry {
+    test_entry(int d, int l, P t) : degree(d), level(l), tol(t) {}
     int degree;
     int level;
     P tol;
