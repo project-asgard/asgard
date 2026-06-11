@@ -134,4 +134,15 @@ vector2d<P> make_grid(pde_domain<P1> const &domain, int const n)
   return pnts;
 }
 
+//! returns the l2 norm of difference between the vectors
+template<typename P>
+P diff_l2(int64_t num, P const x[], P const y[]) {
+  P sum = 0;
+  for (int64_t i = 0; i < num; i++) {
+    P const d = x[i] - y[i];
+    sum += d * d;
+  }
+  return std::sqrt(sum);
+}
+
 }
