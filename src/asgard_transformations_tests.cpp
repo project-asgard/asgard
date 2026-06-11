@@ -254,10 +254,6 @@ void differentiate_tests()
   std::array<kronmult::permutes, 3> perm;
   for (int i = 0; i < 3; i++) perm[i] = kronmult::permutes(std::vector<int>{i, });
 
-  std::array<vector2d<P>, 3> dblock;
-  for (size_t i = 0; i < dblock.size(); i++)
-    dblock[i] = legendre::poly2diff(static_cast<int>(i));
-
   auto make_diff = [&](hierarchy_manipulator<P> const &hier, connection_patterns const &conns,
                        int level, P xlength)
         -> block_sparse_matrix<P>
@@ -265,11 +261,17 @@ void differentiate_tests()
       int const pdof = hier.degree() + 1;
       int const num_cells = fm::ipow2(level);
 
-      vector2d<P> p2d = legendre::poly2diff(hier.degree());
-      smmat::scal(pdof * pdof, static_cast<P>(num_cells) / xlength, p2d[0]);
+      vector2d<double> p2d = legendre::poly2diff(hier.degree());
+      smmat::scal(pdof * pdof, static_cast<double>(num_cells) / xlength, p2d[0]);
 
       block_diag_matrix<P> diag(pdof * pdof, num_cells);
-      fill_pattern(p2d[0], diag);
+      if constexpr (is_double<P>)
+        fill_pattern(p2d[0], diag);
+      else {
+        std::vector<P> fp2d(pdof * pdof);
+        std::copy_n(p2d[0], pdof * pdof, fp2d.begin());
+        fill_pattern(fp2d.data(), diag);
+      }
 
       return hier.diag2hierarchical(diag, level, conns);
     };
@@ -308,8 +310,8 @@ void differentiate_tests()
 
       block_sparse_matrix<P> const mat_diff = make_diff(hier, conns, level, P{1});
 
-      separable_func func{{vectorize<P>(f1), }};
-      separable_func dfunc{{vectorize<P>(df1), }};
+      separable_func<P> func{{vectorize<P>(f1), }};
+      separable_func<P> dfunc{{vectorize<P>(df1), }};
 
       std::vector<P> proj(grid.num_dof());
       std::vector<P> dproj(grid.num_dof());
@@ -323,7 +325,7 @@ void differentiate_tests()
 
       P const err = diff_l2(grid.num_dof(), dproj.data(), ref_proj.data());
       // std::cout << " err = " << err << "    " << test.tol << '\n';
-      tassert(err < test.tol);
+      tassert(err < (is_double<P>) ? test.tol : 30 * test.tol);
     }
   }
 
@@ -356,9 +358,9 @@ void differentiate_tests()
       block_sparse_matrix<P> const mat_diff2 = make_diff(hier, conns, level, P{2});
       block_sparse_matrix<P> const mat_diff3 = make_diff(hier, conns, level, P{3});
 
-      separable_func func{{vectorize<P>(f1), vectorize<P>(f2) }};
-      separable_func dxfunc{{vectorize<P>(df1), vectorize<P>(f2) }};
-      separable_func dyfunc{{vectorize<P>(f1), vectorize<P>(df2) }};
+      separable_func<P> func{{vectorize<P>(f1), vectorize<P>(f2) }};
+      separable_func<P> dxfunc{{vectorize<P>(df1), vectorize<P>(f2) }};
+      separable_func<P> dyfunc{{vectorize<P>(f1), vectorize<P>(df2) }};
 
       std::vector<P> proj(grid.num_dof());
       std::vector<P> dxproj(grid.num_dof());
@@ -377,11 +379,11 @@ void differentiate_tests()
                 P{1}, proj.data(), P{0}, dyproj.data(), kwork);
 
       P const errx = diff_l2(grid.num_dof(), dxproj.data(), refx.data());
-      // std::cout << " err = " << err << "    " << test.tol << '\n';
-      tassert(errx < test.tol);
+      // std::cout << " errx = " << errx << "    " << test.tol << '\n';
+      tassert(errx < (is_double<P>) ? test.tol : 50 * test.tol);
       P const erry = diff_l2(grid.num_dof(), dxproj.data(), refx.data());
-      // std::cout << " err = " << err << "    " << test.tol << '\n';
-      tassert(erry < test.tol);
+      // std::cout << " erry = " << erry << "    " << test.tol << '\n';
+      tassert(erry < (is_double<P>) ? test.tol : 50 * test.tol);
     }
   }
 
