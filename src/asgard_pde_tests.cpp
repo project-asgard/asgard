@@ -51,6 +51,11 @@ void test_separable_func() {
     tassert(func.is_time_non_sep());
     tassert(not func.is_time_sep());
     tassert(not func.is_time_const());
+
+    func.set(dimension_id{0}, 3);
+    tassert(func.is_const(dimension_id{0}));
+    tassert(func.is_time_dep(dimension_id{1}));
+    tassert(func.is_valid());
   }{
     separable_func<P> func(std::vector<sfixed_func1d<P>>{f1, f2});
     tassert(func.num_dims() == 2);
@@ -66,6 +71,16 @@ void test_separable_func() {
     tassert(not func.is_time_non_sep());
     tassert(func.is_time_sep());
     tassert(func.is_time_const());
+
+    func.set(dimension_id{0}, 3);
+    tassert(func.is_const(dimension_id{0}));
+    tassert(func.is_fixed(dimension_id{1}));
+    tassert(func.is_valid());
+
+    func.set(dimension_id{1}, ft1);
+    tassert(func.is_time_dep(dimension_id{1}));
+    std::cerr << "<generating 1 error message>\n";
+    tassert(not func.is_valid());
   }{
     separable_func<P> func(std::vector<sfixed_func1d<P>>{f1, f2}, ft);
     tassert(func.num_dims() == 2);
