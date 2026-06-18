@@ -89,8 +89,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> divz = { I, I, asgard::term_div<P>{-1, asgard::boundary_type::bothsides}};
 
   asgard::term_md<P> gradx = { asgard::term_grad<P>{1, asgard::boundary_type::bothsides}, I, I};
-  asgard::term_md<P> grady = { I, asgard::term_div<P>{1}, I};
-  asgard::term_md<P> gradz = { I, I, asgard::term_div<P>{1}};
+  asgard::term_md<P> grady = { I, asgard::term_grad<P>{1}, I};
+  asgard::term_md<P> gradz = { I, I, asgard::term_grad<P>{1}};
 
   auto eta = [](P x, P y, P z) -> P { return (1 + P{0.5} * std::sin(P{2 * PI} * (x + y + z))); };
 
