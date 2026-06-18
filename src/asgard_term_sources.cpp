@@ -131,21 +131,23 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
   int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
-  auto rechain = [&, this](boundary_entry<P> &bc, P al, P data[], P beta = 0) -> void
+  // x are base files at the bottom of the chain, out is the output, w is workspace
+  // all sizes must be num_entries, use t1 and t2 workspace vectors
+  // when computing cached entries, beta is 0
+  // when storing directly in y (e.g., for non-sep in time and interpolated BC), beta is 1
+  auto rechain = [&, this](boundary_entry<P> &bc, P al, P x[], P beta, P out[], P w[]) -> void
     {
       // push the vectors through the term_md chain
-      // assuming the current data is in t1, using t1/t2 as workspace
-
-      // rechain until the top link
+      // intermediate chains are stored in w, final chain result is added to out
       int tid = bc.term_index - 1;
-      while (tid > 0 and terms[tid - 1].is_chain_link()) {
-        kron_term(terms[tid], 1, t1, 0, t2);
-        std::swap(t1, t2);
+      while (terms[tid].is_chain_link()) {
+        kron_term(terms[tid], 1, x, 0, w);
+        std::swap(x, w);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(terms[tid], al, t1.data(), beta, data);
+      kron_term(terms[tid], al, x, beta, out);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -239,7 +241,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       if (terms[bc.term_index].is_chain_link()) { // if chain (not top link)
         // tensor into a temp, rechain and put the final result into swork
         tensor_consts(bc, t1.data());
-        rechain(bc, P{1}, swork.data() + bc.ilump * num_entries);
+        rechain(bc, P{1}, t1.data(), P{0}, swork.data() + bc.ilump * num_entries, t2.data());
       } else
         tensor_consts(bc);
     }
@@ -370,9 +372,9 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
              interp.it1, basis.pdof, 1, t1.data());
 
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          rechain(bc, P{-1}, y, 1);
+          rechain(bc, P{-1}, t1.data(), P{1}, y, t2.data());
         else
-          rechain(bc, -alpha, y, 1);
+          rechain(bc, -alpha, t1.data(), P{1}, y, t2.data());
       }
       else
       {
@@ -414,9 +416,9 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
           hier.template project_separable<data_mode::replace>
               (bc.flux.func(), grid, lmass, time, 1, t1.data());
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            rechain(bc, P{-1}, y);
+            rechain(bc, P{-1}, t1.data(), P{1}, y, t2.data());
           else
-            rechain(bc, -alpha, y);
+            rechain(bc, -alpha, t1.data(), P{1}, y, t2.data());
         } else {
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
             hier.template project_separable<data_mode::increment>
@@ -473,25 +475,20 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
   int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
-  auto rechain = [&, this](gpu::device dev, boundary_entry<P> &bc, P al, P data[]) -> void
+  // see the CPU case
+  auto rechain = [&, this](gpu::device dev, boundary_entry<P> &bc,
+                           P al, P x[], P beta, P out[], P w[]) -> void
     {
-      // push the vectors through the term_md chain
-      // assuming the current data is in t1, using t1/t2 as workspace
-
-      P *gt1 = gpu_t1[dev.id].data();
-      P *gt2 = gpu_t2[dev.id].data();
-
-      // rechain until the top link
       int tid = bc.term_index - 1;
-      while (tid > 0 and terms[tid - 1].is_chain_link()) {
+      while (terms[tid].is_chain_link()) {
         // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(dev, terms[tid], 1, gt1, 0, gt2);
-        std::swap(gt1, gt2);
+        kron_term(dev, terms[tid], 1, x, 0, w);
+        std::swap(x, w);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(terms[tid - 1], al, gt1, 0, data);
+      kron_term(dev, terms[tid], al, x, beta, out);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -546,7 +543,8 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
       if (terms[bc.term_index].is_chain_link()) { // if chain (not top link)
         // tensor into a temp, rechain and put the final result into swork
         tensor_consts(bc, gpu_t1[0].data());
-        rechain(gpu::device{0}, bc, P{1}, swork.data() + bc.ilump * num_entries);
+        rechain(gpu::device{0}, bc, P{1}, gpu_t1[0].data(),
+                P{0}, gpu_swork.data() + bc.ilump * num_entries, gpu_t2[0].data());
       } else
         tensor_consts(bc);
     }
@@ -643,9 +641,9 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
               (bc.flux.func(), grid, lmass, time, 1, t2.data());
           gpu_t1[0] = t2;
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            rechain(gpu::device{0}, bc, P{-1}, y);
+            rechain(gpu::device{0}, bc, P{-1}, gpu_t1[0].data(), P{1}, y, gpu_t2[0].data());
           else
-            rechain(gpu::device{0}, bc, -alpha, y);
+            rechain(gpu::device{0}, bc, -alpha, gpu_t1[0].data(), P{1}, y, gpu_t2[0].data());
         } else {
           using_cpu_s1();
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)

@@ -876,7 +876,7 @@ struct left_boundary_flux {
   {
     rassert(std::get<separable_func<P>>(func).is_valid(),
             "invalid separable function for left boundary flux");
-    rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
+    rassert(clevel.size() == static_cast<size_t>(std::get<separable_func<P>>(func).num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
     chain_level.fill(-1);
@@ -916,8 +916,8 @@ struct right_boundary_flux {
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for right boundary flux");
-    rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
+    rassert(std::get<separable_func<P>>(func).is_valid(), "invalid separable function for right boundary flux");
+    rassert(clevel.size() == static_cast<size_t>(std::get<separable_func<P>>(func).num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of right_boundary_flux");
     chain_level.fill(-1);

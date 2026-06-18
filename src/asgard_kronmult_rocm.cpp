@@ -371,7 +371,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
 
   tools::time_event performance_("kronecker block-gpu");
 
-  int64_t const num_entries = work.gpu_w1[dev.id].size();
+  int64_t const num_entries = grid.num_dof();
 
   precision *w1 = work.gpu_w1[dev.id].data();
   precision *w2 = work.gpu_w2[dev.id].data();
