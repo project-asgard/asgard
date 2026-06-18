@@ -371,6 +371,9 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
             (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
+        interp.it1.resize(nwork);
+        interp.it2.resize(nwork);
+
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           rechain(bc, P{-1}, t1.data(), P{1}, y, t2.data());
         else
@@ -388,10 +391,10 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         merge_boundary_grids<P, effective_mode>
             (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
              interp.it1, basis.pdof, -alpha, y);
-      }
 
-      interp.it1.resize(nwork);
-      interp.it2.resize(nwork);
+        interp.it1.resize(nwork);
+        interp.it2.resize(nwork);
+      }
 
       continue;
     }
