@@ -544,7 +544,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
         // tensor into a temp, rechain and put the final result into swork
         tensor_consts(bc, gpu_t1[0].data());
         rechain(gpu::device{0}, bc, P{1}, gpu_t1[0].data(),
-                P{0}, swork.data() + bc.ilump * num_entries, gpu_t2[0].data());
+                P{0}, gpu_swork.data() + bc.ilump * num_entries, gpu_t2[0].data());
       } else
         tensor_consts(bc);
     }
