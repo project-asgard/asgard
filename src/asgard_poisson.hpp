@@ -2,6 +2,25 @@
 
 #include "asgard_term_build.hpp"
 
+#ifdef ASGARD_USE_GPU
+namespace asgard
+{
+
+/*!
+ * \internal
+ * \brief Signature for interpolating a field onto the full grid on the gpu
+ *
+ * Used to interpolate the electric field at the end of the poisson solve
+ *
+ * \endinternal
+ */
+template<typename P>
+using interpolate_func =
+  std::function<void(gpu::vector<P> const &field, moment_id mid)>;
+
+} // namespace asgard
+#endif // ASGARD_USE_GPU
+
 namespace asgard::solvers
 {
 
@@ -51,7 +70,7 @@ template<typename P>
 using build_term_func =
   std::function<void(term_entry<P> &tentry, int const dim, int const level)>;
 
-  /*!
+/*!
  * \internal
  * \brief Signature for the iterative solve function
  *
@@ -63,6 +82,21 @@ template<typename P>
 using iter_solve_func =
   std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x)>;
+
+#ifdef ASGARD_USE_GPU
+/*!
+ * \internal
+ * \brief Signature for the iterative solve function
+ *
+ * Uses an iterative solver to solve the Poisson equation
+ *
+ * \endinternal
+ */
+template<typename P>
+using iter_solve_func_gpu =
+  std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
+                     gpu::vector<P> const &rhs, gpu::vector<P> &x)>;
+#endif
 
 /*!
  * \brief Stores the data for a multi-dimensional poisson solver
@@ -81,7 +115,7 @@ public:
   poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-             build_term_func<P> build, iter_solve_func<P> iter_solve, moment_id const m0);
+             build_term_func<P> build, iter_solve_func<P> iter_solve_func, moment_id const m0);
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
@@ -102,15 +136,40 @@ public:
   //! returns the id for the zero moment
   moment_id const &moment0() const { return mom0; }
 
-private:
   #ifdef ASGARD_USE_GPU
-  void apply_terms_gpu(int const pdof, sparse_grid const &grid, connection_patterns const &conn,
-  P alpha, P const x[], P beta, P y[]);
+  //! initialize Poisson solver over the multi-dimensional domain
+  poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
+             std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
+             hierarchy_manipulator<P> const &hier, moments_list const &mlist,
+             build_term_func<P> build, iter_solve_func<P> iter_solve_func, iter_solve_func_gpu<P> iter_solve_func_gpu, 
+             moment_id const m0) : poisson_md(num_pos, max_level, xleft, xright, conn, hier, mlist, build, iter_solve_func, m0)
+  {
+    iter_solve_gpu = iter_solve_func_gpu;
+  }
+  /*!
+  * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
+  */
+  void solve(gpu::vector<P> const &density, sparse_grid const &position_grid,
+             connection_patterns const &conn, interpolate_func<P> interpolate,
+             kronmult::workspace<P> &work, poisson_bc const bc);
+  //! poisson solve using periodic boundary conditions
+  void solve_periodic(gpu::vector<P> const &density, sparse_grid const &position_grid,
+                      connection_patterns const &conn, interpolate_func<P> interpolate,
+                      kronmult::workspace<P> &work)
+  {
+    solve(density, position_grid, conn, interpolate, work, poisson_bc::periodic);
+  }
   #endif
 
+private:
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(std::vector<P> const &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
+  #ifdef ASGARD_USE_GPU
+  // Solves for just the electric potential, used as a substep inside the solver
+  void solve_potential_(gpu::vector<P> const &density, sparse_grid const &grid,
+                        connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
+  #endif
 
   int num_dims = -1;
   int pdof = -1; 
@@ -123,9 +182,20 @@ private:
   std::vector<P> potential;
   iter_solve_func<P> iter_solve;
   #ifdef ASGARD_USE_GPU
+  iter_solve_func_gpu<P> iter_solve_gpu;
+  #ifdef ASGARD_GPU_MEMGREEDY
+  //! gpu derivative matrix
+  gpu::vector<P> d_derivative_mat;
+  #else
+   //! gpu derivative matrices for different levels
+  std::vector<gpu::vector<P>> dl_derivative_mat;
+  //! pointers to gpu matrices
+  gpu::vector<P*> d_derivative_mat;
+  #endif
+  // std::array<P, max_pos_dims> d_dim_scalings; TODO
   gpu::vector<P> d_rhs;
+  gpu::vector<P> d_potential;
   gpu::vector<P> d_efield;
-  mutable std::array<gpu::vector<P>, max_num_gpus> gpu_x, gpu_y; // for out-of-core evals
   #endif
 };
 

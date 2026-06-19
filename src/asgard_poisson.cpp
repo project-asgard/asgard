@@ -62,6 +62,24 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   // set up scaling for each direction
   for (int const d : iindexof(num_dims))
     dim_scalings[d] = static_cast<P>(num_cells) / (xright[d] - xleft[d]);
+
+  #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_MEMGREEDY
+  d_derivative_mat = derivative_mat.data_vector();
+  #else
+  compute->set_device(gpu::device{0});
+  dl_derivative_mat.resize(max_level + 1);
+  std::vector<P*> coeff_pntrs(max_level + 1, nullptr);
+  for (int l = 0; l < max_level; l++) {
+    dl_derivative_mat[l] = derivative_mat.get_subpattern(l, conn).data_vector();
+    coeff_pntrs[l] = dl_derivative_mat[l].data();
+  }
+  dl_derivative_mat[max_level] = derivative_mat.data_vector();
+  coeff_pntrs[max_level] = dl_derivative_mat[max_level].data();
+  d_derivative_mat = coeff_pntrs;
+  #endif
+  // d_dim_scalings.copy(dim_scalings); Figure this out later
+  #endif
 }
 
 template<typename P>
@@ -115,38 +133,18 @@ void poisson_md<P>::solve_potential_(std::vector<P> const &density, sparse_grid 
   // 5. Define the Matrix-Vector Product (The LHS)
   auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
   {
-    #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group_id::all(), grid, conn);
-    tools::time_event performance_("poisson_md kronmult", flops);
-    #else
     tools::time_event performance_("poisson_md kronmult");
-    #endif
     P b = beta; // on first iteration, overwrite y
 
-    #ifdef ASGARD_USE_GPU
-    apply_terms_gpu(pdof, grid, conn, alpha, x, b, y);
-    #else
     for (term_entry<P> const &tentry: laplacian_terms)
     {
       block_cpu(pdof, position_grid, conn, tentry.perm, tentry.coeffs, alpha, x, b, y, work);
       b = 1; // next iteration appends on y
     }
-    #endif
   };
 
-  #ifdef ASGARD_USE_GPU
-  d_rhs.resize(n);
-  d_potential.resize(n);
-  d_rhs.copy_from_host(n, rhs.data());
-  d_potential.copy_from_host(n, potential.data());
-  // 7. Execute the Solve
-  int num_iters = iter_solve(apply_lhs, d_rhs, d_potential);
-  // Copy solultion back to CPU
-  d_potential.copy_to_host(n, potential.data());
-  #else
   // 7. Execute the Solve
   int num_iters = iter_solve(apply_lhs, rhs, potential);
-  #endif
 
   // 8. Anchor the resulting potential's mean to 0
   if (bc == poisson_bc::periodic) {
@@ -156,68 +154,76 @@ void poisson_md<P>::solve_potential_(std::vector<P> const &density, sparse_grid 
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void poisson_md<P>::apply_terms_gpu(sparse_grid const &grid, connection_patterns const &conn,
-  P alpha, P const x[], P beta, P y[])
+void poisson_md<P>::solve(gpu::vector<P> const &density, sparse_grid const &position_grid,
+                          connection_patterns const &conn, interpolate_func<P> interpolate,
+                          kronmult::workspace<P> &work, poisson_bc const bc)
 {
-  // if doing out-of-core, load data onto the device and sync across devices, device 0 is always the "root"
-  int64_t const num_entries  = fm::ipow(pdof, grid.num_dims()) * grid.num_indexes();
-  int const num_gpus = compute->num_gpus();
+  tools::time_event psolve_("poisson_solver_multi_d GPU");
+  
+  rassert(operator bool(), "poisson_md must be initialized before solve");
+  size_t const n = position_grid.num_dof();
+  size_t const np = work.gpu_w1[0].size();
+  work.gpu_w1[0].resize(n);
 
-  #pragma omp parallel for schedule(static, 1)
-  for (int g = 0; g < num_gpus; g++) {
-    compute->set_device(gpu::device{g});
+  solve_potential_(density, position_grid, conn, work, bc);
 
-    // effective x/y, either x or gpu_x[id]
-    P const *xpntr = nullptr;
-    P *ypntr = nullptr;
+  // get the electric field from the potential
+  d_efield.resize(n);
+  for (int const d : iindexof(num_dims))
+  {
+    moment_id const mid = moms_electric[d];
+    if (mid == moment_id::unset()) continue;
+    kronmult::permutes perm = std::vector<int>{d, };
+    block_gpu(gpu::device{0}, pdof, position_grid, conn, perm, d_derivative_mat,
+              P{1.0}, d_potential.data(), P{0.0}, d_efield.data(), work, derivative_mat);
+    gpu::set_scal(n, dim_scalings[d], d_efield.data());
 
-    if (g == 0) {
-      xpntr = x;
-      ypntr = y;
-    } else {
-      gpu_x[g].resize(num_entries);
-      gpu_y[g].resize(num_entries);
-      gpu::mcopy(gpu::device{0}, x, gpu::device{g}, gpu_x[g]);
-      gpu::mcopy(gpu::device{0}, y, gpu::device{g}, gpu_y[g]);
-      xpntr = gpu_x[g].data();
-      ypntr = gpu_y[g].data();
-    }
+    // interpolate electric field moment
+    interpolate(d_efield, mid);
+  }
+  work.gpu_w1[0].resize(np);
+}
 
-    P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
+template<typename P>
+void poisson_md<P>::solve_potential_(gpu::vector<P> const &density, sparse_grid const &position_grid,
+                                     connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
+{
+  size_t const n = position_grid.num_dof();
 
-    bool term_found = false; // does this GPU have at least 1 term
+  // 1. Resize efield and set an initial guess of zeros
+  d_potential.resize(n);
+  gpu::fill_zeros(n, d_potential.data());
 
-    for (term_entry<P> const &term: laplacian_terms)
+  // 2. Build the Right Hand Side (RHS)
+  d_rhs = density;
+
+  // 3. Prevent Singular Matrix Crashes (Periodic Physics Trick)
+  // For periodic boundaries, the solution is only unique up to a constant.
+  // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
+  if (bc == poisson_bc::periodic)
+    gpu::fill_zeros(1, d_rhs.data());
+  
+  // 5. Define the Matrix-Vector Product (The LHS)
+  auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
+  {
+    tools::time_event performance_("poisson_md kronmult");
+    P b = beta; // on first iteration, overwrite y
+
+    for (term_entry<P> const &tentry: laplacian_terms)
     {
-      // skip the terms associated with other MPI ranks or devices (MPI is still a TODO)
-      // if (not resources.owns(term.rec) or term.rec.device != g) {
-      //   continue;
-      // }
-
-      block_gpu(gpu::device{g}, pdof, grid, conn, term.perm, term.gpu_coeffs,
-                alpha, xpntr, b, ypntr, poisson_work, term.coeffs);
-
-      term_found = true; // something got computed above
+      block_gpu(gpu::device{0}, pdof, position_grid, conn, tentry.perm, tentry.gpu_coeffs,
+                alpha, x, b, y, work, tentry.coeffs);
       b = 1; // next iteration appends on y
     }
+  };
 
-    // handle the case when a GPU has no terms
-    if (not term_found) {
-      if (g == 0 and beta != 0) { // main GPU is expected to scale y
-        compute->scal(num_entries, beta, ypntr);
-      } else {
-        // either scale by zero or no terms, so set to zero
-        compute->fill_zeros(num_entries, ypntr);
-      }
-    }
-    compute->device_synchronize();
-  }
+  // 7. Execute the Solve
+  compute->set_device(gpu::device{0});
+  int num_iters = iter_solve_gpu(apply_lhs, d_rhs, d_potential);
 
-  // collect the data across the GPUs (TODO)
-  // for (int g = 1; g < num_gpus; g++) {
-  //   gpu::mcopy(num_entries, gpu::device{g}, gpu_y[g].data(), gpu::device{0}, gpu_t1[0].data());
-  //   compute->axpy(num_entries, gpu_t1[0].data(), y.data());
-  // }
+  // Anchor the resulting potential's mean to 0
+  if (bc == poisson_bc::periodic)
+    gpu::fill_zeros(1, d_potential.data());
 }
 #endif
 

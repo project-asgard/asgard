@@ -46,7 +46,7 @@ public:
   //! returns a read-only reference to the list of moments
   moments_list const &moments() const { return mlist; }
   //! returns true if there is a poisson solver
-  bool const has_poisson() const { return (not std::holds_alternative<poisson::poisson_none>(poisson_solver)); }
+  bool has_poisson() const { return (not std::holds_alternative<poisson::poisson_none>(poisson_solver)); }
 
   //! returns a grid indexes, used for I/O
   std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
@@ -151,20 +151,33 @@ public:
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   //! load all moments into the data-structures
   void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
-                       kronmult::workspace<P> &kwork,
+                       connection_patterns const &conn, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state) const;
   //! load all moments into the data-structures
   void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
-                       kronmult::workspace<P> &kwork,
+                       connection_patterns const &conn, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state) const
   {
-    compute_moments(group_id::all(), grid, interp, kwork, state);
+    compute_moments(group_id::all(), grid, interp, conn, kwork, state);
   }
   //! load the given moments into the data-structures at device 0
   void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
                        interpolation_manager<P> const &interp,
                        kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
+  
+  //! sets up the poisson solver if one is needed
+  void set_poisson(int const max_level, sparse_grid const &grid,
+                   std::array<P, max_num_dimensions> const &xleft,
+                   std::array<P, max_num_dimensions> const &xright,
+                   connection_patterns const &conn,
+                   hierarchy_manipulator<P> const &hier,
+                   poisson::build_term_func<P> build_func,
+                   poisson::iter_solve_func<P> iter_func,
+                   poisson::iter_solve_func_gpu<P> iter_func_gpu);
+                   
+  void solve_poisson(gpu::vector<P> const &density, connection_patterns const &conn,
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation

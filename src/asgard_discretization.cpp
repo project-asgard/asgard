@@ -223,7 +223,15 @@ void discretization_manager<precision>::start_moments() {
                                   std::vector<precision> const &rhs, std::vector<precision> &x) -> int {
       return this->poisson_iter.solve(apply_lhs, rhs, x);
     };
+    #ifdef ASGARD_USE_GPU
+    auto iter_solve_func_gpu = [this](solvers::operation_apply_lhs<precision> apply_lhs,
+                                  gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
+      return this->poisson_iter.solve(apply_lhs, rhs, x);
+    };
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func, iter_solve_func_gpu);
+    #else
     terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
+    #endif
   }
   compute_moments_(group_id::all(), state);
 }
@@ -712,9 +720,8 @@ void discretization_manager<precision>::compute_moments_local_gpu(
   {
     // const-cast is safe here, since wf is only used as "const" in the call
     gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.kwork, wf.vec);
+    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.kwork, wf.vec);
   }
-  compute_poisson(gid);
   terms.rebuild_moment_terms(gid);
 }
 

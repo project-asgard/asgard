@@ -96,6 +96,31 @@ void moment_manager<P>::set_poisson(int const max_level, sparse_grid const &grid
   }
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void moment_manager<P>::set_poisson(int const max_level, sparse_grid const &grid,
+                                    std::array<P, max_num_dimensions> const &xleft,
+                                    std::array<P, max_num_dimensions> const &xright,
+                                    connection_patterns const &conn,
+                                    hierarchy_manipulator<P> const &hier,
+                                    poisson::build_term_func<P> build_func,
+                                    poisson::iter_solve_func<P> iter_func,
+                                    poisson::iter_solve_func_gpu<P> iter_func_gpu)
+{
+  if (mlist.has_electric()) {
+    moment_id const m0 = find_id(moment::zero(num_vel_));
+    if (num_pos_ == 1) {
+      moment_id const melectric = find_id(moment::electric(dimension_id(0)));
+      poisson_solver = poisson::poisson_1d<P>(hier.degree(), xleft[0], xright[0],
+                                              grid.current_level(0), m0, melectric);
+    } else {
+      poisson_solver = poisson::poisson_md<P>(num_pos_, max_level, xleft, xright, conn, hier,
+                                              mlist, build_func, iter_func, iter_func_gpu, m0);
+    }
+  }
+}
+#endif
+
 template<typename P>
 void moment_manager<P>::set_level_zero(pde_domain<P> const &domain, legendre_basis<P> const &basis,
                                        moment const &max_moms, int dim)
@@ -619,6 +644,36 @@ void moment_manager<P>::solve_poisson(connection_patterns const &conn, hierarchy
     poisson_solver);
 }
 
+#ifdef ASGARD_USE_GPU
+template<typename P>
+void moment_manager<P>::solve_poisson(gpu::vector<P> const &density, connection_patterns const &conn,
+                                      interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const
+{
+  std::visit([&](auto &p) {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson::poisson_1d<P>>) {
+        // This is fast enough it should probably be done on CPU
+        // TODO
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson::poisson_md<P>>) {
+        // Setup
+        update_position_grid_dsort();
+        int64_t const num_entries = pos_grid.num_dof();
+        std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
+        assert(work2[0].size() >= num_entries);
+        gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+        auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
+        {
+          interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+          gpu::vector<P> &res = this->gpu_interps[0][mid];
+          moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+        };
+        // Solve
+        p.solve_periodic(density, pos_grid, conn, interp_func, work);
+      }
+    },
+    poisson_solver);
+}
+#endif // ASGARD_USE_GPU
+
 template<typename P>
 void moment_manager<P>::update_position_grid_dsort() const
 {
@@ -861,6 +916,7 @@ void moment_manager<P>::prepare_pos_grid_gpu(group_id group, sparse_grid const &
 template<typename P>
 void moment_manager<P>::compute_moments(
     group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+    connection_patterns const &conn,
     kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
 {
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
@@ -903,6 +959,13 @@ void moment_manager<P>::compute_moments(
 
       moment const mom = mlist[im->mid]; // using this to get the necessary powers
 
+      gpu::vector<P> &res = gpu_interps[g][im->mid];
+      if (not im->skip_interp()) {
+        res.resize(full_block * grid.num_indexes());
+      }
+
+      if (mom.is_electric()) continue; // skip electric field moments
+
       std::array<P const *, max_mom_dims> itg =
         {gpu_integ[g][0].data() + mom.pows[0] * integ[0].stride(), nullptr, nullptr};
       for (int i = 1; i < num_vel_; i++)
@@ -939,14 +1002,14 @@ void moment_manager<P>::compute_moments(
 
       interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
 
-      gpu::vector<P> &res = gpu_interps[g][im->mid];
-      res.resize(full_block * grid.num_indexes());
-
       moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2.vec, res);
 
       if (im->interp_on_cpu()) res.copy_to_host(interps[im->mid]);
     }
   }
+
+  gpu::wrap_array<P> w1(work1[0].data(), num_entries);
+  solve_poisson(w1.vec, conn, interp, kwork); // w1 will only be correct if only one moment was computed
 }
 
 template<typename P>
@@ -977,6 +1040,7 @@ void moment_manager<P>::compute_moments(
   for (auto im : mids)
   {
     moment const mom = mlist[im]; // using this to get the necessary powers
+    rassert(not mom.is_electric(), "This path has not been setup for electric field moments yet") // TODO
 
     std::array<P const *, max_mom_dims> itg =
       {gpu_integ[0][0].data() + mom.pows[0] * integ[0].stride(), nullptr, nullptr};

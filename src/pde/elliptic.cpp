@@ -50,10 +50,10 @@ enum class boundary_enum {
  * \ingroup asgard_examples_elliptic
  * \brief Make an elliptic PDE
  *
- * Constructs the pde description for the given number of dimensions
+ * Constructs the pde description for the given umber of dimensions
  * and options.
  *
- * \tparam boundary indicates the type of boundary to use
+ * \tparam boudnary indicates the type of boundary to use
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
