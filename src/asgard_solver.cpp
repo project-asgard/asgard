@@ -10,6 +10,134 @@
 namespace asgard::solvers
 {
 
+// ==============================================================================
+// CPU IMPLEMENTATION
+// ==============================================================================
+template<typename P>
+int cg<P>::solve(
+    operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
+{
+  tools::time_event timing_("cg::solve");
+  int64_t const n = static_cast<int64_t>(rhs.size());
+
+  if (r.size() != rhs.size()) r.resize(n);
+  if (p.size() != rhs.size()) p.resize(n);
+  if (q.size() != rhs.size()) q.resize(n);
+
+  auto dot = [&](std::vector<P> const &a, std::vector<P> const &b) -> P {
+      P sum = 0;
+      ASGARD_OMP_PARFOR_SIMD_EXTRA(reduction(+:sum))
+      for (int64_t i = 0; i < n; i++) sum += a[i] * b[i];
+      return sum;
+  };
+
+  r = rhs;
+  int num_appy = 1;
+  apply_lhs(-1.0, x.data(), 1.0, r.data()); // r = b - A * x
+
+  p = r;
+  P rho = dot(r, r);
+
+  for (int i = 0; i < max_iter_; i++) {
+    ++num_appy;
+    apply_lhs(1.0, p.data(), 0.0, q.data()); // q = A * p
+
+    P const p_dot_q = dot(p, q);
+    P const alpha = rho / p_dot_q;
+
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t k = 0; k < n; k++) {
+        x[k] += alpha * p[k];
+        r[k] -= alpha * q[k];
+    }
+
+    P const rho_new = dot(r, r);
+
+    // Exact check based on the new residual
+    if (std::sqrt(rho_new) < tolerance_) {
+      return num_appy;
+    }
+
+    P const beta = rho_new / rho;
+
+    ASGARD_OMP_PARFOR_SIMD
+    for (int64_t k = 0; k < n; k++) {
+        p[k] = r[k] + beta * p[k];
+    }
+
+    rho = rho_new;
+  }
+  std::cerr << "Warning: ASGarD CPU CG solver failed to converge within " << max_iter_ << " iterations.\n";
+  return num_appy;
+}
+
+#ifdef ASGARD_USE_GPU
+template<typename P>
+int cg<P>::solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
+                 gpu::vector<P> &x) const
+{
+  tools::time_event timing_("cg::solve-gpu");
+  int64_t const n = rhs.size();
+
+  if (gq.size() != n) {
+    gr.resize(n);
+    gp.resize(n);
+    gq.resize(n);
+    d_rho.resize(1);
+    d_rho_new.resize(1);
+    d_p_dot_q.resize(1);
+    d_alpha.resize(1);
+    d_beta.resize(1);
+  }
+
+  gr = rhs;
+
+  int num_appy = 1;
+  apply_lhs(-1.0, x.data(), 1.0, gr.data()); 
+
+  gp = gr;
+
+  compute->dot1_device(n, gr.data(), d_rho.data());
+
+  for (int i = 0; i < max_iter_; i++) {
+    ++num_appy;
+
+    apply_lhs(1.0, gp.data(), 0.0, gq.data()); 
+
+    compute->dot_device(n, gp.data(), gq.data(), d_p_dot_q.data());
+
+    gpu::cg_calc_alpha(d_rho.data(), d_p_dot_q.data(), d_alpha.data());
+
+    gpu::cg_update_x_r(n, d_alpha.data(), gp.data(), gq.data(), x.data(), gr.data());
+
+    compute->dot1_device(n, gr.data(), d_rho_new.data());
+
+    if (i % 10 == 0) {
+        P cpu_rho_new;
+        d_rho_new.copy_to_host(1, &cpu_rho_new); 
+        if (std::sqrt(cpu_rho_new) < tolerance_) {
+            return num_appy;
+        }
+    }
+
+    gpu::cg_calc_beta(d_rho_new.data(), d_rho.data(), d_beta.data());
+
+    gpu::cg_update_p(n, d_beta.data(), gr.data(), gp.data());
+
+    gpu::cg_update_rho(d_rho_new.data(), d_rho.data());
+  }
+
+  std::cerr << "Warning: ASGarD GPU CG solver failed to converge within " << max_iter_ << " iterations.\n";
+  return num_appy;
+}
+#endif
+
+template<typename P>
+size_t cg<P>::used_bytes() const {
+  size_t total = r.size() + p.size() + q.size();
+  return total * sizeof(P);
+}
+
 template<typename P>
 void direct<P>::update(
     group_id group, size_t stage, sparse_grid const &grid, connection_patterns const &conn,
@@ -610,6 +738,7 @@ void scaled_identity<P>::operator()(group_id group, size_t stage, P x[]) const
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class direct<double>;
+template class cg<double>;
 template class bicgstab<double>;
 template class gmres<double>;
 template class scaled_identity<double>;
@@ -617,6 +746,7 @@ template class scaled_identity<double>;
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class direct<float>;
+template class cg<float>;
 template class bicgstab<float>;
 template class gmres<float>;
 template class scaled_identity<float>;

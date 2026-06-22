@@ -121,6 +121,41 @@ using operatoin_apply_lhs =
 template<typename P>
 using operatoin_apply_precon = std::function<void(P y[])>;
 
+template<typename P>
+class cg
+{
+public:
+  cg(P tolerance, int max_iter = 1000)
+      : tolerance_(tolerance), max_iter_(max_iter) {}
+
+  // CPU Signature
+  int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const;
+
+#ifdef ASGARD_USE_GPU
+  // GPU Signature
+  int solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
+#endif
+
+  P tolerance() const { return tolerance_; }
+  int max_iter() const { return max_iter_; }
+  size_t used_bytes() const;
+
+private:
+  P tolerance_ = 0.0;
+  int max_iter_ = 0;
+
+  // CPU workspace
+  mutable std::vector<P> r, p, q;
+
+#ifdef ASGARD_USE_GPU
+  // GPU workspace
+  mutable gpu::vector<P> gr, gp, gq;
+  
+  // VRAM-trapped Scalars
+  mutable gpu::vector<P> d_rho, d_rho_new, d_p_dot_q, d_alpha, d_beta;
+#endif
+};
+
 /*!
  * \internal
  * \brief BiCGSTAB method combines Conjugate-Gradient and GMRES

@@ -843,7 +843,7 @@ private:
   std::vector<aux_field_entry<precision>> aux_fields;
 
   //! Just testing for now
-  solvers::bicgstab<precision> poisson_iter;
+  solvers::cg<precision> poisson_iter;
 };
 
 } // namespace asgard

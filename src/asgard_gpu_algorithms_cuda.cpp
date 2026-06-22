@@ -235,6 +235,65 @@ int num_non_finite(int64_t num, P const x[]) {
   return cpu_res;
 }
 
+template<typename P>
+__global__ void cg_calc_alpha_kernel(P const* rho, P const* p_dot_q, P* alpha) {
+    *alpha = *rho / *p_dot_q;
+}
+
+template<typename P>
+__global__ void cg_calc_beta_kernel(P const* rho_new, P const* rho, P* beta) {
+    *beta = *rho_new / *rho;
+}
+
+template<typename P>
+__global__ void cg_update_x_r_kernel(int64_t n, P const* alpha, P const* p, P const* q, P* x, P* r) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        P a = *alpha;
+        x[i] += a * p[i];
+        r[i] -= a * q[i];
+    }
+}
+
+template<typename P>
+__global__ void cg_update_p_kernel(int64_t n, P const* beta, P const* r, P* p) {
+    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n) {
+        p[i] = r[i] + (*beta) * p[i];
+    }
+}
+
+template<typename P>
+__global__ void cg_update_rho_kernel(P const* rho_new, P* rho) {
+    *rho = *rho_new;
+}
+
+// --- The C++ Wrappers that asgard_solver.cpp will call ---
+template<typename P>
+void cg_calc_alpha(P const* rho, P const* p_dot_q, P* alpha) {
+    cg_calc_alpha_kernel<<<1, 1>>>(rho, p_dot_q, alpha);
+}
+template<typename P>
+void cg_calc_beta(P const* rho_new, P const* rho, P* beta) {
+    cg_calc_beta_kernel<<<1, 1>>>(rho_new, rho, beta);
+}
+template<typename P>
+void cg_update_x_r(int64_t n, P const* alpha, P const* p, P const* q, P* x, P* r) {
+    int const threads = 1024;
+    int const blocks = (n + threads - 1) / threads;
+    cg_update_x_r_kernel<<<blocks, threads>>>(n, alpha, p, q, x, r);
+}
+template<typename P>
+void cg_update_p(int64_t n, P const* beta, P const* r, P* p) {
+    int const threads = 1024;
+    int const blocks = (n + threads - 1) / threads;
+    cg_update_p_kernel<<<blocks, threads>>>(n, beta, r, p);
+}
+template<typename P>
+void cg_update_rho(P const* rho_new, P* rho) {
+    cg_update_rho_kernel<<<1, 1>>>(rho_new, rho);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void jacobi_apply<double>(gpu::vector<double> const &, double[]);
 
@@ -255,6 +314,12 @@ template void sum5(gpu::vector<double> const &, double, gpu::vector<double> cons
                    double, gpu::vector<double> const &, double, gpu::vector<double> const &, gpu::vector<double> &);
 
 template int num_non_finite(int64_t num, double const x[]);
+
+template void cg_calc_alpha<double>(double const*, double const*, double*);
+template void cg_calc_beta<double>(double const*, double const*, double*);
+template void cg_update_x_r<double>(int64_t, double const*, double const*, double const*, double*, double*);
+template void cg_update_p<double>(int64_t, double const*, double const*, double*);
+template void cg_update_rho<double>(double const*, double*);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -277,5 +342,11 @@ template void sum5(gpu::vector<float> const &, float, gpu::vector<float> const &
                    float, gpu::vector<float> const &, float, gpu::vector<float> const &, gpu::vector<float> &);
 
 template int num_non_finite(int64_t num, float const x[]);
+
+template void cg_calc_alpha<float>(float const*, float const*, float*);
+template void cg_calc_beta<float>(float const*, float const*, float*);
+template void cg_update_x_r<float>(int64_t, float const*, float const*, float const*, float*, float*);
+template void cg_update_p<float>(int64_t, float const*, float const*, float*);
+template void cg_update_rho<float>(float const*, float*);
 #endif
 }
