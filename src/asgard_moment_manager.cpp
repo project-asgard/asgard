@@ -44,10 +44,10 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   num_vel_  = domain.num_vel();
   pdof      = hier.degree() + 1;
 
-  pos_block  = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   vel_block  = fm::ipow(pdof, domain.num_vel());
   full_block = fm::ipow(pdof, domain.num_dims());
 
+  pos_grid.block_size_ = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
   wav_scale  = 1;
@@ -183,9 +183,9 @@ void moment_manager<P>::set_mass(
 
   #pragma omp parallel for
   for (int i = 0; i < num_cells; i++) {
-      double const l = xleft + i * dx; // left edge of cell i
-      for (int k = 0; k < num_quad; k++)
-        rhs_raw.pnts[i * num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+    double const l = xleft + i * dx; // left edge of cell i
+    for (int k = 0; k < num_quad; k++)
+      rhs_raw.pnts[i * num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
   }
 
   integ[dim] = vector2d<P>(num_cells * pdof, max_moment + 1);
@@ -316,8 +316,10 @@ template<int nvel, int tpdof>
 void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
                                  std::vector<P> const &state, std::vector<P> &vals) const
 {
-  int const num = pos_grid.num_indexes();
-  vals.resize(pos_block * num);
+  int const num       = pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  vals.resize(pos_grid.num_dof());
 
   moment const mom = mlist[id]; // using this to get the necessary powers
 
@@ -585,6 +587,8 @@ void moment_manager<P>::make_nodal(
 
   interps[id].resize(pntr.back() * full_block);
 
+  int const pos_block = pos_grid.block_size();
+
   #pragma omp parallel for
   for (int i = 0; i < pos_grid.num_indexes(); i++)
   {
@@ -811,7 +815,9 @@ void moment_manager<P>::compute_moments(
 
   prepare_pos_grid_gpu(group, grid);
 
-  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  int64_t const num_entries = pos_grid.num_dof();
 
   int const num_gpus = compute->num_gpus();
   #pragma omp parallel for schedule(static, 1)
@@ -901,7 +907,9 @@ void moment_manager<P>::compute_moments(
 
   prepare_pos_grid_gpu(group_id::all(), grid);
 
-  int64_t const num_entries = pos_block * pos_grid.num_indexes();
+  int const pos_block = pos_grid.block_size();
+
+  int64_t const num_entries = pos_grid.num_dof();
 
   compute->set_device(gpu::device{0});
   assert(work1[0].size() >= num_entries);

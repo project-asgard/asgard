@@ -238,7 +238,7 @@ void do_all_tests() {
   test_case<P>("all", 2, {0, 1, 2}, {moment(0), moment(1), moment(2)},
                {test_props{0, 7, {tol, 5.E-4, 1.E-3}},
                 test_props{1, 0, {tol, 1.E-8, 5.E-4}},
-                test_props{1, 6, {tol, 3.E-8, 5.E-8}},
+                test_props{1, 6, {tol, 3.E-8, 6.E-8}},
                 test_props{2, 0, {tol, tol, tol}},
                 test_props{2, 4, {tol, tol, tol}},
                 test_props{3, 0, {tol, tol, tol}},

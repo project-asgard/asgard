@@ -2,6 +2,149 @@
 
 using namespace asgard;
 
+template<typename P>
+void test_separable_func() {
+  current_test<P> name_("separable_func");
+
+  auto ft1 = [](std::vector<P> const &x, P t, std::vector<P> &fx)
+        -> void {
+      tassert(x.size() == fx.size());
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = t * std::sin(x[i]);
+    };
+  auto ft2 = [](std::vector<P> const &x, P t, std::vector<P> &fx)
+        -> void {
+      tassert(x.size() == fx.size());
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = t * std::cos(x[i]);
+    };
+  auto f1 = [](std::vector<P> const &x, std::vector<P> &fx)
+        -> void {
+      tassert(x.size() == fx.size());
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = std::sin(x[i]);
+    };
+  auto f2 = [](std::vector<P> const &x, std::vector<P> &fx)
+        -> void {
+      tassert(x.size() == fx.size());
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = std::cos(x[i]);
+    };
+
+  auto ft = [](P t) -> P { return t * t; };
+
+  {
+    separable_func<P> func;
+    tassert(func.num_dims() == 0);
+  }{
+    separable_func<P> func(std::vector<svector_func1d<P>>{ft1, ft2});
+    tassert(func.num_dims() == 2);
+    tassert(func.is_valid());
+    for (int d = 0; d < 2; d++) {
+      tassert(not func.is_const(dimension_id{d}));
+      tassert(not func.is_fixed(dimension_id{d}));
+      tassert(func.is_time_dep(dimension_id{d}));
+
+      svector_func1d<P> const &f = func.time_dep_at(dimension_id{d});
+      std::ignore = f;
+    }
+    tassert(func.is_time_non_sep());
+    tassert(not func.is_time_sep());
+    tassert(not func.is_time_const());
+
+    func.set(dimension_id{0}, 3);
+    tassert(func.is_const(dimension_id{0}));
+    tassert(func.is_time_dep(dimension_id{1}));
+    tassert(func.is_valid());
+  }{
+    separable_func<P> func(std::vector<sfixed_func1d<P>>{f1, f2});
+    tassert(func.num_dims() == 2);
+    tassert(func.is_valid());
+    for (int d = 0; d < 2; d++) {
+      tassert(not func.is_const(dimension_id{d}));
+      tassert(func.is_fixed(dimension_id{d}));
+      tassert(not func.is_time_dep(dimension_id{d}));
+
+      sfixed_func1d<P> const &f = func.fixed_at(dimension_id{d});
+      std::ignore = f;
+    }
+    tassert(not func.is_time_non_sep());
+    tassert(func.is_time_sep());
+    tassert(func.is_time_const());
+
+    func.set(dimension_id{0}, 3);
+    tassert(func.is_const(dimension_id{0}));
+    tassert(func.is_fixed(dimension_id{1}));
+    tassert(func.is_valid());
+
+    func.set(dimension_id{1}, ft1);
+    tassert(func.is_time_dep(dimension_id{1}));
+    std::cerr << "<generating 1 error message>\n";
+    tassert(not func.is_valid());
+  }{
+    separable_func<P> func(std::vector<sfixed_func1d<P>>{f1, f2}, ft);
+    tassert(func.num_dims() == 2);
+    tassert(func.is_valid());
+    for (int d = 0; d < 2; d++) {
+      tassert(not func.is_const(dimension_id{d}));
+      tassert(func.is_fixed(dimension_id{d}));
+      tassert(not func.is_time_dep(dimension_id{d}));
+
+      sfixed_func1d<P> const &f = func.fixed_at(dimension_id{d});
+      std::ignore = f;
+    }
+    tassert(not func.is_time_non_sep());
+    tassert(func.is_time_sep());
+    tassert(not func.is_time_const());
+  }{
+    separable_func<P> func(std::vector<P>{3, 4, 5});
+    tassert(func.num_dims() == 3);
+    tassert(func.is_valid());
+    for (int d = 0; d < 3; d++) {
+      tassert(func.is_const(dimension_id{d}));
+      tassert(not func.is_fixed(dimension_id{d}));
+      tassert(not func.is_time_dep(dimension_id{d}));
+
+      P const &f = func.const_at(dimension_id{d});
+      tassert(f == static_cast<P>(d + 3));
+    }
+    tassert(not func.is_time_non_sep());
+    tassert(func.is_time_sep());
+    tassert(func.is_time_const());
+  }{
+    separable_func<P> func(std::vector<P>{3, 4, 5}, ft);
+    tassert(func.num_dims() == 3);
+    tassert(func.is_valid());
+    for (int d = 0; d < 3; d++) {
+      tassert(func.is_const(dimension_id{d}));
+      tassert(not func.is_fixed(dimension_id{d}));
+      tassert(not func.is_time_dep(dimension_id{d}));
+
+      P const &f = func.const_at(dimension_id{d});
+      tassert(f == static_cast<P>(d + 3));
+    }
+    tassert(not func.is_time_non_sep());
+    tassert(func.is_time_sep());
+    tassert(not func.is_time_const());
+  }{
+    auto func = separable_func<P>::const_one(number_of_dimensions{4});
+    static_assert(std::is_same_v<separable_func<P>, decltype(func)>);
+    tassert(func.num_dims() == 4);
+    tassert(func.is_valid());
+    for (int d = 0; d < 4; d++) {
+      tassert(func.is_const(dimension_id{d}));
+      tassert(not func.is_fixed(dimension_id{d}));
+      tassert(not func.is_time_dep(dimension_id{d}));
+
+      P const &f = func.const_at(dimension_id{d});
+      tassert(f == static_cast<P>(1));
+    }
+    tassert(not func.is_time_non_sep());
+    tassert(func.is_time_sep());
+    tassert(func.is_time_const());
+  }
+}
+
 template<typename TestType>
 void test_bookkeeping() {
   {
@@ -404,6 +547,7 @@ void test_discretization_manager() {
 
 template<typename P>
 void pde_tests() {
+  test_separable_func<P>();
   test_bookkeeping<P>();
   test_pde_class<P>();
   test_discretization_manager<P>();

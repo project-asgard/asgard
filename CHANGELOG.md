@@ -1,6 +1,23 @@
 
 ## unscheduled features
 
+## v0.9.0 (4 Mar 2026)
+* reworked the API and the PDE definition approach
+    * ASGarD now works as a library providing tools and the specific PDE definitions sit at external executable files
+    * the PDE definition is a multi-step process allowing for more flexible approach
+        * variations of the same PDE definition can be implemented in one file and easily switched at runtime
+* support for non-linear and non-separable operators
+    * implemented an interpolation strategy for broader class of operators
+* expanded capabilities for moment calculations
+* new plotting/visualization strategy using Python and Matplotlib
+* improved documentation
+    * added numerous examples covering all the new capabilities
+* performance improvements in multiple areas
+    * improvements in the general linear algebra with global sparse Kronecker algorithms
+    * improvements in the operator matrix constructions
+    * improved memory management, lower memory footprint with fewer allocations and reallocations
+* improved GPU support for AMD ROCm
+
 ## v0.5.0 (9 Aug 2024)
 - Rewriting local kronmult library and adding an optional global kronmult library
 - Matrix-free implicit timestepping using GMRES or BICGStab solver

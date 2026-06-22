@@ -18,7 +18,11 @@ if __name__ == '__main__':
 
     maindata = asgard.pde_snapshot(sys.argv[1])
 
-    if len(maindata.aux_fields) == 0:
+    # the auxiliary fields are padded at the back with moment information
+    # plotting the field only and skipping the moments
+    num_aux = sum("__moment_" not in aux['name'] for aux in maindata.aux_fields)
+
+    if num_aux == 0:
         print(f" the file {sys.argv[1]} does not contain aux-fields")
         exit(1)
 
@@ -33,8 +37,8 @@ if __name__ == '__main__':
     xmax = maindata.dimension_max[0]
     ymax = maindata.dimension_max[1]
 
-    for i in range(len(maindata.aux_fields)):
-        islast = (i == len(maindata.aux_fields) - 1)
+    for i in range(num_aux):
+        islast = (i == num_aux - 1)
 
         shot = maindata.get_aux_field(i)
 

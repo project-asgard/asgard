@@ -204,7 +204,7 @@ class indexset
 {
 public:
   //! \brief Creates an empty set.
-  indexset() : num_dimensions_(0), num_indexes_(0) {}
+  indexset() = default;
   //! \brief Creates a new set from a vector of sorted indexes.
   indexset(int num_dimensions, std::vector<int> &&indexes)
       : num_dimensions_(num_dimensions), indexes_(std::move(indexes))
@@ -225,7 +225,7 @@ public:
   //! \brief Get the i-th index of the lexicographical order.
   const int *operator[](int64_t i) const
   {
-    return &indexes_[i * num_dimensions_];
+    return std::addressof(indexes_[i * num_dimensions_]);
   }
   //! \brief Get the i-th index of the lexicographical order.
   const int *index(int i) const
@@ -360,8 +360,8 @@ protected:
   }
 
 private:
-  int num_dimensions_;
-  int64_t num_indexes_;
+  int num_dimensions_ = 0;
+  int64_t num_indexes_ = 0;
   std::vector<int> indexes_;
 };
 
@@ -538,9 +538,16 @@ public:
     //! simultaneously add and remove indexes
     adapt
   };
+  //! allows for expressive creation of a grid with pre-defined generation index
+  enum class generation_index : int {};
 
   //! makes and empty grid, reinit before use
   sparse_grid() = default;
+  //! make an empty sparse grid with negative (invalid) generation index, will force reinit of the grid
+  sparse_grid(generation_index gen_id) : sparse_grid() {
+    assert(static_cast<int>(gen_id) < 0);
+    generation_ = static_cast<int>(gen_id);
+  }
   //! number of dimensions and levels
   sparse_grid(prog_opts const &options);
 
@@ -548,6 +555,12 @@ public:
   int num_dims() const { return iset_.num_dimensions(); }
   //! Returns the number of indexes
   int64_t num_indexes() const { return iset_.num_indexes(); }
+  //! Returns true if the grid is empty, i.e., no indexes
+  bool empty() const { return iset_.empty(); }
+  //! Returns the block size bases on the dimension and polynomial order (p + 1)^num-dims
+  int block_size() const { return block_size_; }
+  //! Returns the total number of degrees of freedom for this grid and this polynomial order
+  int64_t num_dof() const { return static_cast<int64_t>(block_size_) * iset_.num_indexes(); }
 
   //! returns pointer to the i-th index in the grid
   int const *operator[] (int64_t i) const { return iset_[i]; }
@@ -581,6 +594,11 @@ public:
    * and indexes marked as clear may be kept to preserve completeness.
    */
   void refine(connect_1d const &hierarchy, strategy mode, std::vector<istatus> &marked);
+
+  /*!
+   * \brief Extracts a sub-grid by removing the indicated dimension
+   */
+  sparse_grid subgrid(int dim, int pdof) const;
 
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>
@@ -655,7 +673,7 @@ public:
         for (auto &cnn : dims)
           cnn.clear();
     if constexpr (not skip_indexes)
-      gpu_indexes_    = iset_.indexes();
+      gpu_indexes_ = iset_.indexes();
     gpu_generation_ = generation_;
   }
   #else
@@ -668,7 +686,7 @@ public:
     // while the load process uses OpenMP and more complex code
     gpu_generation_ = generation_;
     if constexpr (not skip_indexes)
-      gpu_indexes_    = iset_.indexes();
+      gpu_indexes_ = iset_.indexes();
     gpu_load();
   }
   //! send the grid to all of the managed GPUs, regardless if already loaded
@@ -719,6 +737,8 @@ private:
   std::array<int, max_num_dimensions> max_index_;
 
   std::vector<int> map_;
+
+  int block_size_ = 0;
   #ifdef ASGARD_USE_MPI
   std::vector<int> mpimeta;
   #endif

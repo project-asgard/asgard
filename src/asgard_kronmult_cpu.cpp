@@ -366,6 +366,14 @@ void gbkron_mult_add(precision const A[], precision const x[], precision y[])
   }
 }
 
+int get_num_omp_threads() {
+#ifdef _OPENMP
+  return omp_get_max_threads();
+#else
+  return 0;
+#endif
+}
+
 inline int64_t asgard_kronmult_nblocks_ = 0;
 
 template<typename precision, conn_fill fill, int num_dimensions, int dim, int n>
@@ -601,7 +609,9 @@ void block_cpu(
   bool constexpr single_matrix = std::is_same_v<coeff_type, block_sparse_matrix<precision>>;
   static_assert(single_matrix or
         std::is_same_v<coeff_type, std::array<block_sparse_matrix<precision>, max_num_dimensions>>);
-  tools::time_event performance_("block-cpu");
+  tools::time_event performance_("kronecker block-cpu");
+
+  int64_t const num_entries = grid.num_dof();
 
   precision *w1 = work.w1.data();
   precision *w2 = work.w2.data();
@@ -646,8 +656,6 @@ void block_cpu(
 
       std::swap(w1, w2);
     }
-
-    int64_t num_entries = static_cast<int64_t>(work.w1.size());
 
     if (i == 0) {
       if (beta == 0) {

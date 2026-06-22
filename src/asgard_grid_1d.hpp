@@ -57,7 +57,7 @@ public:
   //! Type tag for column transformations
   static column_extended_hierarchy col_extend_hierarchy;
   //! Placeholder, empty connection
-  connect_1d() : levels(0), rows(0) {}
+  connect_1d() = default;
   //! set a custom pattern, used in reduced pattern for interpolation wav2nodal
   connect_1d(int levels_in, int rows_in, std::vector<int> &&pntr_in,
              std::vector<int> &&indx_in, std::vector<int> &&diag_in)
@@ -437,8 +437,8 @@ private:
   // describing the connections between the indexes
   // diag[i] holds the offset of the diagonal entry, i.e., indx[diag[i]] = i
   //         it helps identify lower/upper triangular part of the pattern
-  int levels;
-  int rows;
+  int levels = 0;
+  int rows = 0;
   std::vector<int> pntr;
   std::vector<int> indx;
   std::vector<int> diag;

@@ -271,6 +271,7 @@ int bicgstab<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
 {
   tools::time_event timing_("bicgstab::solve");
+
   int64_t const n = static_cast<int64_t>(rhs.size());
   if (v.size() != rhs.size()) // the other temps are initialized with a copy
     v.resize(n);
@@ -620,6 +621,8 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
   num_entries = grid.num_indexes() * fm::ipow(terms.basis.pdof, grid.num_dims());
   #endif
 
+  int const num_dims = terms.grid.num_dims();
+
   indexrange trange = terms.terms_group_range(group);
 
   if (grid_gen(group, stage) == -1) {
@@ -627,7 +630,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
     for (int i : trange) {
       term_md<P> const &term = terms.terms[i].tmd;
       rassert(term.is_separable(), "non-separable term detected in the scaled-identity solver");
-      for (int d : iindexof(terms.num_dims)) {
+      for (int d : iindexof(num_dims)) {
         term_1d<P> const &t1d = term.dim(d);
         rassert(t1d.is_identity() or t1d.is_volume(),
                 "scaled-identity solver can be used only with volume and identity instances of term1d");
@@ -641,7 +644,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
   for (int i : trange) {
     term_md<P> const &term = terms.terms[i].tmd;
     assert(term.is_separable() and term.flux_dim() == -1);
-    for (int d : iindexof(terms.num_dims)) {
+    for (int d : iindexof(num_dims)) {
       term_1d<P> const &t1d = term.dim(d);
       if (t1d.is_volume())
         scal *= t1d.rhs_const();
@@ -751,18 +754,18 @@ void solver_manager<P>::update_grid(
     #ifdef ASGARD_USE_MPI
     if (terms.resources.num_ranks() > 1) {
       if (terms.resources.is_leader()) {
-        terms.make_jacobi(group, grid, conn, terms.mpiwork);
+        terms.make_jacobi(group, terms.mpiwork);
         terms.resources.reduce_add(terms.mpiwork, jacobi);
       } else {
-        terms.make_jacobi(group, grid, conn, jacobi);
+        terms.make_jacobi(group, jacobi);
         terms.resources.reduce_add(jacobi);
         return;
       }
     } else {
-      terms.make_jacobi(group, grid, conn, jacobi);
+      terms.make_jacobi(group, jacobi);
     }
     #else
-    terms.make_jacobi(group, grid, conn, jacobi);
+    terms.make_jacobi(group, jacobi);
     #endif
 
     if (alpha == 0) { // steady state solver

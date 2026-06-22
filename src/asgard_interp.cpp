@@ -8,11 +8,10 @@ interpolation_manager<P>::interpolation_manager(
     prog_opts const &opts,
     pde_domain<P> const &domain, hierarchy_manipulator<P> const &hier,
     connection_patterns const &conns)
-    : num_dims(domain.num_dims()), pdof(hier.degree() + 1),
-      block_size(hier.block_size()),
-      perm(num_dims),
-      perm_low(num_dims, conn_fill::lower_udiag),
-      perm_up(num_dims, conn_fill::upper)
+    : pdof(hier.degree() + 1),
+      perm(domain.num_dims()),
+      perm_low(domain.num_dims(), conn_fill::lower_udiag),
+      perm_up(domain.num_dims(), conn_fill::upper)
 {
   #ifdef ASGARD_USE_GPU
   gpu_nodes_grid_gen_.fill(-1);
@@ -33,7 +32,7 @@ interpolation_manager<P>::interpolation_manager(
   }
 
   wav_scale  = 1;
-  for (int d : iindexof(num_dims)) {
+  for (int d : iindexof(domain.num_dims())) {
     xmin[d]   = domain.xleft(d);
     xscale[d] = (domain.xright(d) - domain.xleft(d));
     wav_scale *= xscale[d];
@@ -371,19 +370,23 @@ interpolation_manager<P>::interpolation_manager(
 }
 
 template<typename P>
-vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) const
+template<int missing_dim>
+vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid,
+                                                   vector2d<P> &vnodes) const
 {
-  if (grid.generation() == grid_gen)
-    return nodes_;
-
   tools::time_event perf_("recompute nodes");
+
+  int const num_dims = grid.num_dims();
+
+  int const block_size = fm::ipow(pdof, num_dims);
 
   int64_t const num_points = grid.num_indexes() * block_size;
 
-  nodes_.resize(num_dims, num_points);
+  vnodes.resize(num_dims, num_points);
 
   span2d<P const> const nd1d(pdof, -1, nodes1d_.data());
 
+  // TODO: reenable this
   #pragma omp parallel
   {
     std::array<P const *, max_num_dimensions> offs;
@@ -398,21 +401,29 @@ vector2d<P> const &interpolation_manager<P>::nodes(sparse_grid const &grid) cons
       {
         int64_t t = j;
         for (int d = num_dims - 1; d >= 0; d--) {
-          nodes_[i * block_size + j][d] = offs[d][t % pdof];
+          vnodes[i * block_size + j][d] = offs[d][t % pdof];
           t /= pdof;
         }
       }
 
-      ASGARD_PRAGMA_OMP_SIMD(collapse(2))
-      for (int j = 0; j < block_size; j++)
-        for (int d = 0; d < num_dims; d++)
-          nodes_[i * block_size + j][d] = xmin[d] + nodes_[i * block_size + j][d] * xscale[d];
+      if constexpr (missing_dim == -1)
+        ASGARD_PRAGMA_OMP_SIMD(collapse(2))
+        for (int j = 0; j < block_size; j++)
+          for (int d = 0; d < num_dims; d++)
+            vnodes[i * block_size + j][d] = xmin[d] + vnodes[i * block_size + j][d] * xscale[d];
+      else
+        for (int j = 0; j < block_size; j++) {
+          ASGARD_PRAGMA_OMP_SIMD()
+          for (int d = 0; d < missing_dim; d++)
+            vnodes[i * block_size + j][d] = xmin[d] + vnodes[i * block_size + j][d] * xscale[d];
+          ASGARD_PRAGMA_OMP_SIMD()
+          for (int d = missing_dim + 1; d < num_dims; d++)
+            vnodes[i * block_size + j][d] = xmin[d] + vnodes[i * block_size + j][d] * xscale[d];
+        }
     }
   }
 
-  grid_gen = grid.generation();
-
-  return nodes_;
+  return vnodes;
 }
 
 #ifdef ASGARD_USE_GPU
@@ -466,10 +477,40 @@ interpolation_manager<P>::mult_transform_h2w(hierarchy_manipulator<P> const &hie
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template class interpolation_manager<double>;
+
+template vector2d<double> const &interpolation_manager<double>::nodes<-1>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<0>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<1>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<2>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<3>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<4>
+    (sparse_grid const &, vector2d<double> &) const;
+template vector2d<double> const &interpolation_manager<double>::nodes<5>
+    (sparse_grid const &, vector2d<double> &) const;
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 template class interpolation_manager<float>;
+
+template vector2d<float> const &interpolation_manager<float>::nodes<-1>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<0>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<1>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<2>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<3>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<4>
+    (sparse_grid const &, vector2d<float> &) const;
+template vector2d<float> const &interpolation_manager<float>::nodes<5>
+    (sparse_grid const &, vector2d<float> &) const;
 #endif
 
 } // namespace asgard

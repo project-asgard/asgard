@@ -120,15 +120,13 @@ public:
 
   //! empty hierarchy manipulator
   hierarchy_manipulator()
-      : degree_(0), block_size_(0)
   {
     std::fill(dmin.begin(), dmin.end(), 0);
     std::fill(dmax.begin(), dmax.end(), 0);
   }
   //! set the degree and number of dimensions
-  hierarchy_manipulator(int degree, int num_dimensions)
-      : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
-        quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
+  hierarchy_manipulator(int degree)
+      : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
     std::fill(dmin.begin(), dmin.end(), 0);
     std::fill(dmax.begin(), dmax.end(), 1);
@@ -138,8 +136,7 @@ public:
   hierarchy_manipulator(int degree, int num_dimensions,
                         std::initializer_list<P> rmin,
                         std::initializer_list<P> rmax)
-      : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
-        quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
+      : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
     assert(num_dimensions <= max_num_dimensions);
     std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
@@ -150,8 +147,7 @@ public:
   template<typename rangemin, typename rangemax>
   hierarchy_manipulator(int degree, int num_dimensions,
                         rangemin const &rmin, rangemax const &rmax)
-      : degree_(degree), block_size_(fm::ipow(degree + 1, num_dimensions)),
-        quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
+      : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
     assert(num_dimensions <= max_num_dimensions);
     std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
@@ -160,8 +156,7 @@ public:
   }
   //! initialize form the given set of dimensions
   hierarchy_manipulator(int degree, pde_domain<P> const &domain)
-      : degree_(degree), block_size_(fm::ipow(degree + 1, domain.num_dims())),
-        quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
+      : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
     for (int i : iindexof(domain.num_dims()))
     {
@@ -240,8 +235,6 @@ public:
   //! transform a hierarchical vector on a full level to a nodal (cell-by-cell) representation
   void reconstruct1d(int level, std::vector<P> &hdata) const;
 
-  //! size of a multi-dimensional block, i.e., (degree + 1)^d
-  int64_t block_size() const { return block_size_; }
   //! returns the degree
   int degree() const { return degree_; }
 
@@ -544,8 +537,7 @@ protected:
   void setup_projection_matrices();
 
 private:
-  int degree_;
-  int64_t block_size_;
+  int degree_ = 0;
 
   std::array<P, max_num_dimensions> dmin, dmax;
 

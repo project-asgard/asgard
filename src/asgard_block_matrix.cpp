@@ -7,13 +7,14 @@ namespace asgard
 template<typename P>
 void dense_matrix<P>::factorize()
 {
-  tools::time_event timing_("dense-matrix::factorize");
   assert(nrows_ == ncols_);
 
   #ifdef ASGARD_USE_GPU
+  tools::time_event timing_("dense-matrix::factorize-gpu");
   gpu_factor = data_;
   compute->getrf(nrows_, gpu_factor, gpu_ipiv);
   #else
+  tools::time_event timing_("dense-matrix::factorize");
   compute->getrf(nrows_, data_, ipiv);
   #endif
 }
@@ -21,12 +22,13 @@ void dense_matrix<P>::factorize()
 template<typename P>
 void dense_matrix<P>::solve(std::vector<P> &b) const
 {
-  tools::time_event timing_("dense-matrix::solve");
   assert(is_factorized());
 
   #ifdef ASGARD_USE_GPU
+  tools::time_event timing_("dense-matrix::solve-gpu");
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
   #else
+  tools::time_event timing_("dense-matrix::solve");
   compute->getrs(nrows_, data_, ipiv, b);
   #endif
 }
@@ -35,7 +37,7 @@ void dense_matrix<P>::solve(std::vector<P> &b) const
 template<typename P>
 void dense_matrix<P>::solve(gpu::vector<P> &b) const
 {
-  tools::time_event timing_("dense-matrix::solve");
+  tools::time_event timing_("dense-matrix::solve-gpu");
   assert(is_factorized());
 
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
@@ -43,7 +45,7 @@ void dense_matrix<P>::solve(gpu::vector<P> &b) const
 template<typename P>
 void dense_matrix<P>::solve(P b[]) const
 {
-  tools::time_event timing_("dense-matrix::solve");
+  tools::time_event timing_("dense-matrix::solve-gpu");
   assert(is_factorized());
 
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);

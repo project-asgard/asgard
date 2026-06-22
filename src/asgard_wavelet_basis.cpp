@@ -1,5 +1,7 @@
 #include "asgard_wavelet_basis.hpp"
 
+#include "asgard_small_mats.hpp"
+
 namespace asgard::legendre
 {
 // generate_multi_wavelets routine creates wavelet basis (phi_co)
@@ -138,6 +140,53 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   normalize(g1);
 
   return {h0, h1, g0, g1};
+}
+
+vector2d<double> poly2diff(int const degree)
+{
+  vector2d<double> leg = poly<double, integ_range::full>(degree);
+
+  int const pdof = degree + 1;
+
+  // smmat::scal(pdof * pdof, std::sqrt(2), leg[0]);
+
+  vector2d<double> diff(pdof, pdof);
+  for (int i = 0; i < pdof; i++) {
+    for (int k = 1; k < pdof; k++)
+      diff[i][k - 1] = static_cast<double>(k) * leg[i][k];
+    diff[i][degree] = 0;
+  }
+
+  // std::cout << " ------ leg --------- \n";
+  // for (int i = 0; i < pdof; i++) {
+  //   for (int j = 0; j < pdof; j++)
+  //     std::cout << leg[j][i] << "    ";
+  //   std::cout << '\n';
+  // }
+  //
+  // std::cout << " ------ diff --------- \n";
+  // for (int i = 0; i < pdof; i++) {
+  //   for (int j = 0; j < pdof; j++)
+  //     std::cout << diff[j][i] << "    ";
+  //   std::cout << '\n';
+  // }
+
+  canonical_integrator integ(degree);
+
+  vector2d<double> result(pdof, pdof);
+  for (int i = 0; i < pdof; i++) {
+    for (int j = 0; j < pdof; j++) {
+      // std::cout << leg[j][0] << "    " << leg[j][1] << "    " << diff[i][0] << "    " << diff[i][1];
+      result[i][j] = integ.integrate_left(leg[j], diff[i]) + integ.integrate_right(leg[j], diff[i]);
+      // std::cout << "    " << result[i][j] << '\n';
+    }
+  }
+
+  smmat::scal(pdof * pdof, 2.0, result[0]);
+
+  // smmat::transp_swap(pdof, result[0]);
+
+  return result;
 }
 
 } // namespace asgard::legendre

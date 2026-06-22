@@ -872,23 +872,32 @@ struct left_boundary_flux {
   explicit left_boundary_flux(separable_func<P> f)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for left boundary flux");
+    rassert(std::get<separable_func<P>>(func).is_valid(),
+            "invalid separable function for left boundary flux");
     chain_level.fill(-1);
   }
   //! create a new term and set the chain levels
   explicit left_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for left boundary flux");
-    rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
+    rassert(std::get<separable_func<P>>(func).is_valid(),
+            "invalid separable function for left boundary flux");
+    rassert(clevel.size() == static_cast<size_t>(std::get<separable_func<P>>(func).num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of left_boundary_flux");
     chain_level.fill(-1);
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit left_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for left boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -913,16 +922,23 @@ struct right_boundary_flux {
   explicit right_boundary_flux(separable_func<P> f, std::vector<int> const &clevel)
     : func(std::move(f))
   {
-    rassert(f.is_valid(), "invalid separable function for right boundary flux");
-    rassert(clevel.size() == static_cast<size_t>(func.num_dims()),
+    rassert(std::get<separable_func<P>>(func).is_valid(), "invalid separable function for right boundary flux");
+    rassert(clevel.size() == static_cast<size_t>(std::get<separable_func<P>>(func).num_dims()),
             "the number of specified chain levels must match dimension of "
             "the separable_func in construction of right_boundary_flux");
     chain_level.fill(-1);
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit right_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for right boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -960,8 +976,15 @@ struct sym_boundary_flux {
     for (int d : iindexof(clevel))
       chain_level[d] = clevel[d];
   }
+  //! set boundary condition with given non-separable flux
+  explicit sym_boundary_flux(md_func<P> f)
+    : func(std::move(f))
+  {
+    rassert(std::get<md_func<P>>(func), "invalid separable function for symmetric boundary flux");
+    chain_level.fill(-1);
+  }
   //! the separable function
-  separable_func<P> func;
+  boundary_func<P> func;
   //! the chain levels
   std::array<int, max_num_dimensions> chain_level;
 };
@@ -998,11 +1021,18 @@ public:
   //! check if object has been initialized
   operator bool () const { return (side_ != unset); }
   //! returns const-ref to the stored function
-  separable_func<P> const &func() const { return func_; }
+  separable_func<P> const &func() const { return std::get<separable_func<P>>(func_); }
+  //! returns the variant storing the function
+  boundary_func<P> const &var_func() const { return func_; }
   //! return the chain level for the given dimension, allows modification
   int &chain_level(int dim) { return ch_level_[dim]; }
   //! return the chain level for the given dimension
   int const &chain_level(int dim) const { return ch_level_[dim]; }
+
+  //! true if the term contains a separable function
+  bool is_separable() const {
+    return std::holds_alternative<separable_func<P>>(func_);
+  }
 
   // allow access by the term_manager
   friend struct term_manager<P>;
@@ -1011,7 +1041,7 @@ private:
   enum bf_mode { left_side, right_side, both_sides, unset };
 
   bf_mode side_ = unset;
-  separable_func<P> func_;
+  boundary_func<P> func_;
   std::array<int, max_num_dimensions> ch_level_;
 };
 
@@ -1312,13 +1342,15 @@ public:
   //! add new inhomogeneous boundary function to the term
   term_md<P> operator += (boundary_flux<P> bf) {
     rassert(is_separable(), "cannot add separable boundary conditions to non-separable term_md");
-    rassert(bf.func().num_dims() == num_dims_,
-            "wrong dimension set for boundary flux given to term_md");
     int fd = flux_dim();
     rassert(fd != -1,
             "cannot set boundary conditions for term_md with no derivatives");
-    rassert(bf.func().is_const(dimension_id{fd}),
-            "the flux function has to be constant in the dimension of term_md::flux_dim()")
+    if (bf.is_separable()) {
+      rassert(bf.func().num_dims() == num_dims_,
+              "wrong dimension set for boundary flux given to term_md");
+      rassert(bf.func().is_const(dimension_id{fd}),
+              "the flux function has to be constant in the dimension of term_md::flux_dim()")
+    }
     bc_flux_.emplace_back(std::move(bf));
     return *this;
   }
@@ -1337,6 +1369,15 @@ public:
   }
   //! get the moment ids for interpolation
   std::vector<moment_id> const &get_interp_moments() const { return mids_; }
+  //! get the boundary fluxes
+  std::vector<boundary_flux<P>> const &get_bc_flux() const { return bc_flux_; }
+  //! returns true if the boundary condition returns interpolation flux
+  bool has_interp_bc() const {
+    for (auto const &b : bc_flux_)
+      if (not b.is_separable())
+        return true;
+    return false;
+  }
 
   //! applies the function on the GPU device, vals = f(n, t, x, f)
   void interp(int64_t num_points, P t, P const x[], P const f[], P vals[]) const {
@@ -1356,10 +1397,10 @@ public:
   friend struct term_manager<P>;
 
 private:
-  // get the const-array for the separable functions
+  // get the const-array for the separable terms
   std::array<term_1d<P>, max_num_dimensions> const &
   get_sep() const { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
-  // get the array for the separable functions
+  // get the array for the separable terms
   std::array<term_1d<P>, max_num_dimensions> &
   get_sep() { return std::get<std::array<term_1d<P>, max_num_dimensions>>(interp_); }
 
@@ -1941,6 +1982,7 @@ private:
   int max_level_ = 1;
 
   bool has_interp_funcs = false;
+  bool has_interp_bc = false;
 
   md_func<P> initial_md_;
   std::vector<separable_func<P>> initial_sep_;

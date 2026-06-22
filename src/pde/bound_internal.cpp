@@ -80,7 +80,7 @@ pde_scheme<P> make_side_pde(int num_dims, int dim, prog_opts options) {
 
     term_md<P> div_md(ops);
 
-    separable_func<P> bc(std::vector<P>(num_dims, 1));
+    separable_func<P> bc = separable_func<P>::const_one(number_of_dimensions{num_dims});
 
     div_md += right_boundary_flux{bc};
 
@@ -202,14 +202,12 @@ double get_error_l2(discretization_manager<P> const &disc)
 
     double nself = 0;
     double ndiff = 0;
-    double nnn = 0;
     for (size_t i = 0; i < state.size(); i++)
     {
       double const e = eref[i] - state[i];
       ndiff += e * e;
       double const r = eref[i];
       nself += r * r;
-      nnn += state[i] * state[i];
     }
 
     return std::sqrt(ndiff + std::abs(enorm - nself));

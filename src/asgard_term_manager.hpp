@@ -65,17 +65,20 @@ struct term_manager
    * conditions and then repeatedly passed into every single call here.
    */
   term_manager(prog_opts const &opts, pde_domain<P> const &domain,
-               pde_scheme<P> &pde, sparse_grid const &grid,
-               hierarchy_manipulator<P> const &hier,
-               connection_patterns const &conn);
-  //! number of dimensions, quick access
-  int num_dims = 0;
+               pde_scheme<P> &pde, sparse_grid &&grid_in);
   //! the max level, determines the highest level for operators
   int max_level = 0;
   //! indicates if there are time dependent sources, build extra data-structures
   bool sources_have_time_dep = false;
   //! indicates if there are time dependent boundary conditions, build extra data-structures
   bool bcs_have_time_dep = false;
+
+  //! holds the sparse grid over the entire domain
+  sparse_grid grid;
+  //! holds the 1D connection pattern for the various matrix operations
+  connection_patterns conn;
+  //! holds the algorithms for 1D hierarchical transformations
+  hierarchy_manipulator<P> hier;
 
   //! definition of the mass matrix, usually used in inverse
   mass_md<P> mass_term;
@@ -118,6 +121,16 @@ struct term_manager
   //! interpolation data
   interpolation_manager<P> interp;
 
+  // additional data for interpolatory boundary conditions
+  //! grids where one dimension has been removed
+  std::array<sparse_grid, max_num_dimensions> ibc_grid;
+  //! permutations for interpolated boundary conditions
+  kronmult::permutes ibc_perm_low, ibc_perm_up;
+  //! nodes on each boundary wall
+  std::array<vector2d<P>, max_num_dimensions> ibc_nodes;
+  //! scaling weights for the interpolation
+  std::array<P, max_num_dimensions> ibc_iwavscale;
+
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains
   mutable std::vector<P> swork, sweights; // source workspace and time weights
@@ -128,6 +141,13 @@ struct term_manager
   // for both multi-gpu support and interpolation evals on the CPU/GPU
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
+
+  //! returns the degree used for all the terms
+  int degree() const { return hier.degree(); }
+  //! returns the degrees of freedom used by the grid
+  int64_t num_dof() const { return grid.num_dof(); }
+  //! returns the size of the tensor block (degree + 1)^num-dims
+  int block_size() const { return grid.block_size(); }
 
   //! has Poisson solver for the given group
   bool has_poisson(group_id group = group_id::all()) const {
@@ -162,9 +182,7 @@ struct term_manager
   }
 
   //! rebuild all matrices
-  void build_matrices(sparse_grid const &grid, connection_patterns const &conn,
-                      hierarchy_manipulator<P> const &hier,
-                      precon_method precon = precon_method::none,
+  void build_matrices(precon_method precon = precon_method::none,
                       P alpha = 0)
   {
     tools::time_event timing_("initial coefficients mats");
@@ -173,14 +191,15 @@ struct term_manager
       if (not resources.owns(terms[t].rec))
         continue;
       #endif
-      build_const_terms(t, grid, conn, hier, precon, alpha);
+      build_const_terms(t, precon, alpha);
     }
   }
   //! build the large matrices to the max level
-  void build_mass_matrices(hierarchy_manipulator<P> const &hier, connection_patterns const &conn)
+  void build_mass_matrices()
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
+      int const num_dims = grid.num_dims();
       std::vector<int> active_dirs;
       active_dirs.reserve(num_dims);
       for (int d : iindexof(num_dims))
@@ -204,11 +223,11 @@ struct term_manager
     }
   }
   //! rebuild the small matrices to the current level for the grid
-  void rebuild_mass_matrices(sparse_grid const &grid)
+  void rebuild_mass_matrices()
   {
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
-      for (int d : iindexof(num_dims))
+      for (int d : iindexof(grid.num_dims()))
         if (not mass_term[d].is_identity()) {
           int const nrows = fm::ipow2(grid.current_level(d));
           if (lmass[d].nrows() != nrows) {
@@ -220,20 +239,19 @@ struct term_manager
   }
 
   //! rebuild the terms that depend only on the moments
-  void rebuild_moment_terms(group_id group, sparse_grid const &grid,
-                            connection_patterns const &conn, hierarchy_manipulator<P> const &hier)
+  void rebuild_moment_terms(group_id group)
   {
     tools::time_event timing_("rebuild moment terms (" + ((group() == -1) ? std::string("all") : std::to_string(group())) + ")");
     assert(group.is_valid(term_groups.size()));
     for (int it : terms_group_range(group)) {
       auto &te = terms[it];
-      for (int d : indexof(num_dims))
+      for (int d : indexof(grid.num_dims()))
         if (resources.owns(te.rec) and te.is_separable() and te.tmd.dim(d).depends() != term_dependence::none)
-          rebuild_term1d(te, d, grid.current_level(d), conn, hier);
+          rebuild_term1d(te, d, grid.current_level(d));
     }
   }
   //! prepares the kronmult workspace
-  void prapare_kron_workspace(sparse_grid const &grid) {
+  void prapare_kron_workspace() {
     if (workspace_grid_gen == grid.generation())
       return;
 
@@ -266,86 +284,75 @@ struct term_manager
   bool has_terms() const { return has_terms_; }
 
   //! apply the mass matrix
-  void mass_apply(sparse_grid const &grid, connection_patterns const &conns,
-                  P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
+  void mass_apply(P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const;
   //! compute the inner product < x, mass * x >
-  P normL2(sparse_grid const &grid, connection_patterns const &conns,
-           std::vector<P> const &x) const;
+  P normL2(std::vector<P> const &x) const;
 
   //! y = sum(terms * x), applies all terms
-  void apply(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
-             P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
+  void apply(group_id gid, P alpha, std::vector<P> const &x, P beta, std::vector<P> &y) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<std::vector<P> const &, std::vector<P> &, compute_mode::cpu>(gid, alpha, x, beta, y);
     #else
-    apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, grid, conn, alpha, x, beta, y);
+    apply_tmpl<std::vector<P> const &, std::vector<P> &>(gid, alpha, x, beta, y);
     #endif
   }
   //! y = sum(terms * x), applies all terms
-  void apply(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
-             P alpha, P const x[], P beta, P y[]) const {
+  void apply(group_id gid, P alpha, P const x[], P beta, P y[]) const {
     #ifdef ASGARD_USE_GPU
-    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(gid, grid, conn, alpha, x, beta, y);
+    apply_tmpl_gpu<P const[], P[], compute_mode::cpu>(gid, alpha, x, beta, y);
     #else
-    apply_tmpl<P const[], P[]>(gid, grid, conn, alpha, x, beta, y);
+    apply_tmpl<P const[], P[]>(gid, alpha, x, beta, y);
     #endif
   }
   #ifdef ASGARD_USE_GPU
   //! y = sum(terms * x), applies all terms, input is on the GPU
-  void apply_gpu(sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, P const x[], P beta, P y[]) const {
-    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(group_id::all(), grid, conn, alpha, x, beta, y);
+  void apply_gpu(P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(group_id::all(), alpha, x, beta, y);
   }
   //! y = sum(terms * x), applies all terms for the group, input is on the GPU
-  void apply_gpu(group_id gid, sparse_grid const &grid, connection_patterns const &conn,
-                 P alpha, P const x[], P beta, P y[]) const {
-    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(gid, grid, conn, alpha, x, beta, y);
+  void apply_gpu(group_id gid, P alpha, P const x[], P beta, P y[]) const {
+    apply_tmpl_gpu<P const[], P[], compute_mode::gpu>(gid, alpha, x, beta, y);
   }
   #endif
   #ifdef ASGARD_USE_FLOPCOUNTER
   //! count flops for the application of the specified group
-  int64_t flop_count(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns) const;
+  int64_t flop_count(group_id gid) const;
   #endif
 
   //! construct term diagonal
-  void make_jacobi(group_id group, sparse_grid const &grid, connection_patterns const &conns,
-                   std::vector<P> &y) const;
+  void make_jacobi(group_id group, std::vector<P> &y) const;
 
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
-  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
+  void kron_term(term_entry<P> const &tme, P alpha, std::vector<P> const &x, P beta,
                  std::vector<P> &y) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, moms.get_cached_interps(),
+      interp(tme.interplan, grid, conn, moms.get_cached_interps(),
              0, x.data(), alpha, tme.tmd, beta, y.data(), kwork);
     } else {
-      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conn, tme.perm, tme.coeffs,
                 alpha, x.data(), beta, y.data(), kwork);
     }
   }
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
-  void kron_term(sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  void kron_term(term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(tme.interplan, grid, conns, moms.get_cached_interps(), 0, x,
+      interp(tme.interplan, grid, conn, moms.get_cached_interps(), 0, x,
              alpha, tme.tmd, beta, y, kwork);
     } else {
-      block_cpu(basis.pdof, grid, conns, tme.perm, tme.coeffs,
+      block_cpu(basis.pdof, grid, conn, tme.perm, tme.coeffs,
                 alpha, x, beta, y, kwork);
     }
   }
   #ifdef ASGARD_USE_GPU
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
-  void kron_term(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  void kron_term(gpu::device dev, term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
   {
     if (tme.is_interpolatory()) {
-      interp(dev, tme.interplan, grid, conns, moms, 0, x, alpha, tme.tmd, beta, y, kwork);
+      interp(dev, tme.interplan, grid, conn, moms, 0, x, alpha, tme.tmd, beta, y, kwork);
     } else {
-      block_gpu(dev, basis.pdof, grid, conns, tme.perm, tme.gpu_coeffs,
+      block_gpu(dev, basis.pdof, grid, conn, tme.perm, tme.gpu_coeffs,
                 alpha, x, beta, y, kwork, tme.coeffs);
     }
   }
@@ -353,28 +360,21 @@ struct term_manager
 
   //! build the diagonal preconditioner
   template<data_mode mode>
-  void kron_diag(sparse_grid const &grid, connection_patterns const &conns,
-                 term_entry<P> const &tme, int const block_size, std::vector<P> &y) const;
+  void kron_diag(term_entry<P> const &tme, int const block_size, std::vector<P> &y) const;
 
   //! process the source group and store the result into pre-allocated vector
   template<data_mode dmode>
-  void apply_sources(group_id group, sparse_grid const &grid,
-                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                     P time, P alpha, P y[]);
+  void apply_sources(group_id group, P time, P alpha, P y[]);
   //! process the sources in the group and apply the dmode operation to y
   template<data_mode dmode>
-  void apply_sources(group_id group, sparse_grid const &grid,
-                     connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                     P time, P alpha, std::vector<P> &y)
+  void apply_sources(group_id group, P time, P alpha, std::vector<P> &y)
   {
-    assert(static_cast<int64_t>(y.size()) == hier.block_size() * grid.num_indexes());
-    apply_sources<dmode>(group, grid, conns, hier, time, alpha, y.data());
+    assert(static_cast<int64_t>(y.size()) == grid.num_dof());
+    apply_sources<dmode>(group, time, alpha, y.data());
   }
   #ifdef ASGARD_USE_GPU
   template<data_mode dmode>
-  void apply_sources_gpu(group_id group, sparse_grid const &grid,
-                         connection_patterns const &conns, hierarchy_manipulator<P> const &hier,
-                         P time, P alpha, P y[]);
+  void apply_sources_gpu(group_id group, P time, P alpha, P y[]);
   #endif
 
   //! prints the total memory used
@@ -393,23 +393,19 @@ protected:
   std::vector<bool> has_sep_moments_;
 
   //! rebuild term[tid], loops over all dimensions
-  void build_const_terms(int const tid, sparse_grid const &grid, connection_patterns const &conn,
-                         hierarchy_manipulator<P> const &hier,
+  void build_const_terms(int const tid,
                          precon_method precon = precon_method::none, P alpha = 0);
   //! rebuild term[tmd][t1d], assumes non-identity
   void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
-                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                       precon_method precon = precon_method::none, P alpha = 0,
                       bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
   void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
-                    hierarchy_manipulator<P> const &hier,
                     block_diag_matrix<P> const *bmass, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
 
   //! helper method, build the matrix corresponding to the term
   void build_raw_mat(term_entry<P> &tentry, int dim, int clink, int level,
-                     hierarchy_manipulator<P> const &hier,
                      block_diag_matrix<P> const *bmass,
                      block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
   //! helper method, build a mass matrix with no dependencies
@@ -418,16 +414,12 @@ protected:
 
   //! single point implementation for all variations of apply
   template<typename vector_type_x, typename vector_type_y>
-  void apply_tmpl(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  void apply_tmpl(group_id gid, P alpha, vector_type_x x, P beta, vector_type_y y) const;
 
   #ifdef ASGARD_USE_GPU
   //! single point implementation for all variations of apply, uses the GPU the data can come from the CPU or GPU
   template<typename vector_type_x, typename vector_type_y, compute_mode mode>
-  void apply_tmpl_gpu(
-    group_id gid, sparse_grid const &grid, connection_patterns const &conns,
-    P alpha, vector_type_x x, P beta, vector_type_y y) const;
+  void apply_tmpl_gpu(group_id gid, P alpha, vector_type_x x, P beta, vector_type_y y) const;
   #endif
 
   //! helper method, converts the data on quad

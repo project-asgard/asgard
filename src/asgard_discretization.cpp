@@ -12,7 +12,6 @@ discretization_manager<precision>::discretization_manager(
     : discretization_manager()
 {
   verb = pde.options().verbosity.value_or(verbosity);
-  global_grid = &grid;
 
   #ifdef ASGARD_ALWAYS_SAFE_STEP
   safe_step = true;
@@ -36,6 +35,31 @@ discretization_manager<precision>::discretization_manager(
     verb = verbosity_level::quiet;
   #endif
 
+  if (high_verbosity()) {
+    std::cout << '\n';
+    #ifdef ASGARD_HAS_GITINFO
+    std::cout << "ASGarD: git-branch '" << ASGARD_GIT_BRANCH << "'\n";
+    std::cout << "  " << ASGARD_GIT_COMMIT_HASH << ASGARD_GIT_COMMIT_SUMMARY << '\n';
+    #else
+    std::cout << " -- ASGarD release " << ASGARD_RELEASE_INFO << '\n';
+    #endif
+    int const num_threads = kronmult::get_num_omp_threads();
+    if (num_threads > 0) {
+      std::cout << "        OpenMP num-threads: " << num_threads << '\n';
+    } else {
+      std::cout << "        OpenMP: disabled\n";
+    }
+    #ifdef ASGARD_USE_CUDA
+    std::cout << "        GPU Backend: CUDA\n";
+    #else
+    #ifdef ASGARD_USE_ROCM
+    std::cout << "        GPU Backend: ROCM\n";
+    #else
+    std::cout << "        GPU Backend: disabled\n";
+    #endif
+    #endif
+  }
+
   if (options_.restarting())
     restart_from_file(pde);
   else
@@ -45,142 +69,71 @@ discretization_manager<precision>::discretization_manager(
 template<typename precision>
 void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 {
-  conn = connection_patterns(pde.max_level());
-
   int const degree_ = options_.degree.value();
 
-  if (high_verbosity()) {
-    std::cout << '\n';
-    #ifdef ASGARD_HAS_GITINFO
-    std::cout << "ASGarD: git-branch '" << ASGARD_GIT_BRANCH << "'\n";
-    std::cout << "  " << ASGARD_GIT_COMMIT_HASH << ASGARD_GIT_COMMIT_SUMMARY << '\n';
-    std::cout << " -- discretization options --\n";
-    #else
-    std::cout << " -- ASGarD release " << ASGARD_RELEASE_INFO << '\n';
-    #endif
-  } else {
-    if (not stop_verbosity())
-      std::cout << "\n -- ASGarD discretization options --\n";
-  }
-
-  grid = sparse_grid(options_);
-  #ifdef ASGARD_USE_GPU
-  grid.gpu_sync();
-  #endif
-
-  refinement = refinement_manager<precision>(options_, pde);
-
   if (not stop_verbosity()) {
+    // show general information about the problem
+    // indicate that work has started, should hit this point almost instantaneously after launch
+    std::cout << "\n -- ASGarD discretization options --\n";
     if (not options_.title.empty())
       std::cout << "    title: " << options_.title << '\n';
     if (not options_.subtitle.empty())
       std::cout << "           " << options_.subtitle << '\n';
 
     std::cout << "basis degree: " << degree_to_string(degree_) << '\n';
-
-    std::cout << grid;
-    if (options_.adapt_threshold)
-      std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
-    if (options_.adapt_relative)
-      std::cout << "  relative tolerance: " << options_.adapt_relative.value() << '\n';
-    if (not options_.adapt_threshold and not options_.adapt_relative)
-      std::cout << "  non-adaptive\n";
   }
 
-  { // setting up the time-step approach
-    // if no method is set, defaulting to explicit time-stepping
-    time_method sm = options_.step_method.value_or(time_method::rk3);
+  // initialize the terms, which will also initialize the kron and interpolation engines
+  // this operation can take some time due to building mass matrices
+  terms = term_manager<precision>(options_, domain_, pde, sparse_grid(options_));
+  global_grid = &terms.grid;
 
-    time_data dtime; // initialize below
+  { // setting up the time-stepper
+    // reading the from the options, user-selected first, if missing fallback to default options
+    time_data const dtime = make_time_data(options_);
 
-    precision stop = options_.stop_time.value_or(-1);
-    precision dt   = options_.dt.value_or(-1);
-    int64_t n      = options_.num_time_steps.value_or(-1);
-
-    if (sm == time_method::steady) {
-      stop  = options_.stop_time.value_or(options_.default_stop_time.value_or(0));
-      dtime = time_data(stop);
-    } else {
-      rassert(not (stop >= 0 and dt >= 0 and n >= 0),
-        "Must provide exactly two of the three time-stepping parameters: -dt, -num-steps, -time");
-
-      // replace options with defaults, when appropriate
-      if (n == 0 or stop == 0) { // initial conditions only, no time stepping
-        n = 0;
-        dt = 0;
-        stop = -1; // ignore stop below
-      } else if (n > 0) {
-        if (stop < 0 and dt < 0) {
-          dt = options_.default_dt.value_or(-1);
-          if (dt < 0) {
-            stop = options_.default_stop_time.value_or(-1);
-            if (stop < 0)
-              throw std::runtime_error("number of steps provided, but no dt or stop-time");
-          }
-        }
-      } else if (stop >= 0) { // no num-steps, but dt may be provided or have a default
-        if (dt < 0) {
-          dt = options_.default_dt.value_or(-1);
-          if (dt < 0)
-            throw std::runtime_error("stop-time provided but no time-step or number of steps");
-        }
-      } else if (dt >= 0) { // both n and stop are unspecified
-        stop = options_.default_stop_time.value_or(-1);
-        if (stop < 0)
-          throw std::runtime_error("dt provided, but no stop-time or number of steps");
-      } else { // nothing provided, look for defaults
-        dt   = options_.default_dt.value_or(-1);
-        stop = options_.default_stop_time.value_or(-1);
-        if (dt < 0 or stop < 0)
-          throw std::runtime_error("need at least two time parameters: -dt, -num-steps, -time");
-      }
-
-      if (n >= 0 and stop >= 0 and dt < 0)
-        dtime = time_data(sm, n, time_data::input_stop_time{stop});
-      else if (dt >= 0 and stop >= 0 and n < 0)
-        dtime = time_data(sm, time_data::input_dt{dt},
-                          time_data::input_stop_time{stop});
-      else if (dt >= 0 and n >= 0 and stop < 0)
-        dtime = time_data(sm, time_data::input_dt{dt}, n);
-      else
-        throw std::runtime_error("how did this happen?");
-    }
-
-    if (is_imex(sm)) {
+    if (is_imex(dtime.step_method())) {
       stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
     } else {
       stepper = time_advance_manager<precision>(dtime, options_);
     }
   }
 
-  if (not stop_verbosity())
+  if (not stop_verbosity()) {
+    // continue the report
+    std::cout << terms.grid;
+    if (options_.adapt_threshold)
+      std::cout << "  adaptive tolerance: " << options_.adapt_threshold.value() << '\n';
+    if (options_.adapt_relative)
+      std::cout << "  relative tolerance: " << options_.adapt_relative.value() << '\n';
+    if (not options_.adapt_threshold and not options_.adapt_relative)
+      std::cout << "  non-adaptive\n";
+
     std::cout << stepper;
 
-  #ifndef ASGARD_ALWAYS_SAFE_STEP
-  if (safe_step)
-    std::cout << "enabled safety checks for invalid floats\n";
-  #endif
+    #ifndef ASGARD_ALWAYS_SAFE_STEP
+    if (safe_step)
+      std::cout << "enabled safety checks for invalid floats\n";
+    #endif
+  }
 
   if (stepper.needs_solver() and not options_.solver)
     throw std::runtime_error("the selected time-stepping method requires a solver, "
                              "or a default solver set in the pde specification");
 
-  hier = hierarchy_manipulator(degree_, domain_);
+  refinement = refinement_manager<precision>(options_, pde);
 
-  // first we must initialize the terms, which will also initialize the kron
-  // operations and the interpolation engine
-  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
-
+  // setting the initial conditions uses refinement, must come after the refinement_manager
+  // this iterates depending on the adapt-weight and the separable/interpolation conditions
+  // this is the first point of potentially heavy work
   set_initial_condition();
 
-  if (not stop_verbosity()) {
-    int64_t const dof = grid.num_indexes() * hier.block_size();
-    std::cout << "initial degrees of freedom: " << tools::split_style(dof) << "\n\n";
-  }
+  if (not stop_verbosity())
+    std::cout << "initial degrees of freedom: " << tools::split_style(terms.num_dof()) << "\n\n";
 
   start_moments(); // grid may have changes above, wait to start the moments
 
-  terms.build_matrices(grid, conn, hier);
+  terms.build_matrices(); // the matrices may need the moments from above
 
   if (high_verbosity())
     progress_report();
@@ -195,25 +148,17 @@ template<typename precision>
 void discretization_manager<precision>::restart_from_file(pde_scheme<precision> &pde)
 {
 #ifdef ASGARD_USE_HIGHFIVE
+
   if (not stop_verbosity())
     std::cout << "restarting from file: \"" << options_.restart_file << "\"\n";
 
   tools::time_event timing_("restart from file");
 
+  sparse_grid grid;
   time_data dtime;
   h5manager<precision>::read(options_.restart_file, high_verbosity(),
                              options_, domain_, grid,
                              dtime, aux_fields, state);
-
-  conn = connection_patterns(options_.max_level());
-
-  #ifdef ASGARD_USE_GPU
-  grid.gpu_sync();
-  #endif
-
-  refinement = refinement_manager<precision>(options_, pde);
-
-  hier = hierarchy_manipulator(options_.degree.value(), domain_);
 
   if (is_imex(dtime.step_method())) {
     stepper = time_advance_manager<precision>(dtime, options_, pde.imex_im(), pde.imex_ex());
@@ -221,19 +166,25 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     stepper = time_advance_manager<precision>(dtime, options_);
   }
 
-  terms = term_manager<precision>(options_, domain_, pde, grid, hier, conn);
+  // show general problem properties
+  if (not stop_verbosity()) {
+    if (not options_.title.empty())
+      std::cout << "    title: " << options_.title << '\n';
+    if (not options_.subtitle.empty())
+      std::cout << "           " << options_.subtitle << '\n';
+  }
+
+  terms = term_manager<precision>(options_, domain_, pde, std::move(grid));
+  global_grid = &terms.grid;
+
+  refinement = refinement_manager<precision>(options_, pde);
 
   start_moments();
 
-  terms.build_matrices(grid, conn, hier);
+  terms.build_matrices();
 
   if (not stop_verbosity()) {
-    if (not options_.title.empty())
-      std::cout << "  title: " << options_.title << '\n';
-    if (not options_.subtitle.empty())
-      std::cout << "subtitle: " << options_.subtitle << '\n';
-
-    std::cout << "basis degree: " << degree_to_string(hier.degree()) << '\n';
+    std::cout << "basis degree: " << degree_to_string(terms.degree()) << '\n';
 
     std::cout << grid;
     if (options_.adapt_threshold)
@@ -271,7 +222,7 @@ void discretization_manager<precision>::start_moments() {
   if (terms.has_poisson()) {
     moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
     poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
-                               grid.current_level(0), m0);
+                               terms.grid.current_level(0), m0);
   }
 }
 
@@ -285,7 +236,7 @@ void discretization_manager<precision>::compute_moments_(
       terms.resources.template bcast <precision, resource_comm::regular>(f);
       compute_moments_local(gid, f);
     } else {
-      terms.mpiwork.resize(grid.num_indexes() * hier.block_size());
+      terms.mpiwork.resize(terms.num_dof());
       terms.resources.template bcast <precision, resource_comm::regular>(terms.mpiwork);
       compute_moments_local(gid, terms.mpiwork);
     }
@@ -301,10 +252,10 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_local(
     group_id gid, std::vector<precision> const &f) const
 {
-  terms.moms.cache_moments(gid, grid, f);
+  terms.moms.cache_moments(gid, terms.grid, f);
   terms.moms.load_interp(gid, terms.interp, terms.kwork);
   compute_poisson(gid);
-  terms.rebuild_moment_terms(gid, grid, conn, hier);
+  terms.rebuild_moment_terms(gid);
 }
 
 template<typename precision>
@@ -314,7 +265,7 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
   if (not is_leader())
     return;
   #endif
-  h5manager<precision>::write(options_, domain_, degree(), grid, stepper.data,
+  h5manager<precision>::write(options_, domain_, degree(), terms.grid, stepper.data,
                               state, terms.moms, aux_fields, filename);
 #else
   std::ignore = filename;
@@ -339,11 +290,13 @@ void discretization_manager<precision>::set_initial_condition()
   #ifdef ASGARD_USE_MPI
   if (not is_leader()) {
     this->grid_sync();
-    state.resize(grid.num_indexes() * hier.block_size());
-    terms.prapare_kron_workspace(grid);
+    state.resize(terms.num_dof());
+    terms.prapare_kron_workspace();
     return;
   }
   #endif
+
+  sparse_grid &grid = terms.grid;
 
   bool keep_refining = true;
 
@@ -352,10 +305,10 @@ void discretization_manager<precision>::set_initial_condition()
   int iterations = 0;
   while (keep_refining)
   {
-    state.resize(grid.num_indexes() * hier.block_size());
+    state.resize(terms.num_dof());
 
     if (initial_md_)
-      terms.interp(grid, conn, {}, time, 1,
+      terms.interp(grid, terms.conn, {}, time, 1,
                    // using the moment signature, even thought the initial conditions
                    // cannot have a moment dependence
                    [&](precision t, vector2d<precision> const &x,
@@ -369,9 +322,9 @@ void discretization_manager<precision>::set_initial_condition()
     for (int i : iindexof(initial_sep_)) {
       assert(initial_sep_[i].num_dims() == num_dims());
 
-      terms.rebuild_mass_matrices(grid);
+      terms.rebuild_mass_matrices();
 
-      hier.template project_separable<data_mode::increment>
+      terms.hier.template project_separable<data_mode::increment>
             (initial_sep_[i], grid, terms.lmass, time, 1, state.data());
     }
 
@@ -400,8 +353,8 @@ void discretization_manager<precision>::set_initial_condition()
       keep_refining = (gid != grid.generation());
 
       if (keep_refining) { // should only do this if using interpolation, otherwise just do at the end
-        grid.gpu_sync();
-        terms.prapare_kron_workspace(grid);
+        terms.grid.gpu_sync();
+        terms.prapare_kron_workspace();
       }
 
     } else { // no refinement set, use the grid as-is
@@ -430,17 +383,17 @@ discretization_manager<precision>::project_function(
 
   precision time = stepper.data.time();
 
-  terms.rebuild_mass_matrices(grid);
+  terms.rebuild_mass_matrices();
   for (int i : iindexof(sep)) {
-    hier.template project_separable<data_mode::increment>
-          (sep[i], grid, terms.lmass, time, 1, out.data());
+    terms.hier.template project_separable<data_mode::increment>
+          (sep[i], terms.grid, terms.lmass, time, 1, out.data());
   }
 }
 
 template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
   std::vector<precision> result;
-  terms.moms.mcompute(grid, id, state, result);
+  terms.moms.mcompute(terms.grid, id, state, result);
   return result;
 }
 
@@ -449,30 +402,30 @@ std::vector<precision> discretization_manager<precision>::get_moment_level(momen
   rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
   std::vector<precision> tmp;
   std::vector<precision> result;
-  terms.moms.mcompute(grid, id, state, tmp);
-  terms.moms.complete_level(hier, tmp, result);
+  terms.moms.mcompute(terms.grid, id, state, tmp);
+  terms.moms.complete_level(terms.hier, tmp, result);
   return result;
 }
 
 template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_electric() const {
   rassert(poisson, "get_electric() requires a PDE with terms with electric dependence");
-  terms.moms.cache_moment(poisson.moment0(), grid, state);
-  poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), hier),
+  terms.moms.cache_moment(poisson.moment0(), terms.grid, state);
+  poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), terms.hier),
                          terms.moms.edit_poisson_level());
   return terms.moms.poisson_level();
 }
 
 template<typename precision>
 void discretization_manager<precision>::print_mats() const {
-  int const num_dims = terms.num_dims;
+  int const numd = num_dims();
   for (auto tid : iindexof(terms.terms)) {
-    for (int d : iindexof(num_dims)) {
+    for (int d : iindexof(numd)) {
       std::cout << " term = " << tid << "  dim = " << d << '\n';
       if (terms.terms[tid].coeffs[d].empty()) {
         std::cout << "identity\n";
       } else {
-        terms.terms[tid].coeffs[d].to_full(conn).print(std::cout);
+        terms.terms[tid].coeffs[d].to_full(terms.conn).print(std::cout);
       }
       std::cout << '\n';
     }
@@ -486,8 +439,8 @@ void discretization_manager<precision>::report_memusage(std::ostream &os) const 
     s.insert(0, 11 - s.size(), ' ');
     return s;
   };
-  os << "sparse grid " << MB(grid.used_bytes());
-  os << "hierarchy   " << MB(hier.used_bytes());
+  os << "sparse grid " << MB(terms.grid.used_bytes());
+  os << "hierarchy   " << MB(terms.hier.used_bytes());
   terms.print_bytes(os);
   stepper.print_bytes(os);
 }
@@ -554,13 +507,13 @@ void discretization_manager<precision>::ode_rhs_base(
     #else
     tools::time_event performance_("ode-rhs terms");
     #endif
-    terms.apply(group, grid, conn, -1, in, 0, out);
+    terms.apply(group, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
   }{
     tools::time_event performance_("ode-rhs sources");
-    terms.template apply_sources<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+    terms.template apply_sources<data_mode::increment>(group, time, 1, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -636,7 +589,7 @@ void discretization_manager<precision>::ode_euler_base(
       out.resize(in.size());
 
     if (term_scal.value != 0) {
-      terms.apply(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      terms.apply(group, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
       if (not terms.has_terms()) // R wasn't zeroes out above
         std::fill(out.begin(), out.end(), 0);
     } else {
@@ -648,10 +601,9 @@ void discretization_manager<precision>::ode_euler_base(
   }{
     tools::time_event performance_("ode-rhs sources");
     if (source_scal.value == 1)
-      terms.template apply_sources<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+      terms.template apply_sources<data_mode::increment>(group, time, 1, out);
     else
-      terms.template apply_sources<data_mode::scal_inc>(group, grid, conn, hier, time,
-                                                        source_scal.value, out);
+      terms.template apply_sources<data_mode::scal_inc>(group, time, source_scal.value, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -678,7 +630,7 @@ void discretization_manager<precision>::ode_rhs_sources(
       terms.mpiwork = src;
     }
     if (is_leader()) {
-      terms.template apply_sources<mode>(group, grid, conn, hier, time, alpha, terms.mpiwork);
+      terms.template apply_sources<mode>(group, time, alpha, terms.mpiwork);
       terms.resources.reduce_add(terms.mpiwork, src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
@@ -689,12 +641,12 @@ void discretization_manager<precision>::ode_rhs_sources(
           else
             return mode;
         }();
-      terms.template apply_sources<mm>(group, grid, conn, hier, time, alpha, src);
+      terms.template apply_sources<mm>(group, time, alpha, src);
       terms.resources.reduce_add(src);
     }
   } else {
   #endif
-    terms.template apply_sources<mode>(group, grid, conn, hier, time, alpha, src);
+    terms.template apply_sources<mode>(group, time, alpha, src);
   #ifdef ASGARD_USE_MPI
   }
   #endif
@@ -705,7 +657,7 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_gpu_(group_id gid, precision const f[]) const {
   #ifdef ASGARD_USE_MPI
   if (terms.resources.num_ranks() > 1) {
-    int64_t const num_entries = num_dof();
+    int64_t const num_entries = terms.num_dof();
     if (is_leader()) {
       terms.resources.template bcast_gpu <precision, resource_comm::regular>(num_entries, f);
       compute_moments_local_gpu(gid, f);
@@ -730,10 +682,10 @@ void discretization_manager<precision>::compute_moments_local_gpu(
   {
     // const-cast is safe here, since wf is only used as "const" in the call
     gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, grid, terms.interp, terms.kwork, wf.vec);
+    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.kwork, wf.vec);
   }
   compute_poisson(gid);
-  terms.rebuild_moment_terms(gid, grid, conn, hier);
+  terms.rebuild_moment_terms(gid);
 }
 
 template<typename precision>
@@ -789,13 +741,13 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
     #endif
-    terms.apply_gpu(group, grid, conn, -1, in, 0, out);
+    terms.apply_gpu(group, -1, in, 0, out);
 
     if (not terms.has_terms()) // R wasn't zeroes out above
       compute->fill_zeros(num_entries, out);
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
-    terms.template apply_sources_gpu<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+    terms.template apply_sources_gpu<data_mode::increment>(group, time, 1, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -857,7 +809,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
+    int64_t const flops = terms.flop_count(group, conn);
     tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
@@ -867,7 +819,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
     }
 
     if (term_scal.value != 0) {
-      terms.apply_gpu(group, grid, conn, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      terms.apply_gpu(group, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
       if (not terms.has_terms())
         compute->fill_zeros(num_entries, out);
     } else {
@@ -877,10 +829,9 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
     if (source_scal.value == 1)
-      terms.template apply_sources_gpu<data_mode::increment>(group, grid, conn, hier, time, 1, out);
+      terms.template apply_sources_gpu<data_mode::increment>(group, time, 1, out);
     else
-      terms.template apply_sources_gpu<data_mode::scal_inc>(group, grid, conn, hier, time,
-                                                            source_scal.value, out);
+      terms.template apply_sources_gpu<data_mode::scal_inc>(group, time, source_scal.value, out);
   }
 
   #ifdef ASGARD_USE_MPI
@@ -908,8 +859,7 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
       gpu::memcopy_dev2dev(num_entries, src, terms.gpumpi_work.data());
     }
     if (is_leader()) {
-      terms.template apply_sources_gpu<mode>(group, grid, conn, hier, time, alpha,
-                                             terms.gpumpi_work.data());
+      terms.template apply_sources_gpu<mode>(group, time, alpha, terms.gpumpi_work.data());
       terms.resources.reduce_add_gpu(num_entries, terms.gpumpi_work.data(), src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
@@ -920,12 +870,12 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
           else
             return mode;
         }();
-      terms.template apply_sources_gpu<mm>(group, grid, conn, hier, time, alpha, src);
+      terms.template apply_sources_gpu<mm>(group, time, alpha, src);
       terms.resources.reduce_add_gpu(num_entries, src);
     }
   } else {
   #endif
-    terms.template apply_sources_gpu<mode>(group, grid, conn, hier, time, alpha, src);
+    terms.template apply_sources_gpu<mode>(group, time, alpha, src);
   #ifdef ASGARD_USE_MPI
   }
   #endif
@@ -941,7 +891,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base(
 
   tools::time_event performance_("terms-apply");
 
-  y.resize(grid.num_indexes() * hier.block_size());
+  y.resize(terms.num_dof());
 
   std::vector<precision> &x = terms.mpiwork;
   x.resize(y.size());
@@ -955,7 +905,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base(
     if (x.back() == std::numeric_limits<precision>::max())
       break;
 
-    terms.apply(group, grid, conn, 1, x, 0, y);
+    terms.apply(group, 1, x, 0, y);
 
     if (not terms.has_terms()) // R must be zeroed out explicitly
       std::fill(y.begin(), y.end(), 0);
@@ -972,7 +922,7 @@ void discretization_manager<precision>::mpi_iteration_stop() const
     return;
 
   std::vector<precision> &w = terms.mpiwork;
-  w.resize(grid.num_indexes() * hier.block_size());
+  w.resize(terms.num_dof());
   w.back() = std::numeric_limits<precision>::max();
   terms.resources.bcast(w);
 }
@@ -984,7 +934,7 @@ void discretization_manager<precision>::mpi_leader_apply_base(
   tools::time_event performance_("mpi_leader_apply");
 
   if (terms.resources.num_ranks() == 1) {
-    terms.apply(group, grid, conn, alpha, x, beta, y);
+    terms.apply(group, alpha, x, beta, y);
     return;
   }
 
@@ -1000,7 +950,7 @@ void discretization_manager<precision>::mpi_leader_apply_base(
 
   terms.resources.bcast(n, x);
 
-  terms.apply(group, grid, conn, 1, x, 0, work.data());
+  terms.apply(group, 1, x, 0, work.data());
 
   if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
     std::fill_n(work.begin(), n, 0);
@@ -1040,7 +990,7 @@ void discretization_manager<precision>::mpi_iteration_apply_base_gpu(
     if (back == std::numeric_limits<precision>::max())
       break;
 
-    terms.apply_gpu(group, grid, conn, 1, x, 0, y);
+    terms.apply_gpu(group, 1, x, 0, y);
 
     if (not terms.has_terms()) // R must be zeroed out explicitly
       compute->fill_zeros(num_entries, x);
@@ -1072,7 +1022,7 @@ void discretization_manager<precision>::mpi_leader_apply_base_gpu(
   tools::time_event performance_("mpi_leader_apply");
 
   if (terms.resources.num_ranks() == 1) {
-    terms.apply_gpu(group, grid, conn, alpha, x, beta, y);
+    terms.apply_gpu(group, alpha, x, beta, y);
     return;
   }
 
@@ -1090,7 +1040,7 @@ void discretization_manager<precision>::mpi_leader_apply_base_gpu(
 
   terms.resources.bcast_gpu(num_entries, x);
 
-  terms.apply_gpu(group, grid, conn, 1, x, 0, work);
+  terms.apply_gpu(group, 1, x, 0, work);
 
   if (not terms.has_terms() and beta == 0) // mpiwork must be zeroed out explicitly (??)
     compute->fill_zeros(num_entries, work);

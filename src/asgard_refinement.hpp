@@ -37,22 +37,20 @@ public:
   //! initialize the manager and set the refinement criteria
   refinement_manager(prog_opts const &options, pde_scheme<P> &pde);
 
-  //! refine the sparse_grid
-  void refine(connection_patterns const &conns, term_manager<P> const &terms,
-              std::vector<P> const &state, strategy mode, sparse_grid &grid) const
+  //! refine the sparse_grid, modifies the grid in terms
+  void refine(std::vector<P> const &state, strategy mode, term_manager<P> &terms) const
   {
     assert(not iweights_.is_gpu());
     if (atol != -1)
-      refine_(conns, terms, state, mode, grid);
+      refine_(state, mode, terms);
   }
 
   #ifdef ASGARD_USE_GPU
   //! refine the sparse_grid using GPU data
-  void refine(connection_patterns const &conns, term_manager<P> const &terms,
-              gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const
+  void refine(gpu::vector<P> const &state, strategy mode, term_manager<P> &terms) const
   {
     if (atol != -1)
-      refine_(conns, terms, state, mode, grid);
+      refine_(state, mode, terms);
   }
   #endif
 
@@ -66,8 +64,7 @@ public:
 
 private:
   //! if no-refinement is set, the public method will have an inline if-statement
-  void refine_(connection_patterns const &conns, term_manager<P> const &terms,
-               std::vector<P> const &state, strategy mode, sparse_grid &grid) const;
+  void refine_(std::vector<P> const &state, strategy mode, term_manager<P> &terms) const;
 
   #ifdef ASGARD_USE_GPU
   //! (TODO: this should be another vector) hierarchical coefficients on the GPU
@@ -77,8 +74,7 @@ private:
   //! gpu stats
   mutable gpu::vector<istatus> gstats;
   //! if no-refinement is set, the public method will have an inline if-statement
-  void refine_(connection_patterns const &conns, term_manager<P> const &terms,
-               gpu::vector<P> const &state, strategy mode, sparse_grid &grid) const;
+  void refine_(gpu::vector<P> const &state, strategy mode, term_manager<P> &terms) const;
   #endif
 
   //! absolute tolerance, -1 indicates not using refinement

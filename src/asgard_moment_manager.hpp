@@ -240,7 +240,6 @@ private:
   int num_vel_ = 0;
   int pdof = 0;
 
-  int pos_block = 0;
   int vel_block = 0;
   int full_block = 0;
 
