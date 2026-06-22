@@ -297,6 +297,7 @@ pde_scheme<P> make_hybrid_interp_relaxation(prog_opts options,
     pde += term_interp<P>(gx_u, true);
   else
     pde += term_interp<P>(gx_u);
+  pde.set_adapt_weight(gx_u, hybrid_interp);
   pde.set_initial(hybrid_non_equilibrium<P>);
 
   return pde;
@@ -369,6 +370,15 @@ void hybrid_interp_requires_position_velocity_dims()
   }
   tassert(rejected);
 
+  pde_scheme<P> adapt_unset_split(options, pde_domain<P>(2));
+  rejected = false;
+  try {
+    adapt_unset_split.set_adapt_weight(interp_func, true);
+  } catch (std::runtime_error const &e) {
+    rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
+  }
+  tassert(rejected);
+
   auto source_func = [](P, vector2d<P> const &, std::vector<P> &vals) -> void {
     std::fill(vals.begin(), vals.end(), P{0});
   };
@@ -378,6 +388,16 @@ void hybrid_interp_requires_position_velocity_dims()
   rejected = false;
   try {
     pos_only += source<P>(source_func, true);
+  } catch (std::runtime_error const &e) {
+    rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
+  }
+  tassert(rejected);
+
+  pde_scheme<P> adapt_pos_only(options,
+                               pde_domain<P>(position_dims{2}, velocity_dims{0}));
+  rejected = false;
+  try {
+    adapt_pos_only.set_adapt_weight(interp_func, true);
   } catch (std::runtime_error const &e) {
     rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
   }
