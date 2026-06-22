@@ -135,7 +135,7 @@ public:
 
   #ifdef ASGARD_USE_GPU
   /*!
-  * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
+  * \brief Given the wavelet representation of the density, find the electric field also in wavelet space, on gpu
   */
   void solve(gpu::vector<P> &density, sparse_grid const &position_grid,
              connection_patterns const &conn, interpolate_func<P> interpolate,

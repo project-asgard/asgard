@@ -121,23 +121,37 @@ using operatoin_apply_lhs =
 template<typename P>
 using operatoin_apply_precon = std::function<void(P y[])>;
 
+/*!
+ * \internal
+ * \brief Conjugate Gradient method
+ *
+ * The class mostly holds workspace vectors.
+ * \endinternal
+ */
 template<typename P>
 class cg
 {
 public:
-  cg(P tolerance, int max_iter = 1000)
-      : tolerance_(tolerance), max_iter_(max_iter) {}
+  //! default constructor, nothing to do
+  cg() = default;
 
-  // CPU Signature
+  //! construct and set the tolerance and maximum number of iterations
+  cg(P tolerance, int maxi)
+      : tolerance_(tolerance), max_iter_(maxi) {}
+
+  //! solve for the given linear operator, right-hand-side and initial iterate
   int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const;
 
 #ifdef ASGARD_USE_GPU
-  // GPU Signature
+  //! solve for the given linear operator, right-hand-side and initial iterate, uses gpus
   int solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
 #endif
 
+  //! returns the set tolerance
   P tolerance() const { return tolerance_; }
+  //! returns the set max-number of iterations
   int max_iter() const { return max_iter_; }
+  //! computes approximate memory usage by the object
   size_t used_bytes() const;
 
 private:
@@ -151,7 +165,7 @@ private:
   // GPU workspace
   mutable gpu::vector<P> gr, gp, gq;
   
-  // VRAM-trapped Scalars
+  // VRAM Scalars
   mutable gpu::vector<P> d_rho, d_rho_new, d_p_dot_q, d_alpha, d_beta;
 #endif
 };

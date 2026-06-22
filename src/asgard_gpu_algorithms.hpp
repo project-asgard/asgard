@@ -57,18 +57,23 @@ int num_non_finite(int64_t num, P const x[]);
 template<typename P>
 int num_non_finite(gpu::vector<P> const &data) { return num_non_finite(data.size(), data.data()); }
 
+//! alpha = rho / p dot q
 template<typename P>
 void cg_calc_alpha(P const* rho, P const* p_dot_q, P* alpha);
 
+//! beta = rho_new / rho
 template<typename P>
 void cg_calc_beta(P const* rho_new, P const* rho, P* beta);
 
+//! x = x + alpha * p, r = r - alpha * q
 template<typename P>
 void cg_update_x_r(int64_t n, P const* alpha, P const* p, P const* q, P* x, P* r);
 
+//! p = r + beta * p
 template<typename P>
 void cg_update_p(int64_t n, P const* beta, P const* r, P* p);
 
+//! rho = rho_new
 template<typename P>
 void cg_update_rho(P const* rho_new, P* rho);
 

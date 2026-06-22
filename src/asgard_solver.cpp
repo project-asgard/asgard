@@ -10,9 +10,6 @@
 namespace asgard::solvers
 {
 
-// ==============================================================================
-// CPU IMPLEMENTATION
-// ==============================================================================
 template<typename P>
 int cg<P>::solve(
     operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
