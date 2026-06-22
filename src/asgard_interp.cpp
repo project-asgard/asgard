@@ -19,7 +19,17 @@ interpolation_manager<P>::interpolation_manager(
   #endif
 
   if (domain.num_pos() > 0) {
-    perm_pos = kronmult::permutes(domain.num_pos());
+    std::vector<int> pos_dirs(domain.num_pos());
+    for (int d : indexof(domain.num_pos()))
+      pos_dirs[d] = d;
+
+    perm_pos = kronmult::permutes(pos_dirs);
+
+    perm_low_pos = kronmult::permutes(domain.num_pos(), conn_fill::lower_udiag);
+    perm_low_pos.remap_directions(pos_dirs);
+
+    perm_up_pos = kronmult::permutes(domain.num_pos(), conn_fill::upper);
+    perm_up_pos.remap_directions(pos_dirs);
   }
 
   wav_scale  = 1;
@@ -33,7 +43,7 @@ interpolation_manager<P>::interpolation_manager(
   // Hybrid version of above
   if (domain.num_pos() > 0)
   {
-    hybrid_wav_scale = 1;
+    P hybrid_wav_scale = 1;
     for (int d : indexof(domain.num_pos()))
     {
       xmin[d]   = domain.xleft(d);
@@ -41,8 +51,6 @@ interpolation_manager<P>::interpolation_manager(
       hybrid_wav_scale *= xscale[d];
     }
     hybrid_iwav_scale = std::sqrt(hybrid_wav_scale);
-    hybrid_wav_scale = P{1} / hybrid_iwav_scale;
-    std::cout << "iwav_scale = " << iwav_scale << ", hybrid_iwav_scale = " << hybrid_iwav_scale << std::endl;
   }
 
   // points represents the point locations in the canonical element (-1, 1)
@@ -309,48 +317,6 @@ interpolation_manager<P>::interpolation_manager(
   // nodal2hier_.to_full(conns).print();
   // hier2wav_.to_full(conns).print();
   
-  // Populate identity matrix
-  // {
-  //   connect_1d const &c1 = conns[connect_1d::hierarchy::volume];
-
-  //   int const pdof2 = pdof * pdof;
-  //   vol_identity_ = block_sparse_matrix<P>(pdof2, c1.num_connections(),
-  //                                         connect_1d::hierarchy::volume);
-
-  //   std::vector<P> I = smmat::make_identity<P>(pdof);
-  //   std::vector<P> Z(pdof2, P{0});
-
-  //   for (int row = 0; row < c1.num_rows(); ++row) {
-  //     for (int j = c1.row_begin(row); j < c1.row_diag(row); ++j)
-  //       std::copy_n(Z.data(), pdof2, vol_identity_[j]);
-
-  //     std::copy_n(I.data(), pdof2, vol_identity_[c1.row_diag(row)]);
-
-  //     for (int j = c1.row_diag(row) + 1; j < c1.row_end(row); ++j)
-  //       std::copy_n(Z.data(), pdof2, vol_identity_[j]);
-  //   }
-  // }
-  block_diag_matrix<P> block_identity_ = block_diag_matrix<P>(pdof * pdof, num_cells);
-  fill_pattern(smmat::make_identity<P>(pdof).data(), block_identity_);
-  vol_identity_ = hier.diag2block(
-                    hierarchy_manipulator<P>::operation::transform,
-                    nullptr,
-                    hierarchy_manipulator<P>::operation::transform,
-                    nullptr, block_identity_, level, conns);
-  //vol_identity_.to_full(conns[connect_1d::hierarchy::volume]).print(std::cout,-1,-1,2);
-
-  // Fill hybrid matrix container.  Interpolation in position and identity
-  // in velocity.
-  if (domain.num_pos() > 0)
-  {
-    int const np = domain.num_pos();
-    int const nd = domain.num_dims();
-    for (int d = 0; d < nd; ++d) {
-      nodal2hier_hybrid_[d] = (d < np) ? nodal2hier_ : vol_identity_;
-      hier2wav_hybrid_[d]   = (d < np) ? hier2wav_   : vol_identity_;
-    }
-  }
-
 #ifdef ASGARD_USE_GPU
   int const num_gpus = compute->num_gpus();
 #ifdef ASGARD_GPU_MEMGREEDY

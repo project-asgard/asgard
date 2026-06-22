@@ -211,7 +211,7 @@ public:
   void nodal2hier_hybrid(sparse_grid const &grid, connection_patterns const &conn,
                         P const f[], P hier[], kronmult::workspace<P> &work) const
   {
-    kronmult::block_cpu(pdof, grid, conn, perm_low, nodal2hier_hybrid_,
+    kronmult::block_cpu(pdof, grid, conn, perm_low_pos, nodal2hier_,
                         P{1}, f, P{0}, hier, work);
   }
 
@@ -219,11 +219,10 @@ public:
                         P alpha, P const f[], P beta, P vals[],
                         kronmult::workspace<P> &work, std::vector<P> &t1) const
   {
-    // t1 sized appropriately by caller (same as existing nodal2wav)
-    kronmult::block_cpu(pdof, grid, conn, perm_low, nodal2hier_hybrid_,
+    kronmult::block_cpu(pdof, grid, conn, perm_low_pos, nodal2hier_,
                         P{1}, f, P{0}, t1.data(), work);
 
-    kronmult::block_cpu(pdof, grid, conn, perm_up, hier2wav_hybrid_,
+    kronmult::block_cpu(pdof, grid, conn, perm_up_pos, hier2wav_,
                         alpha * P{hybrid_iwav_scale}, t1.data(), beta, vals, work);
   }
 
@@ -588,8 +587,6 @@ public:
     size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
               + nodes1d_.size() * sizeof(P) + (it1.size() + it2.size()) * sizeof(P);
     t += wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
-    for (const auto& mat : hier2wav_hybrid_  ) t += mat.used_bytes();
-    for (const auto& mat : nodal2hier_hybrid_) t += mat.used_bytes();
     return t;
   }
   //! values for the interpolation field, allows reuse for several interp ops
@@ -605,7 +602,7 @@ private:
   int block_size = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
-  P hybrid_wav_scale = 0, hybrid_iwav_scale = 0;
+  P hybrid_iwav_scale = 0;
 
   std::vector<double> points;
   std::vector<int> horder;
@@ -622,13 +619,12 @@ private:
   kronmult::permutes perm_low; // only lower matrices
   kronmult::permutes perm_up; // only upper matrices
   kronmult::permutes perm_pos; // position only permutations
+  kronmult::permutes perm_low_pos; // position only lower matrices
+  kronmult::permutes perm_up_pos; // position only upper matrices
 
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
   block_sparse_matrix<P> hier2wav_;
-  block_sparse_matrix<P> vol_identity_;
-  std::array<block_sparse_matrix<P>, max_num_dimensions> nodal2hier_hybrid_;
-  std::array<block_sparse_matrix<P>, max_num_dimensions> hier2wav_hybrid_;
 
   connection_patterns conn_reduced;
 
