@@ -249,8 +249,8 @@ void hybrid_maxwellian_collision()
   current_test<P> name_("hybrid Maxwellian collision preserves moments");
 
   int constexpr degree = 2;
-  int constexpr x_level = 2;
-  int constexpr v_level = 3;
+  int constexpr x_start_level = 2;
+  int constexpr v_start_level = 3;
   P const nu = P{2};
   P const dt = P{0.2} / nu;
 
@@ -259,7 +259,7 @@ void hybrid_maxwellian_collision()
 
   prog_opts options;
   options.degree = degree;
-  options.start_levels = {x_level, v_level};
+  options.start_levels = {x_start_level, v_start_level};
   options.dt = dt;
   options.num_time_steps = 1;
   options.step_method = time_method::back_euler;
@@ -295,6 +295,8 @@ void hybrid_maxwellian_collision()
   md_mom_and_idx_func<P> hybrid_maxwellian =
       [=](P, vector2d<P> const &nodes, momentset<P> const &moments,
           std::vector<int> const &indexes, std::vector<P> &vals) -> void {
+    static_cast<void>(nodes);
+
     std::vector<P> const &m0 = moments[im0];
     std::vector<P> const &m1 = moments[im1];
     std::vector<P> const &m2 = moments[im2];
