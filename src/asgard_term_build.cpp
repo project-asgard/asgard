@@ -72,6 +72,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   pde.finalize_term_groups(); // if using groups, else this does nothing
 
+  auto check_hybrid_interp_domain = [&]() {
+    rassert(domain.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+  };
+
   if (pde.mass() and not pde.mass().is_identity())
     mass_term = std::move(pde.mass_);
 
@@ -205,8 +212,12 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
     sources_md.resize(pde.sources_md_.size());
-    for (size_t i = 0; i < pde.sources_md_.size(); i++)
+    for (size_t i = 0; i < pde.sources_md_.size(); i++) {
       sources_md[i].func = std::move(pde.sources_md_[i]);
+      sources_md[i].hybrid_interp = pde.sources_hybrid_[i];
+      if (sources_md[i].hybrid_interp)
+        check_hybrid_interp_domain();
+    }
 
     sources.reserve(num_sources);
 
@@ -315,6 +326,12 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         }
         if (not t.tmd.get_interp_moments().empty()) {
           t.interplan.use_moments();
+        }
+        if (t.tmd.uses_hybrid_interp()) {
+          rassert(not t.tmd.is_gpu_interpolatory(),
+                  "hybrid interpolation is not implemented for GPU interpolation functions");
+          check_hybrid_interp_domain();
+          t.interplan.use_hybrid();
         }
         #ifdef ASGARD_USE_GPU
         if (t.tmd.is_gpu_interpolatory()) {

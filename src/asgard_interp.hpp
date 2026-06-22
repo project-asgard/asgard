@@ -5,8 +5,6 @@
 namespace asgard
 {
 
-inline bool is_hybrid_ = false;
-
 /*!
  * \brief Describes the stages of the interpolation operation.
  *
@@ -52,6 +50,13 @@ struct interpolation_plan
     else
       plan_mode_ &= ~(1 << gpu_func_);
   }
+  //! does the interpolation project only in position directions
+  void use_hybrid(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << hybrid_);
+    else
+      plan_mode_ &= ~(1 << hybrid_);
+  }
 
   //! indicates whether the plan has been enabled
   bool is_enabled() const {
@@ -66,6 +71,8 @@ struct interpolation_plan
   bool uses_hier() const { return (plan_mode_ & (1 << hier_)) != 0; }
   //! indicates whether to use GPU arrays
   bool uses_gpu_func() const { return (plan_mode_ & (1 << gpu_func_)) != 0; }
+  //! indicates whether to project only in position directions
+  bool uses_hybrid() const { return (plan_mode_ & (1 << hybrid_)) != 0; }
 
   //! tag for whether to use the enabled
   static int constexpr enabled_ = 0;
@@ -77,6 +84,8 @@ struct interpolation_plan
   static int constexpr hier_ = 3;
   //! tag for whether to call a function on the GPU
   static int constexpr gpu_func_ = 4;
+  //! tag for whether to use hybrid position-only interpolation
+  static int constexpr hybrid_ = 5;
 };
 
 /*!
@@ -274,13 +283,13 @@ public:
       }
     }
     if (plan.uses_hier()) {
-      if (is_hybrid_) {
+      if (plan.uses_hybrid()) {
         nodal2hier_hybrid(grid, conn, it2.data(), y, work);
       } else {
         nodal2hier(grid, conn, it2.data(), y, work);
       }
     } else {
-      if (is_hybrid_) {
+      if (plan.uses_hybrid()) {
         nodal2wav_hybrid(grid, conn, alpha, it2.data(), beta, y, work, it1);
       } else {
         nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
@@ -301,15 +310,31 @@ public:
    */
   template<typename tmd_type>
   void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
-       P time, P alpha, tmd_type const &func, P beta, P y[],
+      (interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments, P time,
+       P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    assert(plan.is_enabled());
     {
       tools::time_event perf_("interpolation source");
       func(time, nodes(grid), moments, it1);
     }
-    nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
+    if (plan.uses_hybrid())
+      nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+    else
+      nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
+  }
+  //! Performs source interpolation with standard projection.
+  template<typename tmd_type>
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+       P time, P alpha, tmd_type const &func, P beta, P y[],
+       kronmult::workspace<P> &work) const
+  {
+    interpolation_plan plan;
+    plan.enable();
+    (*this)(plan, grid, conn, moments, time, alpha, func, beta, y, work);
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -331,10 +356,13 @@ public:
 
   template<typename tmd_type>
   void eval_posonly_with_idx
-      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+      (interpolation_plan const &plan, sparse_grid const &grid,
+       connection_patterns const &conn, momentset<P> const &moments,
        P time, P alpha, tmd_type const &func, P beta, P y[],
        kronmult::workspace<P> &work) const
   {
+    assert(plan.is_enabled());
+
     size_t const nentries = static_cast<size_t>(grid.num_indexes()) * block_size;
 
     // Must size buffers BEFORE callback writes into them
@@ -350,7 +378,10 @@ public:
     //   throw std::runtime_error("source callback resized vals (it1); this is not allowed");
     // if (it2.size() != nentries)
     //   throw std::runtime_error("internal error: it2 wrong size");
-    nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+    if (plan.uses_hybrid())
+      nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+    else
+      nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
 
   //! indicates whether the manager has been initialized

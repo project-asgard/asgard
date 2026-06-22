@@ -187,13 +187,16 @@ void term_manager<P>::apply_sources(
   }
 
   auto apply_interp = [&](source_entry_interp<P> const &src, P alpha_) {
-    // pos-only + needs index info
+    interpolation_plan plan;
+    plan.enable();
+    plan.use_moments(src.is_moment());
+    plan.use_hybrid(src.hybrid_interp);
+
     if (std::holds_alternative<md_mom_and_idx_func<P>>(src.func)) {
-      interp.eval_posonly_with_idx(grid, conns, moms.get_cached_interps(),
-                                      time, alpha_, src, P{1}, y, kwork);
+      interp.eval_posonly_with_idx(plan, grid, conns, moms.get_cached_interps(),
+                                   time, alpha_, src, P{1}, y, kwork);
     } else {
-      // existing path
-      interp(grid, conns, moms.get_cached_interps(),
+      interp(plan, grid, conns, moms.get_cached_interps(),
             time, alpha_, src, P{1}, y, kwork);
     }
   };

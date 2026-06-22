@@ -244,6 +244,147 @@ P maxwellian1d(P n, P u, P theta, P v)
 }
 
 template<typename P>
+void hybrid_non_equilibrium(P, vector2d<P> const &nodes, std::vector<P> &vals)
+{
+  assert(vals.size() == static_cast<size_t>(nodes.num_strips()));
+
+  for (int64_t i = 0; i < nodes.num_strips(); i++) {
+    P const x = nodes[i][0];
+    P const v = nodes[i][1];
+
+    P const n = P{1} + P{0.2} * std::sin(P{0.3} * x);
+    vals[i] = P{0.6} * maxwellian1d(P{1}, P{-0.6}, P{0.5}, v)
+            + P{0.4} * maxwellian1d(P{1}, P{0.7},  P{1.0}, v);
+    vals[i] *= n;
+  }
+}
+
+template<typename P>
+P hybrid_relaxation_coeff(P x)
+{
+  return P{1.25} + P{0.2} * std::sin(P{2} * PI * x);
+}
+
+template<typename P>
+pde_scheme<P> make_hybrid_interp_relaxation(prog_opts options,
+                                            bool hybrid_interp)
+{
+  P const lambda = P{2};
+  pde_domain<P> domain(position_dims{1}, velocity_dims{1},
+                       {domain_range{0, 1}, domain_range{-10, 10}});
+
+  options.degree = 2;
+  options.start_levels = {2, 3};
+  options.dt = 0.05;
+  options.num_time_steps = 1;
+  options.step_method = time_method::back_euler;
+  options.solver = solver_method::direct;
+
+  pde_scheme<P> pde(options, domain);
+
+  // u_t + lambda * (u - g(x) * u) = 0.
+  pde += term_md<P>{term_volume<P>{lambda}, term_identity{}};
+
+  auto gx_u = [=](P, vector2d<P> const &nodes, std::vector<P> const &u,
+                  std::vector<P> &vals) -> void {
+    for (auto i : indexof(vals)) {
+      P const x = nodes[i][0];
+      vals[i] = -lambda * hybrid_relaxation_coeff(x) * u[i];
+    }
+  };
+
+  if (hybrid_interp)
+    pde += term_interp<P>(gx_u, true);
+  else
+    pde += term_interp<P>(gx_u);
+  pde.set_initial(hybrid_non_equilibrium<P>);
+
+  return pde;
+}
+
+template<typename P>
+struct hybrid_relaxation_result
+{
+  std::vector<int> indexes;
+  std::vector<P> state;
+};
+
+template<typename P>
+hybrid_relaxation_result<P> run_hybrid_interp_relaxation(
+    prog_opts const &options, bool hybrid_interp)
+{
+  discretization_manager<P> disc(
+      make_hybrid_interp_relaxation<P>(options, hybrid_interp),
+      verbosity_level::quiet);
+
+  tassert(disc.advance_time(1));
+
+  return {disc.get_grid().indexes(), disc.current_state()};
+}
+
+template<typename P>
+void hybrid_interp_relaxation(bool adaptive)
+{
+  current_test<P> name_("hybrid interpolation relaxation "
+                        + std::string{(adaptive) ? "adaptive" : "fixed"});
+
+  prog_opts options;
+  options.grid = grid_type::sparse;
+
+  if (adaptive) {
+    options.max_levels = {4, 5};
+    options.adapt_relative = 1.E-4;
+  }
+
+  auto const standard = run_hybrid_interp_relaxation<P>(options, false);
+  auto const hybrid   = run_hybrid_interp_relaxation<P>(options, true);
+
+  tassert(standard.indexes == hybrid.indexes);
+  tassert(standard.state.size() == hybrid.state.size());
+
+  P const tol = (is_double<P>) ? P{1.E-11} : P{1.E-5};
+  tcheckless(0, fm::diff_inf(standard.state, hybrid.state), tol);
+}
+
+template<typename P>
+void hybrid_interp_requires_position_velocity_dims()
+{
+  current_test<P> name_("hybrid interpolation requires x and v dimensions");
+
+  prog_opts options;
+  options.degree = 1;
+  options.start_levels = {1, 1};
+
+  auto interp_func = [](P, vector2d<P> const &, std::vector<P> const &u,
+                        std::vector<P> &vals) -> void {
+    vals = u;
+  };
+
+  pde_scheme<P> unset_split(options, pde_domain<P>(2));
+  bool rejected = false;
+  try {
+    unset_split += term_interp<P>(interp_func, true);
+  } catch (std::runtime_error const &e) {
+    rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
+  }
+  tassert(rejected);
+
+  auto source_func = [](P, vector2d<P> const &, std::vector<P> &vals) -> void {
+    std::fill(vals.begin(), vals.end(), P{0});
+  };
+
+  pde_scheme<P> pos_only(options,
+                         pde_domain<P>(position_dims{2}, velocity_dims{0}));
+  rejected = false;
+  try {
+    pos_only += source<P>(source_func, true);
+  } catch (std::runtime_error const &e) {
+    rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
+  }
+  tassert(rejected);
+}
+
+template<typename P>
 void hybrid_maxwellian_collision()
 {
   current_test<P> name_("hybrid Maxwellian collision preserves moments");
@@ -276,21 +417,6 @@ void hybrid_maxwellian_collision()
   moment_id const im1 = pde.register_moment(moment{1});
   moment_id const im2 = pde.register_moment(moment{2});
   std::vector<moment_id> const mids = {im0, im1, im2};
-
-  auto non_equilibrium = [](P, vector2d<P> const &nodes, std::vector<P> &vals)
-    -> void {
-    assert(vals.size() == static_cast<size_t>(nodes.num_strips()));
-
-    for (int64_t i = 0; i < nodes.num_strips(); i++) {
-      P const x = nodes[i][0];
-      P const v = nodes[i][1];
-
-      P const n = P{1} + P{0.2} * std::sin(P{0.3} * x);
-      vals[i] = P{0.6} * maxwellian1d(P{1}, P{-0.6}, P{0.5}, v)
-              + P{0.4} * maxwellian1d(P{1}, P{0.7},  P{1.0}, v);
-      vals[i] *= n;
-    }
-  };
 
   md_mom_and_idx_func<P> hybrid_maxwellian =
       [=](P, vector2d<P> const &nodes, momentset<P> const &moments,
@@ -414,8 +540,9 @@ void hybrid_maxwellian_collision()
   nu_identity.emplace_back(term_volume<P>{nu});
   nu_identity.emplace_back(term_identity{});
   pde += term_md<P>(std::move(nu_identity));
-  pde += source<P>(hybrid_maxwellian, mids);
-  pde.set_initial(non_equilibrium);
+  bool constexpr use_hybrid = true;
+  pde += source<P>(hybrid_maxwellian, mids, use_hybrid);
+  pde.set_initial(hybrid_non_equilibrium<P>);
 
   discretization_manager<P> disc(pde, verbosity_level::quiet);
 
@@ -444,6 +571,9 @@ template<typename P>
 void do_all_tests() {
   interp_wav2nodal<P>();
   interp_identity<P>();
+  hybrid_interp_requires_position_velocity_dims<P>();
+  hybrid_interp_relaxation<P>(false);
+  hybrid_interp_relaxation<P>(true);
   hybrid_maxwellian_collision<P>();
 }
 
