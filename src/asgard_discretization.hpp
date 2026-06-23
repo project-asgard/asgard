@@ -558,6 +558,8 @@ public:
   std::vector<precision> get_moment(moment mom) const;
   //! computes a specific moment for the current state
   std::vector<precision> get_moment_level(moment_id id) const;
+  //! computes a specific moment for the current state if the moment is registered
+  std::vector<precision> get_moment_level(moment mom) const;
   //! returns the poisson solver
   auto &get_poisson() const { return terms.moms.get_poisson(); }
 
@@ -740,6 +742,20 @@ protected:
 
     return shot;
   }
+  //! updates the sparse grid and remaps the next state to the new grid
+  void update_grid(std::vector<precision> &next)
+  {
+    if (is_leader())
+      terms.grid.remap(terms.block_size(), next);
+    terms.prapare_kron_workspace();
+    if (has_poisson())
+      std::visit([&](auto &p)
+      {
+        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+          p.update_level(terms.grid.current_level(0));
+        }
+      }, get_poisson());
+  }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, std::vector<precision> const &f)
   {
@@ -748,6 +764,20 @@ protected:
     refinement.refine(f, mode, terms);
   }
   #ifdef ASGARD_USE_GPU
+  //! updates the sparse grid and remaps the next state to the new grid
+  void update_grid(gpu::vector<precision> &next)
+  {
+    if (is_leader())
+      terms.grid.remap(terms.block_size(), next);
+    terms.prapare_kron_workspace();
+    if (has_poisson())
+      std::visit([&](auto &p)
+      {
+        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+          p.update_level(terms.grid.current_level(0));
+        }
+      }, get_poisson());
+  }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, gpu::vector<precision> const &f)
   {

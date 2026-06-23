@@ -8,12 +8,11 @@ namespace asgard
 {
 
 template<typename P>
-term_entry<P>::term_entry(term_md<P> tin, moments_list const &mlist)
-  : tmd(std::move(tin)), has_poisson(false)
+term_entry<P>::term_entry(term_md<P> tin)
+  : tmd(std::move(tin))
 {
   assert(not tmd.is_chain());
   if (tmd.is_interpolatory()) {
-    has_poisson = tmd.is_electric(mlist);
     return;
   }
 
@@ -32,29 +31,9 @@ term_entry<P>::term_entry(term_md<P> tin, moments_list const &mlist)
           std::swap(active_dirs.front(), active_dirs.back());
       }
     }
-
-    has_poisson = has_poisson or has_needs_poisson(t1d);
   }
 
   perm = kronmult::permutes(active_dirs, flux_dir);
-}
-
-template<typename P>
-bool term_entry<P>::has_needs_poisson(term_1d<P> const &t1d) {
-  auto check_poisson = [](term_1d<P> const &single)
-    -> bool {
-      return (single.depends() == term_dependence::electric_field or
-              single.depends() == term_dependence::electric_field_only);
-    };
-
-  if (t1d.is_chain()) {
-    for (int i : iindexof(t1d.num_chain()))
-      if (check_poisson(t1d[i]))
-        return true;
-    return false;
-  } else {
-    return check_poisson(t1d);
-  }
 }
 
 template<typename P>
@@ -127,20 +106,20 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         has_interp = has_interp or pde_terms[i].chain_[0].is_interpolatory();
         has_ibc    = has_ibc or pde_terms[i].chain_[0].has_interp_bc();
 
-        *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]), moms.moments());
+        *ir = term_entry<P>(std::move(pde_terms[i].chain_[0]));
         ir++->num_chain = num_chain;
         for (int c = 1; c < num_chain; c++) {
           has_interp = has_interp or pde_terms[i].chain_[c].is_interpolatory();
           has_ibc    = has_ibc or pde_terms[i].chain_[c].has_interp_bc();
 
-          *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]), moms.moments());
+          *ir = term_entry<P>(std::move(pde_terms[i].chain_[c]));
           ir++->mark_as_chain_link();
         }
       } else {
         has_interp = has_interp or pde_terms[i].is_interpolatory();
         has_ibc    = has_ibc or pde_terms[i].has_interp_bc();
 
-        *ir++ = term_entry<P>(std::move(pde_terms[i]), moms.moments());
+        *ir++ = term_entry<P>(std::move(pde_terms[i]));
       }
     }
     if (has_interp)
@@ -506,15 +485,16 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         auto const &tentry = terms[tid];
         if (not resources.owns(tentry.rec)) continue;
 
-        has_poisson = has_poisson or tentry.has_poisson;
+        term_md<P> const &tmd = tentry.tmd;
+        has_poisson = has_poisson or tmd.is_electric(moms.moments());
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
-            auto const &mids = tentry.tmd.dim(d).mids_;
+            auto const &mids = tmd.dim(d).mids_;
             insert(mids, regular[gid]);
             has_sep_mom = has_sep_mom or not mids.empty();
           }
         } else if (tentry.interplan.uses_moments()) {
-          auto const &mids = tentry.tmd.mids_;
+          auto const &mids = tmd.mids_;
           insert(mids, regular[gid]);
           insert(mids, intp[gid]);
         }
@@ -545,7 +525,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           for (int tid : indexrange(term_groups[gid])) {
             if (not resources.owns(terms[tid].rec)) continue;
 
-            if (terms[tid].has_poisson) {
+            if (terms[tid].tmd.is_electric(moms.moments())) {
               has_poisson_[gid] = true;
               break; // move to the next group
             }
@@ -658,7 +638,7 @@ void term_manager<P>::build_const_terms(int const tid, precon_method precon, P a
 
 template<typename P>
 void term_manager<P>::rebuild_term1d(
-    term_entry<P> &tentry, int const dim, int const level, precon_method, P, bool merge_with_interp)
+    term_entry<P> &tentry, int const dim, int level, precon_method, P, bool merge_with_interp)
 {
   int const n = hier.degree() + 1;
   auto &t1d   = tentry.tmd.dim(dim);
@@ -775,15 +755,15 @@ void term_manager<P>::build_raw_mat(
       switch (t1d.depends()) {
         case term_dependence::electric_field_only:
         {
-          moment_id mid_electric = moms.find_id(moment::electric(dimension_id(d)));
+          moment_id mid_electric = moms.find_id(moment::electric(dimension_id(d), moms.num_pos()));
           if (t1d.rhs()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
-            t1d.rhs(moms.get_cached_raws()[mid_electric], kwork.w1);
+            t1d.rhs(moms.get_cached_level(mid_electric), kwork.w1);
             gen_diag_cmat_pwc<P>(basis, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
           } else {
-            gen_diag_cmat_pwc<P>(basis, level, moms.get_cached_raws()[mid_electric], raw_diag);
+            gen_diag_cmat_pwc<P>(basis, level, moms.get_cached_level(mid_electric), raw_diag);
           }
           break;
         }
@@ -993,7 +973,7 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
 
 template<typename P>
 void term_manager<P>::rebuld_chain(
-    term_entry<P> &tentry, int const d, int const level, block_diag_matrix<P> const *bmass,
+    term_entry<P> &tentry, int const d, int level, block_diag_matrix<P> const *bmass,
     bool &is_diag, block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
   term_1d<P> &t1d = tentry.tmd.dim(d);

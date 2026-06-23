@@ -135,39 +135,47 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         y[i] = std::min(P{0}, x[i]);
     };
 
-  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
-  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
+  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
+  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
 
-  auto md_positive_x = [=](P /* time */, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &field, std::vector<P> &vals)
+  auto md_positive_x = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
     {
+      std::vector<P> e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
-        vals[i] = field[i] * std::max(P{0}, moments[melectric_x][i]);
+        vals[i] = field[i] * std::max(P{0}, e_x[i]);
     };
 
-  auto md_negative_x = [=](P /* time */, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &field, std::vector<P> &vals)
+  auto md_negative_x = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
     {
+      std::vector<P> e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
-        vals[i] = field[i] * std::min(P{0}, moments[melectric_x][i]);
+        vals[i] = field[i] * std::min(P{0}, e_x[i]);
     };
 
-  auto md_positive_y = [=](P /* time */, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &field, std::vector<P> &vals)
+  auto md_positive_y = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
     {
+      std::vector<P> e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
-        vals[i] = field[i] * std::max(P{0}, moments[melectric_y][i]);
+        vals[i] = field[i] * std::max(P{0}, e_y[i]);
     };
 
-  auto md_negative_y = [=](P /* time */, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &field, std::vector<P> &vals)
+  auto md_negative_y = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
     {
+      std::vector<P> e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
-        vals[i] = field[i] * std::min(P{0}, moments[melectric_y][i]);
+        vals[i] = field[i] * std::min(P{0}, e_y[i]);
     };
 
   pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
@@ -199,25 +207,25 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
     });
 
 #ifdef ASGARD_USE_GPU
-  auto gpu_md_positive_x = [=](int64_t const num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+  auto gpu_md_positive_x = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
       interp_positive_kernel<<<blocks, threads>>>(num, f, moments[melectric_x].data(), fx);
   };
 
-  auto gpu_md_negative_x = [=](int64_t const num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+  auto gpu_md_negative_x = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
       interp_negative_kernel<<<blocks, threads>>>(num, f, moments[melectric_x].data(), fx);
   };
 
-  auto gpu_md_positive_y = [=](int64_t const num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+  auto gpu_md_positive_y = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
       interp_positive_kernel<<<blocks, threads>>>(num, f, moments[melectric_y].data(), fx);
   };
 
-  auto gpu_md_negative_y = [=](int64_t const num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+  auto gpu_md_negative_y = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
       interp_negative_kernel<<<blocks, threads>>>(num, f, moments[melectric_y].data(), fx);
@@ -396,9 +404,9 @@ int main(int argc, char** argv)
   // save the initial condition
   disc.add_aux_field({"initial condition", disc.current_state()});
 
-  // save snapshots for every interval of time equal to 0.1
-  // the stride is approximately the number of time-steps that make up 0.1
-  int const stride = static_cast<int>(0.1 / disc.dt());
+  // save snapshots for every interval of time equal to 0.25
+  // the stride is approximately the number of time-steps that make up 0.25
+  int const stride = static_cast<int>(0.25 / disc.dt());
 
   // look over the entries and save multiple snapshots
   while (disc.remaining_steps() > 0
@@ -451,8 +459,8 @@ void test_energy(std::string const &opt_str) {
   moment_id const p1 = pde.register_moment({0, 1});
   moment_id const ke0 = pde.register_moment({2, 0});
   moment_id const ke1 = pde.register_moment({0, 2});
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
-  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
+  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
@@ -493,7 +501,7 @@ void test_energy(std::string const &opt_str) {
     if (disc.current_step() == 1) // first time-step
       E0 = 0.5 * (Ep + Ek);
 
-    std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
+    // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
     // tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-7);
 
     std::vector<P> mom0 = disc.get_moment(rho);
@@ -503,16 +511,16 @@ void test_energy(std::string const &opt_str) {
     // integral of moment 0 by moment 1, by delta_ij orthogonality of the basis
     // just sum up the product of the coefficients
     P mv0 = 0;
-    for (size_t j = 0; j < mom0.size(); j++)
-      mv0 += mom0[j] * momp0[j];
+    // for (size_t j = 0; j < mom0.size(); j++)
+    //   mv0 += mom0[j] * momp0[j];
     P mv1 = 0;
-    for (size_t j = 0; j < mom0.size(); j++)
-      mv1 += mom0[j] * momp1[j];
+    // for (size_t j = 0; j < mom0.size(); j++)
+    //   mv1 += mom0[j] * momp1[j];
 
-    std::cout << "X momentum error: " << mv0 << "\n";
-    std::cout << "Y momentum error: " << mv1 << "\n\n";
-    // tcheckless(i, std::abs(mv0), 3.0e-14);
-    // tcheckless(i, std::abs(mv1), 3.0e-14);
+    // std::cout << "X momentum error: " << mv0 << "\n";
+    // std::cout << "Y momentum error: " << mv1 << "\n\n";
+    tcheckless(i, std::abs(mv0), 3.0e-14);
+    tcheckless(i, std::abs(mv1), 3.0e-14);
 
     // check the initial slight energy decay before it stabilizes
     if (i > 0)

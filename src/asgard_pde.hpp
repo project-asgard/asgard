@@ -1251,8 +1251,27 @@ public:
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
   //! return true if the term uses the electric field
   bool is_electric(moments_list const &moments) const {
-    for (moment_id const &mid : mids_)
-      if (moments[mid].is_electric()) return true;
+    auto check_poisson = [](term_1d<P> const &single)
+    -> bool {
+      return (single.depends() == term_dependence::electric_field or
+              single.depends() == term_dependence::electric_field_only);
+    };
+    switch(mode_) {
+      case mode::chain:
+        for (term_md<P> const &ch : chain_)
+          if (ch.is_electric(moments)) return true;
+        break;
+      case mode::separable:
+        for (term_1d<P> const &sep : get_sep())
+          if (check_poisson(sep)) return true;
+        break;
+      case mode::interpolatory:
+        for (moment_id const &mid : mids_)
+          if (moments[mid].is_electric()) return true;
+        break;
+      default:
+        throw std::runtime_error("Unknown term_md mode #" + std::to_string(static_cast<int>(mode_)) + " found");
+    }
     return false;
   }
   //! return true if the term uses interpolation on the GPU device
@@ -1779,9 +1798,9 @@ public:
   //! register a moment and obtain the moment id
   moment_id register_moment(moment const &mom) {
     if (mom.is_electric()) {
-      rassert(mom.get_electric_direction() < domain_.num_vel(),
-              "mismatch between the velocity dimensions for the domain and "
-              "the dimensions of the moment");
+      rassert(domain_.num_pos() == mom.num_dims(),
+              "mismatch between the position dimensions for the domain and "
+              "the dimensions of the electric field moment");
     } else {
       rassert(domain_.num_vel() == mom.num_dims(),
               "mismatch between the velocity dimensions for the domain and "
@@ -1795,8 +1814,8 @@ public:
   }
   //! register an electric field moment in the specified dimension and obtain the moment id
   //! i.e. register_electric_moment(dimension_id(0)) corresponds to E_x
-  moment_id register_electric_moment(dimension_id dim) { // this function is not really needed as it just calls the other register function
-    moment mom = moment::electric(dim);
+  moment_id register_electric_moment(dimension_id dim, int num_pos_dims) { // this function is not really needed as it just calls the other register function
+    moment mom = moment::electric(dim, num_pos_dims);
     return this->register_moment(mom);
   }
   //! return true if the pde contains an electric field moment

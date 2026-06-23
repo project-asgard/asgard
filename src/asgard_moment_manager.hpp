@@ -46,7 +46,7 @@ public:
   //! returns a read-only reference to the list of moments
   moments_list const &moments() const { return mlist; }
   //! returns true if there is a poisson solver
-  bool has_poisson() const { return (not std::holds_alternative<poisson::poisson_none>(poisson_solver)); }
+  bool has_poisson() const { return (not std::holds_alternative<std::monostate>(poisson_solver)); }
 
   //! returns a grid indexes, used for I/O
   std::vector<int> const &get_grid_indexes() const { return pos_grid.iset_.indexes_; }
@@ -57,12 +57,12 @@ public:
   //! load all moments into the data-structures
   void cache_moments(group_id group, sparse_grid const &grid, std::vector<P> const &state,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     kronmult::workspace<P> &work) const;
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   //! load all moments into the data-structures
   void cache_moments(sparse_grid const &grid, std::vector<P> const &state,
                      connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     kronmult::workspace<P> &work) const {
-    cache_moments(group_id::all(), grid, state, conn, hier, work);
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
+    cache_moments(group_id::all(), grid, state, conn, hier, interp, work);
   }
   //! computes and caches a specific moment
   void cache_moment(moment_id id, sparse_grid const &grid, std::vector<P> const &state) const;
@@ -110,7 +110,10 @@ public:
   //! return the poisson solver
   auto &get_poisson() const { return poisson_solver; }
   //! return the cached raw moment defined on the position grid with moment id mid
-  std::vector<P> const &get_cached_raw(moment_id mid) const { return raw_vals.get(mid); }
+  std::vector<P> const &get_cached_raw(moment_id mid) const {
+    rassert(not (num_pos_ == 1 and needs_poisson(mid)), "The electric field moment is only computed for the full level in 1D");
+    return raw_vals.get(mid);
+  }
 
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
@@ -120,9 +123,6 @@ public:
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
                        connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                        kronmult::workspace<P> &work) const;
-  //! load the inteprolatory moments, specified group
-  void load_interp(group_id group, interpolation_manager<P> const &interp,
-                   kronmult::workspace<P> &work) const;
 
   //! computes approximate memory usage by the object
   size_t used_bytes() const;
@@ -144,26 +144,23 @@ public:
                                std::vector<std::vector<moment_id>> const &cpu_raw,
                                std::vector<std::vector<moment_id>> const &cpu_interp,
                                std::vector<std::vector<moment_id>> const &skip_interp);
-  //! load the inteprolatory moments, specified device and group
-  void load_interp(gpu::device dev, group_id group, interpolation_manager<P> const &interp,
-                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
   //! load all moments into the data-structures
   void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
-                       connection_patterns const &conn, kronmult::workspace<P> &kwork,
-                       gpu::vector<P> const &state) const;
+                       connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                       kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const;
   //! load all moments into the data-structures
   void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
-                       connection_patterns const &conn, kronmult::workspace<P> &kwork,
-                       gpu::vector<P> const &state) const
+                       connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                       kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
   {
-    compute_moments(group_id::all(), grid, interp, conn, kwork, state);
+    compute_moments(group_id::all(), grid, interp, conn, hier, kwork, state);
   }
   //! load the given moments into the data-structures at device 0
   void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
-                       interpolation_manager<P> const &interp,
-                       kronmult::workspace<P> &kwork,
+                       interpolation_manager<P> const &interp, connection_patterns const &conn,
+                       hierarchy_manipulator<P> const &hier, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
   
   //! sets up the poisson solver if one is needed
@@ -172,20 +169,19 @@ public:
                    std::array<P, max_num_dimensions> const &xright,
                    connection_patterns const &conn,
                    hierarchy_manipulator<P> const &hier,
-                   poisson::build_term_func<P> build_func,
-                   poisson::iter_solve_func<P> iter_func,
-                   poisson::iter_solve_func_gpu<P> iter_func_gpu);
+                   build_term_func<P> build_func,
+                   iter_solve_func<P> iter_func,
+                   iter_solve_func_gpu<P> iter_func_gpu);
                    
-  void solve_poisson(gpu::vector<P> const &density, connection_patterns const &conn,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
+  void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation
    *
    * The raw moments are the ones computed directly from the state and those are defined on
    * the position grid. The level and interp moments are computed from the raw moments,
-   * where the level moments are generated on call and the interp moments require
-   * a separate call to load_interp().
+   * where the level moments are generated on call.
    * Thus, the raw moments include both the level moments and interp moments.
    * The interp moments are those that require interpolation.
    *
@@ -199,8 +195,8 @@ public:
                    std::array<P, max_num_dimensions> const &xright,
                    connection_patterns const &conn,
                    hierarchy_manipulator<P> const &hier,
-                   poisson::build_term_func<P> build_func,
-                   poisson::iter_solve_func<P> iter_func);
+                   build_term_func<P> build_func,
+                   iter_solve_func<P> iter_func);
 
   //! Updates the dsort_ field of the position grid
   void update_position_grid_dsort() const;
@@ -336,7 +332,7 @@ private:
   #endif
 
   // poisson solver data
-  mutable std::variant<poisson::poisson_none, poisson::poisson_1d<P>, poisson::poisson_md<P>> poisson_solver;
+  mutable std::variant<std::monostate, poisson_1d<P>, poisson_md<P>> poisson_solver = std::monostate{};
 };
 
 } // namespace asgard

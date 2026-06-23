@@ -6,7 +6,7 @@
 #include "asgard_gpu_algorithms.hpp"
 #endif
 
-namespace asgard::poisson
+namespace asgard
 {
 
 template<typename P>
@@ -14,28 +14,33 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
                           std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
                           hierarchy_manipulator<P> const &hier, moments_list const &mlist,
                           build_term_func<P> build, iter_solve_func<P> iter_solve_func, moment_id const m0)
-  : num_dims(num_pos), pdof(hier.degree() + 1), iter_solve(iter_solve_func), mom0(m0)
+  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), iter_solve(iter_solve_func)
 {
   rassert((num_dims > 1) and (num_dims <= max_pos_dims), "poisson_md should only be used for 2 or 3 spatial dimensions");
+  int const nelem = fm::ipow2(max_level);
+
+  // set up scaling for each direction
+  for (int const d : iindexof(num_dims))
+    derivative_scale[d] = static_cast<P>(nelem) / (xright[d] - xleft[d]);
 
   // set up moms_electric
   for (int const d : iindexof(num_dims))
-    moms_electric[d] = mlist.get_check_id(moment::electric(dimension_id(d)));
+    moms_electric[d] = mlist.get_check_id(moment::electric(dimension_id(d), num_pos));
 
   // set up the terms for the laplician: laplacian(f) = div(grad(f))
-  term_1d<P> div = term_div<P>(-1, flux_type::upwind, boundary_type::periodic);
-  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::periodic);
-  term_1d<P> laplacian({div, grad});
-  laplacian.set_penalty(10);
+  term_1d<P> div = term_div<P>(-1, flux_type::upwind, boundary_type::none);
+  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
 
   // the multi-dimensional Laplacian, initially set to identity in all dimensions
   std::vector<term_1d<P>> ops(num_dims, term_identity{});
   laplacian_terms.resize(num_dims);
   for (int const d : iindexof(num_dims))
   {
+    term_1d<P> laplacian({div, grad});
+    laplacian.set_penalty(derivative_scale[d]);
     ops[d] = laplacian; // using operator in the d-direction
     term_md<P> laplacian_md(ops);
-    laplacian_terms[d] = term_entry<P>(std::move(laplacian_md), mlist);
+    laplacian_terms[d] = term_entry<P>(std::move(laplacian_md));
     ops[d] = term_identity{}; // reset back to identity
   }
 
@@ -47,9 +52,8 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   }
 
   // set up the derivative matrix
-  int const num_cells = fm::ipow2(max_level);
   vector2d<double> p2d = legendre::poly2diff(hier.degree());
-  block_diag_matrix<P> diag(pdof * pdof, num_cells);
+  block_diag_matrix<P> diag(pdof * pdof, nelem);
   if constexpr (is_double<P>)
     fill_pattern(p2d[0], diag);
   else {
@@ -58,10 +62,6 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
     fill_pattern(fp2d.data(), diag);
   }
   derivative_mat = hier.diag2hierarchical(diag, max_level, conn);
-
-  // set up scaling for each direction
-  for (int const d : iindexof(num_dims))
-    dim_scalings[d] = static_cast<P>(num_cells) / (xright[d] - xleft[d]);
 
   #ifdef ASGARD_USE_GPU
   #ifdef ASGARD_GPU_MEMGREEDY
@@ -78,16 +78,16 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   coeff_pntrs[max_level] = dl_derivative_mat[max_level].data();
   d_derivative_mat = coeff_pntrs;
   #endif
-  // d_dim_scalings.copy(dim_scalings); Figure this out later
+  d_density0.resize(1);
   #endif
 }
 
 template<typename P>
-void poisson_md<P>::solve(std::vector<P> const &density, momentset<P> &moms,
+void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
                           sparse_grid const &position_grid, connection_patterns const &conn,
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
-  tools::time_event psolve_("poisson_solver_multi_d");
+  tools::time_event psolve_("poisson_md");
   
   rassert(operator bool(), "poisson_md must be initialized before solve");
   size_t const n = density.size();
@@ -102,35 +102,30 @@ void poisson_md<P>::solve(std::vector<P> const &density, momentset<P> &moms,
     moms[mid].resize(n);
     kronmult::permutes perm = std::vector<int>{d, };
     block_cpu(pdof, position_grid, conn, perm, derivative_mat,
-              P{1.0}, potential.data(), P{0.0}, moms[mid].data(), work);
-    smmat::scal(n, dim_scalings[d], moms[mid].data());
+              derivative_scale[d], potential.data(), P{0.0}, moms[mid].data(), work);
   }
 }
 
 template<typename P>
-void poisson_md<P>::solve_potential_(std::vector<P> const &density, sparse_grid const &position_grid,
+void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const &position_grid,
                                      connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
 {
   size_t const n = density.size();
 
-  // 1. Resize efield and set an initial guess of zeros
+  // Resize efield and set an initial guess of zeros
   potential.resize(n);
   std::fill(potential.begin(), potential.end(), P{0.0});
 
-  // 2. Build the Right Hand Side (RHS)
-  rhs.resize(n);
-  for(int i : iindexof(n)) {
-    rhs[i] = density[i];
-  }
+  // Save the average density to restore it later
+  P density0 = density[0];
 
-  // 3. Prevent Singular Matrix Crashes (Periodic Physics Trick)
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
   if (bc == poisson_bc::periodic) {
-    rhs[0] = P{0};
+    density[0] = P{0};
   }
 
-  // 5. Define the Matrix-Vector Product (The LHS)
+  // Define the Matrix-Vector Product (The LHS)
   auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
   {
     tools::time_event performance_("poisson_md kronmult");
@@ -143,22 +138,21 @@ void poisson_md<P>::solve_potential_(std::vector<P> const &density, sparse_grid 
     }
   };
 
-  // 7. Execute the Solve
-  int num_iters = iter_solve(apply_lhs, rhs, potential);
+  // Execute the Solve
+  std::ignore = iter_solve(apply_lhs, density, potential);
 
-  // 8. Anchor the resulting potential's mean to 0
-  if (bc == poisson_bc::periodic) {
-    potential[0] = P{0};
-  }
+  // Restore the density
+  if (bc == poisson_bc::periodic)
+    density[0] = density0;
 }
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void poisson_md<P>::solve(gpu::vector<P> const &density, sparse_grid const &position_grid,
+void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_grid,
                           connection_patterns const &conn, interpolate_func<P> interpolate,
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
-  tools::time_event psolve_("poisson_solver_multi_d GPU");
+  tools::time_event psolve_("poisson_md GPU");
   
   rassert(operator bool(), "poisson_md must be initialized before solve");
   size_t const n = position_grid.num_dof();
@@ -175,8 +169,7 @@ void poisson_md<P>::solve(gpu::vector<P> const &density, sparse_grid const &posi
     if (mid == moment_id::unset()) continue;
     kronmult::permutes perm = std::vector<int>{d, };
     block_gpu(gpu::device{0}, pdof, position_grid, conn, perm, d_derivative_mat,
-              P{1.0}, d_potential.data(), P{0.0}, d_efield.data(), work, derivative_mat);
-    gpu::set_scal(n, dim_scalings[d], d_efield.data());
+              derivative_scale[d], d_potential.data(), P{0.0}, d_efield.data(), work, derivative_mat);
 
     // interpolate electric field moment
     interpolate(d_efield, mid);
@@ -185,25 +178,23 @@ void poisson_md<P>::solve(gpu::vector<P> const &density, sparse_grid const &posi
 }
 
 template<typename P>
-void poisson_md<P>::solve_potential_(gpu::vector<P> const &density, sparse_grid const &position_grid,
+void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const &position_grid,
                                      connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
 {
   size_t const n = position_grid.num_dof();
 
-  // 1. Resize efield and set an initial guess of zeros
+  // Resize efield and set an initial guess of zeros
   d_potential.resize(n);
   gpu::fill_zeros(n, d_potential.data());
 
-  // 2. Build the Right Hand Side (RHS)
-  d_rhs = density;
-
-  // 3. Prevent Singular Matrix Crashes (Periodic Physics Trick)
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
-  if (bc == poisson_bc::periodic)
-    gpu::fill_zeros(1, d_rhs.data());
+  if (bc == poisson_bc::periodic) {
+    gpu::memcopy_dev2dev(1, density.data(), d_density0.data());
+    gpu::fill_zeros(1, density.data());
+  }
   
-  // 5. Define the Matrix-Vector Product (The LHS)
+  // Define the Matrix-Vector Product (The LHS)
   auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
   {
     tools::time_event performance_("poisson_md kronmult");
@@ -217,13 +208,13 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> const &density, sparse_grid 
     }
   };
 
-  // 7. Execute the Solve
+  // Execute the Solve
   compute->set_device(gpu::device{0});
-  int num_iters = iter_solve_gpu(apply_lhs, d_rhs, d_potential);
+  std::ignore = iter_solve_gpu(apply_lhs, density, d_potential);
 
-  // Anchor the resulting potential's mean to 0
+  // Restore the density
   if (bc == poisson_bc::periodic)
-    gpu::fill_zeros(1, d_potential.data());
+    gpu::memcopy_dev2dev(1, d_density0.data(), density.data());
 }
 #endif
 
@@ -231,7 +222,7 @@ template<typename P>
 void poisson_1d<P>::solve(std::vector<P> const &density, P dleft, P dright,
                        poisson_bc const bc, std::vector<P> &efield)
 {
-  tools::time_event psolve_("poisson_solver_1d");
+  tools::time_event psolve_("poisson_1d");
 
   if (current_level == 0)
   {

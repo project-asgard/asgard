@@ -583,7 +583,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
       case term_dependence::electric_field_only:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
-        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())), this->register_electric_moment(dimension_id(d))};
+        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())), this->register_electric_moment(dimension_id(d), domain_.num_pos())};
         break;
       case term_dependence::moment_divided_by_density:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,

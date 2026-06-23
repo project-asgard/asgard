@@ -37,8 +37,8 @@ struct moment
   }
   //! produces a moment for the electric field in the dim dimension
   //! i.e. dim = dimension_id(0) corresponds to E_x
-  static moment electric(dimension_id dim) {
-    moment m;
+  static moment electric(dimension_id dim, int num_pos_dims) {
+    moment m = moment::zero(num_pos_dims);
     m.pows[dim()] = electric_flag;
     return m;
   }
@@ -52,8 +52,6 @@ struct moment
   moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
   //! number of valid powers
   int num_dims() const {
-    if (is_electric())
-      return max_mom_dims;
     for (int i = 0; i < max_mom_dims; i++)
       if (pows[i] == unset_flag) return i;
     return max_mom_dims;
@@ -76,10 +74,10 @@ struct moment
   }
   //! get the direction of the electric field corresponding to the moment
   int get_electric_direction() const {
-    rassert(is_electric(), "The moment must be an electric field moment to get its direction");
-    for (size_t i = 0; i < pows.size(); i++)
+    for (int const i : iindexof(pows))
       if (pows[i] == electric_flag) return i;
-    return -1; // unreachable
+    rassert(false, "The moment must be an electric field moment to get its direction");
+    return -1; // unreachable due to rassert
   }
   //! convert the moment to a string containing the powers (consistent with python)
   std::string to_string() const {
@@ -106,7 +104,7 @@ struct moment
 
   private:
     static int const unset_flag = -1;
-    static int const electric_flag = -0xef; // ef for electric field
+    static int const electric_flag = -0xef; // ef for electric field, this has a decimal value of -239
 };
 
 /*!
@@ -168,7 +166,7 @@ public:
   }
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
   moment_id get_add_id(moment const &mom) {
-    for (int i = 0; i < static_cast<int>(moms_.size()); i++)
+    for (int const i : iindexof(moms_))
       if (moms_[i] == mom)
         return moment_id{i};
     moms_.push_back(mom);
@@ -176,14 +174,14 @@ public:
   }
   //! returns the ID of the moment if it exists, otherwise it returns an unset moment ID
   moment_id get_check_id(moment const &mom) const {
-    for (int i = 0; i < static_cast<int>(moms_.size()); i++)
+    for (int const i : iindexof(moms_))
       if (moms_[i] == mom)
         return moment_id{i};
     return moment_id::unset();
   }
   //! returns the ID of an already existing moment
   moment_id get_id(moment const &mom) const {
-    for (int i = 0; i < static_cast<int>(moms_.size()); i++)
+    for (int const i : iindexof(moms_))
       if (moms_[i] == mom)
         return moment_id{i};
     throw std::runtime_error("cannot find the specified moment");

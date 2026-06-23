@@ -245,7 +245,7 @@ void test_energy(std::string const &opt_str) {
   moment_id const m0 = pde.register_moment({0});
   moment_id const m1 = pde.register_moment({1}); // needed for verification, but not running
   moment_id const m2 = pde.register_moment({2});
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 1);
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
@@ -265,7 +265,7 @@ void test_energy(std::string const &opt_str) {
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.domain().length(0) / num_cell;
 
-    auto efield = disc.get_moment(melectric_x);
+    auto efield = disc.get_moment_level(melectric_x);
 
     P Ep = 0;
     for (auto e : efield) Ep += e * e;

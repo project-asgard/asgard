@@ -2,25 +2,6 @@
 
 #include "asgard_term_build.hpp"
 
-#ifdef ASGARD_USE_GPU
-namespace asgard
-{
-
-/*!
- * \internal
- * \brief Signature for interpolating a field onto the full grid on the gpu
- *
- * Used to interpolate the electric field at the end of the poisson solve
- *
- * \endinternal
- */
-template<typename P>
-using interpolate_func =
-  std::function<void(gpu::vector<P> const &field, moment_id mid)>;
-
-} // namespace asgard
-#endif // ASGARD_USE_GPU
-
 namespace asgard::solvers
 {
 
@@ -38,8 +19,22 @@ using operation_apply_lhs =
 
 } // namespace asgard::solvers
 
-namespace asgard::poisson
+namespace asgard
 {
+
+#ifdef ASGARD_USE_GPU
+/*!
+ * \internal
+ * \brief Signature for interpolating a field onto the full grid on the gpu
+ *
+ * Used to interpolate the electric field at the end of the poisson solve
+ *
+ * \endinternal
+ */
+template<typename P>
+using interpolate_func =
+  std::function<void(gpu::vector<P> const &field, moment_id mid)>;
+#endif
 
 /*!
  * \internal
@@ -54,9 +49,6 @@ enum class poisson_bc
   //! Periodic, implemented with zero-Dirichlet and removed average
   periodic
 };
-
-//! An empty Poisson class for problems which do not require a Poisson solve
-class poisson_none {};
 
 /*!
  * \internal
@@ -119,11 +111,11 @@ public:
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
-  void solve(std::vector<P> const &density, momentset<P> &moms,
+  void solve(std::vector<P> &density, momentset<P> &moms,
              sparse_grid const &position_grid, connection_patterns const &conn, 
              kronmult::workspace<P> &work, poisson_bc const bc);
   //! poisson solve using periodic boundary conditions
-  void solve_periodic(std::vector<P> const &density, momentset<P> &moms,
+  void solve_periodic(std::vector<P> &density, momentset<P> &moms,
                       sparse_grid const &position_grid, connection_patterns const &conn,
                       kronmult::workspace<P> &work)
   {
@@ -131,7 +123,7 @@ public:
   }
 
   //! indicates whether the solver has been initialized
-  operator bool() const { return (num_dims >= 0); }
+  operator bool() const { return (num_dims > 0); }
 
   //! returns the id for the zero moment
   moment_id const &moment0() const { return mom0; }
@@ -149,11 +141,11 @@ public:
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
-  void solve(gpu::vector<P> const &density, sparse_grid const &position_grid,
+  void solve(gpu::vector<P> &density, sparse_grid const &position_grid,
              connection_patterns const &conn, interpolate_func<P> interpolate,
              kronmult::workspace<P> &work, poisson_bc const bc);
   //! poisson solve using periodic boundary conditions
-  void solve_periodic(gpu::vector<P> const &density, sparse_grid const &position_grid,
+  void solve_periodic(gpu::vector<P> &density, sparse_grid const &position_grid,
                       connection_patterns const &conn, interpolate_func<P> interpolate,
                       kronmult::workspace<P> &work)
   {
@@ -161,24 +153,27 @@ public:
   }
   #endif
 
+  #ifdef ASGARD_USE_GPU
+  gpu::vector<P> d_density; // needed because the raw density is not stored when moments are computed on GPU
+  #endif
+
 private:
   // Solves for just the electric potential, used as a substep inside the solver
-  void solve_potential_(std::vector<P> const &density, sparse_grid const &grid,
+  void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
   #ifdef ASGARD_USE_GPU
   // Solves for just the electric potential, used as a substep inside the solver
-  void solve_potential_(gpu::vector<P> const &density, sparse_grid const &grid,
+  void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
   #endif
 
   int num_dims = -1;
   int pdof = -1; 
-  moment_id mom0 = moment_id{-1};
+  moment_id mom0 = moment_id::unset();
   std::array<moment_id, max_pos_dims> moms_electric;
   std::vector<term_entry<P>> laplacian_terms;
   block_sparse_matrix<P> derivative_mat;
-  std::array<P, max_pos_dims> dim_scalings;
-  std::vector<P> rhs;
+  std::array<P, max_pos_dims> derivative_scale;
   std::vector<P> potential;
   iter_solve_func<P> iter_solve;
   #ifdef ASGARD_USE_GPU
@@ -192,8 +187,7 @@ private:
   //! pointers to gpu matrices
   gpu::vector<P*> d_derivative_mat;
   #endif
-  // std::array<P, max_pos_dims> d_dim_scalings; TODO
-  gpu::vector<P> d_rhs;
+  gpu::vector<P> d_density0; // size 1 gpu vector for storing the average density
   gpu::vector<P> d_potential;
   gpu::vector<P> d_efield;
   #endif
@@ -279,4 +273,4 @@ private:
   std::vector<P> diag, subdiag, rhs;
 };
 
-} // asgard::poisson
+} // namespace asgard

@@ -146,8 +146,8 @@ void refinement_manager<P>::refine_(gpu::vector<P> const &state, strategy mode,
     if (iweights_.is_moment()) {
       iplan.use_moments(true);
 
-      terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.kwork,
-                                 state, not iweights_.is_gpu());
+      terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.conn, terms.hier,
+                                 terms.kwork, state, not iweights_.is_gpu());
     } else {
       iplan.use_moments(false);
     }

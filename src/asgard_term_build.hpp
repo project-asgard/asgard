@@ -35,7 +35,7 @@ struct term_entry {
   //! make default entry, needs to be re-initialized
   term_entry() = default;
   //! initialize the entry with the given term
-  term_entry(term_md<P> tin, moments_list const &mlist);
+  term_entry(term_md<P> tin);
   //! resource (mpi-rank/gpu) that will own this term
   resource rec;
   //! the term, moved from the pde definition
@@ -57,8 +57,6 @@ struct term_entry {
   std::array<block_diag_matrix<P>, max_num_dimensions> mass;
   //! kronmult operation permutations
   kronmult::permutes perm;
-  //! dependencies on the Poisson solver
-  bool has_poisson = false;
   //! indicates if this a single term or a chain, negative means member of a chain
   int num_chain = 1;
   //! left/right boundary conditions source index, if positive
