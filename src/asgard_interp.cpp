@@ -42,7 +42,7 @@ interpolation_manager<P>::interpolation_manager(
   // Hybrid version of above
   if (domain.num_pos() > 0)
   {
-    P hybrid_wav_scale = 1;
+    hybrid_wav_scale = 1;
     for (int d : indexof(domain.num_pos()))
     {
       xmin[d]   = domain.xleft(d);
@@ -50,6 +50,7 @@ interpolation_manager<P>::interpolation_manager(
       hybrid_wav_scale *= xscale[d];
     }
     hybrid_iwav_scale = std::sqrt(hybrid_wav_scale);
+    hybrid_wav_scale  = P{1} / hybrid_iwav_scale;
   }
 
   // points represents the point locations in the canonical element (-1, 1)

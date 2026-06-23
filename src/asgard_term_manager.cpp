@@ -85,6 +85,10 @@ void term_manager<P>::apply_tmpl(
     interp.ifield.resize(grid.num_dof());
     interp.wav2nodal(grid, px, interp.ifield.data(), kwork);
   }
+  if (not interp.hybrid_ifield.empty()) {
+    interp.hybrid_ifield.resize(grid.num_dof());
+    interp.wav2nodal_hybrid(grid, px, interp.hybrid_ifield.data(), kwork);
+  }
 
   auto const group = terms_group_range(gid);
   int icurrent = group.ibegin();
@@ -327,6 +331,11 @@ void term_manager<P>::apply_tmpl_gpu(
     } else if (not interp.ifield.empty()) {
       interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
       interp.gpu_it1[0].copy_to_host(interp.ifield);
+    }
+    if (not interp.hybrid_ifield.empty()) {
+      interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
+      interp.wav2nodal_hybrid(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
     }
 
     bool term_found = false; // does this GPU have at least 1 term
@@ -578,4 +587,3 @@ template void term_manager<float>::apply_tmpl_gpu<float const[], float[], comput
 #endif
 
 }
-
