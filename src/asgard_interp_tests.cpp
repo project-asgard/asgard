@@ -297,7 +297,6 @@ pde_scheme<P> make_hybrid_interp_relaxation(prog_opts options,
     pde += term_interp<P>(gx_u, true);
   else
     pde += term_interp<P>(gx_u);
-  pde.set_adapt_weight(gx_u, hybrid_interp);
   pde.set_initial(hybrid_non_equilibrium<P>);
 
   return pde;
