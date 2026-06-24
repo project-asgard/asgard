@@ -142,30 +142,8 @@ public:
     block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
   }
 
-  //! compute nodal values in position dimensions, retaining velocity coefficients
-  void wav2nodal_hybrid(sparse_grid const &grid, P const f[], P vals[],
-                        kronmult::workspace<P> &work) const
-  {
-    #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
-    int64_t const flops = [&, this]()-> int64_t {
-        if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
-          flop_info[id].grid_gen = grid.generation();
-        }
-        return flop_info[id].flops;
-      }();
-    tools::time_event performance_("hybrid wavelet-to-nodal", flops);
-    #else
-    // tools::time_event performance_("hybrid wavelet-to-nodal");
-    #endif
-    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, P{hybrid_wav_scale},
-              f, P{0}, vals, work);
-  }
-
   //! compute nodal values for the moment position coefficients
-  void pos2nodal(sparse_grid const &grid, P const f[], P scal, P vals[],
-                 kronmult::workspace<P> &work) const
+  void pos2nodal(sparse_grid const &grid, P const f[], P vals[], kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = 1;
@@ -180,16 +158,16 @@ public:
     #else
     // tools::time_event performance_("position-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
+    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, pos_wav_scale, f, P{0}, vals, work);
   }
   //! compute values for the moment position coefficients, vector overload
-  void pos2nodal(sparse_grid const &grid, P const f[], P scal, std::vector<P> &vals,
+  void pos2nodal(sparse_grid const &grid, P const f[], std::vector<P> &vals,
                  kronmult::workspace<P> &work) const
   {
     size_t const num_entries = static_cast<size_t>(grid.num_indexes()
                                                    * fm::ipow(pdof, grid.num_dims()));
     vals.resize(num_entries);
-    pos2nodal(grid, f, scal, vals.data(), work);
+    pos2nodal(grid, f, vals.data(), work);
   }
 
   //! converts interpolated nodal values to hierarchical coefficients
@@ -252,7 +230,7 @@ public:
                         P{1}, f, P{0}, t1.data(), work);
 
     kronmult::block_cpu(pdof, grid, conn, perm_up_pos, hier2wav_,
-                        alpha * P{hybrid_iwav_scale}, t1.data(), beta, vals, work);
+                        alpha * P{pos_iwav_scale}, t1.data(), beta, vals, work);
   }
 
   /*!
@@ -291,7 +269,7 @@ public:
           return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
         } else {
           if (plan.uses_hybrid())
-            wav2nodal_hybrid(grid, state, it1.data(), work);
+            pos2nodal(grid, state, it1.data(), work);
           else
             wav2nodal(grid, state, it1.data(), work);
           return it1;
@@ -428,7 +406,7 @@ public:
                                             block_tri_matrix<P> &work) const;
   //! returns the wavelet scale factor for hier2wav
   P wav_scale_h2w() const { return iwav_scale; }
-  P hybrid_wav_scale_h2w() const { return hybrid_iwav_scale; }
+  P hybrid_wav_scale_h2w() const { return pos_iwav_scale; }
 
 
   #ifdef ASGARD_USE_GPU
@@ -721,15 +699,27 @@ public:
   //! temporary workspace vector
   mutable std::vector<P> it2;
   //! provides access to the nodal2hier matrix
+  block_sparse_matrix<P> const &matrix_wav2nodal() const { return wav2nodal_; }
+  //! provides access to the nodal2hier matrix
   block_sparse_matrix<P> const &matrix_nodal2hier() const { return nodal2hier_; }
   //! provides access to the hier2wav matrix
   block_sparse_matrix<P> const &matrix_hier2wav() const { return hier2wav_; }
+
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute() const { return perm_pos; }
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute_low() const { return perm_low_pos; }
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute_up() const { return perm_up_pos; }
+
+  //! reduced connection pattern
+  connection_patterns const &reduced_connection() const { return conn_reduced; }
 
 private:
   int pdof = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
-  P hybrid_wav_scale = 0, hybrid_iwav_scale = 0;
+  P pos_wav_scale = 0, pos_iwav_scale = 0;
 
   std::vector<double> points;
   std::vector<int> horder;

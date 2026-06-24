@@ -50,12 +50,6 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   pos_grid.block_size_ = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
-  wav_scale  = 1;
-  for (int d : iindexof(pos_grid.num_dims())) {
-    wav_scale *= (domain.xright(d) - domain.xleft(d));
-  }
-  wav_scale = P{1} / std::sqrt(wav_scale);
-
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -583,7 +577,7 @@ void moment_manager<P>::make_nodal(
     dsort_generation = pos_grid.generation();
   }
 
-  interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
 

@@ -87,7 +87,7 @@ void term_manager<P>::apply_tmpl(
   }
   if (not interp.hybrid_ifield.empty()) {
     interp.hybrid_ifield.resize(grid.num_dof());
-    interp.wav2nodal_hybrid(grid, px, interp.hybrid_ifield.data(), kwork);
+    interp.pos2nodal(grid, px, interp.hybrid_ifield.data(), kwork);
   }
 
   auto const group = terms_group_range(gid);

@@ -17,20 +17,6 @@ interpolation_manager<P>::interpolation_manager(
   gpu_nodes_grid_gen_.fill(-1);
   #endif
 
-  if (domain.num_pos() > 0) {
-    std::vector<int> pos_dirs(domain.num_pos());
-    for (int d : indexof(domain.num_pos()))
-      pos_dirs[d] = d;
-
-    perm_pos = kronmult::permutes(pos_dirs);
-
-    perm_low_pos = kronmult::permutes(domain.num_pos(), conn_fill::lower_udiag);
-    perm_low_pos.remap_directions(pos_dirs);
-
-    perm_up_pos = kronmult::permutes(domain.num_pos(), conn_fill::upper);
-    perm_up_pos.remap_directions(pos_dirs);
-  }
-
   wav_scale  = 1;
   for (int d : iindexof(domain.num_dims())) {
     xmin[d]   = domain.xleft(d);
@@ -39,18 +25,21 @@ interpolation_manager<P>::interpolation_manager(
   }
   iwav_scale = std::sqrt(wav_scale);
   wav_scale  = P{1} / iwav_scale;
-  // Hybrid version of above
+
+  // if the grid has position dimensions, then there may be moment interpolation
+  // prepare the scale and the permutations
   if (domain.num_pos() > 0)
   {
-    hybrid_wav_scale = 1;
-    for (int d : indexof(domain.num_pos()))
-    {
-      xmin[d]   = domain.xleft(d);
-      xscale[d] = (domain.xright(d) - domain.xleft(d));
-      hybrid_wav_scale *= xscale[d];
-    }
-    hybrid_iwav_scale = std::sqrt(hybrid_wav_scale);
-    hybrid_wav_scale  = P{1} / hybrid_iwav_scale;
+    pos_wav_scale = 1;
+    for (int d : iindexof(domain.num_pos()))
+      pos_wav_scale *= xscale[d];
+
+    pos_iwav_scale = std::sqrt(pos_wav_scale);
+    pos_wav_scale  = P{1} / pos_iwav_scale;
+
+    perm_pos     = kronmult::permutes(domain.num_pos());
+    perm_low_pos = kronmult::permutes(domain.num_pos(), conn_fill::lower_udiag);
+    perm_up_pos  = kronmult::permutes(domain.num_pos(), conn_fill::upper);
   }
 
   // points represents the point locations in the canonical element (-1, 1)
@@ -316,7 +305,7 @@ interpolation_manager<P>::interpolation_manager(
   // wav2nodal_.to_full(conns).print();
   // nodal2hier_.to_full(conns).print();
   // hier2wav_.to_full(conns).print();
-  
+
 #ifdef ASGARD_USE_GPU
   int const num_gpus = compute->num_gpus();
 #ifdef ASGARD_GPU_MEMGREEDY
