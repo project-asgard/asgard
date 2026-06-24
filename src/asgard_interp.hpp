@@ -454,12 +454,12 @@ public:
     #endif
     grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id],
-              P{hybrid_wav_scale}, f, P{0}, vals, work, wav2nodal_);
+              P{pos_wav_scale}, f, P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
 
   //! compute nodal values for the moment
-  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P scal, P vals[],
+  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -476,7 +476,7 @@ public:
     // tools::time_event performance_("position-to-nodal-gpu");
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
+    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f,
               P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
@@ -546,7 +546,7 @@ public:
     block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
     block_gpu(dev, pdof, grid, conn, perm_up_pos, gpu_hier2wav_[dev.id],
-              alpha * P{hybrid_iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
+              alpha * P{pos_iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
 
   /*!
