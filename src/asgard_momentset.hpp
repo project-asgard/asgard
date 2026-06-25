@@ -66,6 +66,14 @@ struct moment
   bool operator != (moment const &other) const {
     return not (*this == other);
   }
+  //! check whether a moment has all zero powers
+  bool is_zero() const {
+    for (int const pow : pows) {
+      if (pow == unset_flag) return true;
+      if (pow != 0) return false;
+    }
+    return true;
+  }
   //! check whether a moment is an electric field moment
   bool is_electric() const {
     for (int const pow : pows)

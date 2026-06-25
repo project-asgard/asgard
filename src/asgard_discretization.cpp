@@ -219,19 +219,18 @@ void discretization_manager<precision>::start_moments() {
     auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
       this->terms.rebuild_term1d(tentry, dim, level);
     };
+    #ifdef ASGARD_USE_GPU
+    auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
+                                  gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
+      return this->poisson_iter.solve(apply_lhs, rhs, x);
+    };
+    #else
     auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
                                   std::vector<precision> const &rhs, std::vector<precision> &x) -> int {
       return this->poisson_iter.solve(apply_lhs, rhs, x);
     };
-    #ifdef ASGARD_USE_GPU
-    auto iter_solve_func_gpu = [this](solvers::operation_apply_lhs<precision> apply_lhs,
-                                  gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
-      return this->poisson_iter.solve(apply_lhs, rhs, x);
-    };
-    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func, iter_solve_func_gpu);
-    #else
-    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
     #endif
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
   }
   compute_moments_(group_id::all(), state);
 }
@@ -408,7 +407,7 @@ std::vector<precision> discretization_manager<precision>::get_moment(moment_id i
       else
         throw std::runtime_error("an electric moment was requested but no poisson solver is set");
     }, get_poisson());
-    terms.moms.solve_poisson(terms.conn, terms.hier, terms.kwork);
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
     return terms.moms.get_cached_raw(id);
   }
   std::vector<precision> result;
@@ -432,7 +431,7 @@ std::vector<precision> discretization_manager<precision>::get_moment_level(momen
       else
         throw std::runtime_error("an electric moment was requested but no poisson solver is set");
     }, get_poisson());
-    terms.moms.solve_poisson(terms.conn, terms.hier, terms.kwork);
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
     return terms.moms.get_cached_level(id, terms.hier);
   }
   std::vector<precision> tmp;

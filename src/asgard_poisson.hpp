@@ -62,6 +62,20 @@ template<typename P>
 using build_term_func =
   std::function<void(term_entry<P> &tentry, int const dim, int const level)>;
 
+#ifdef ASGARD_USE_GPU
+/*!
+ * \internal
+ * \brief Signature for the iterative solve function
+ *
+ * Uses an iterative solver to solve the Poisson equation
+ *
+ * \endinternal
+ */
+template<typename P>
+using iter_solve_func =
+  std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
+                     gpu::vector<P> const &rhs, gpu::vector<P> &x)>;
+#else
 /*!
  * \internal
  * \brief Signature for the iterative solve function
@@ -74,20 +88,6 @@ template<typename P>
 using iter_solve_func =
   std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x)>;
-
-#ifdef ASGARD_USE_GPU
-/*!
- * \internal
- * \brief Signature for the iterative solve function
- *
- * Uses an iterative solver to solve the Poisson equation
- *
- * \endinternal
- */
-template<typename P>
-using iter_solve_func_gpu =
-  std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
-                     gpu::vector<P> const &rhs, gpu::vector<P> &x)>;
 #endif
 
 /*!
@@ -108,6 +108,7 @@ public:
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
              build_term_func<P> build, iter_solve_func<P> iter_solve_func, moment_id const m0);
+  #ifndef ASGARD_USE_GPU
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
@@ -121,23 +122,16 @@ public:
   {
     solve(density, moms, position_grid, conn, work, poisson_bc::periodic);
   }
+  #endif
 
   //! indicates whether the solver has been initialized
   operator bool() const { return (num_dims > 0); }
-
   //! returns the id for the zero moment
   moment_id const &moment0() const { return mom0; }
+  //! returns the ids for the electric field moments
+  std::array<moment_id, max_pos_dims> const &moments_electric() const { return moms_electric; }
 
   #ifdef ASGARD_USE_GPU
-  //! initialize Poisson solver over the multi-dimensional domain
-  poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
-             std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
-             hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-             build_term_func<P> build, iter_solve_func<P> iter_solve_func, iter_solve_func_gpu<P> iter_solve_func_gpu, 
-             moment_id const m0) : poisson_md(num_pos, max_level, xleft, xright, conn, hier, mlist, build, iter_solve_func, m0)
-  {
-    iter_solve_gpu = iter_solve_func_gpu;
-  }
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
@@ -151,10 +145,6 @@ public:
   {
     solve(density, position_grid, conn, interpolate, work, poisson_bc::periodic);
   }
-  #endif
-
-  #ifdef ASGARD_USE_GPU
-  gpu::vector<P> d_density; // needed because the raw density is not stored when moments are computed on GPU
   #endif
 
 private:
@@ -177,19 +167,18 @@ private:
   std::vector<P> potential;
   iter_solve_func<P> iter_solve;
   #ifdef ASGARD_USE_GPU
-  iter_solve_func_gpu<P> iter_solve_gpu;
   #ifdef ASGARD_GPU_MEMGREEDY
   //! gpu derivative matrix
-  gpu::vector<P> d_derivative_mat;
+  gpu::vector<P> gpu_derivative_mat;
   #else
    //! gpu derivative matrices for different levels
   std::vector<gpu::vector<P>> dl_derivative_mat;
   //! pointers to gpu matrices
-  gpu::vector<P*> d_derivative_mat;
+  gpu::vector<P*> gpu_derivative_mat;
   #endif
-  gpu::vector<P> d_density0; // size 1 gpu vector for storing the average density
-  gpu::vector<P> d_potential;
-  gpu::vector<P> d_efield;
+  gpu::vector<P> gpu_density0; // size 1 gpu vector for storing the average density
+  gpu::vector<P> gpu_potential;
+  gpu::vector<P> gpu_efield;
   #endif
 };
 

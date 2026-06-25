@@ -116,8 +116,8 @@ public:
   }
 
   //! solves the poisson equation and caches them as electric moments
-  void solve_poisson(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     kronmult::workspace<P> &work) const;
+  void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
@@ -162,16 +162,6 @@ public:
                        interpolation_manager<P> const &interp, connection_patterns const &conn,
                        hierarchy_manipulator<P> const &hier, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
-  
-  //! sets up the poisson solver if one is needed
-  void set_poisson(int const max_level, sparse_grid const &grid,
-                   std::array<P, max_num_dimensions> const &xleft,
-                   std::array<P, max_num_dimensions> const &xright,
-                   connection_patterns const &conn,
-                   hierarchy_manipulator<P> const &hier,
-                   build_term_func<P> build_func,
-                   iter_solve_func<P> iter_func,
-                   iter_solve_func_gpu<P> iter_func_gpu);
                    
   void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
