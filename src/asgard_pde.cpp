@@ -394,8 +394,6 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     *this += asgard::term_md<P>(nuI);
   }
 
-  int const num_pos = domain_.num_pos();
-
   std::array<std::vector<double>,4>basis_mats_ = asgard::legendre::generate_multi_wavelets(dp1-1); // H0, H1, G0, G1
   // Convert to type P
   std::array<std::vector<P>,4>basis_mats; 
@@ -407,7 +405,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 
 
   auto wavelet_maxwell = [&](
-      int64_t const v_lev, int64_t const v_pos, int64_t const dp1,
+      int64_t const v_lev, int64_t const v_pos, int64_t const poly_dp1,
       P const a, P const b,
       P const u, P const th,
       std::vector<P> &mulin,
@@ -418,7 +416,6 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     P dv = (v_lev == 0) ? b-a : (b-a)/(1 << (v_lev-1)); // (b-a)/2^(lev-1)
     // Endpoints of wavelet element
     P loca = a + v_pos*dv;
-    P locb = a + (v_pos+1)*dv;
 
     if (v_lev == 0)
     {
@@ -446,9 +443,9 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 
       // Populate to vals
       mulout[0] = L0;
-      if (dp1 > 1) mulout[1] = L1;
-      if (dp1 > 2) mulout[2] = L2;
-      if (dp1 > 3) mulout[3] = L3;
+      if (poly_dp1 > 1) mulout[1] = L1;
+      if (poly_dp1 > 2) mulout[2] = L2;
+      if (poly_dp1 > 3) mulout[3] = L3;
 
     }
     else 
@@ -495,18 +492,18 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
                                   );
 
         mulin[0] = L0;
-        if (dp1 > 1) mulin[1] = L1;
-        if (dp1 > 2) mulin[2] = L2;
-        if (dp1 > 3) mulin[3] = L3;
+        if (poly_dp1 > 1) mulin[1] = L1;
+        if (poly_dp1 > 2) mulin[2] = L2;
+        if (poly_dp1 > 3) mulin[3] = L3;
 
         // Multiply by G0/G1
         if (l == 0)
         {
-          asgard::smmat::gemv(dp1,dp1,basis_mats[2].data(),mulin.data(),mulout.data());
+          asgard::smmat::gemv(poly_dp1,poly_dp1,basis_mats[2].data(),mulin.data(),mulout.data());
         }
         else
         {
-          asgard::smmat::gemv1(dp1,dp1,basis_mats[3].data(),mulin.data(),mulout.data());
+          asgard::smmat::gemv1(poly_dp1,poly_dp1,basis_mats[3].data(),mulin.data(),mulout.data());
         }
       }
 
@@ -531,7 +528,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
                     asgard::momentset<P> const &moments, 
                     std::vector<int> const &indexes,
                     std::vector<P> &vals)
@@ -547,7 +544,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin1(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
@@ -581,7 +578,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     };
 
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &f,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
       fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
@@ -615,7 +612,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
                     asgard::momentset<P> const &moments, 
                     std::vector<int> const &indexes,
                     std::vector<P> &vals)
@@ -635,7 +632,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin2(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
@@ -677,7 +674,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     };
 
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &f,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
       fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
@@ -713,7 +710,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &nodes,
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
                     asgard::momentset<P> const &moments, 
                     std::vector<int> const &indexes,
                     std::vector<P> &vals)
@@ -737,7 +734,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin3(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
@@ -787,7 +784,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     };
 
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &f,
+                    asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
       fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
