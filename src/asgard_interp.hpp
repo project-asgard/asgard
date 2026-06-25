@@ -215,16 +215,16 @@ public:
   }
 
   //! converts interpolated nodal values to hierarchical coefficients (hybrid: vel identity)
-  void nodal2hier_hybrid(sparse_grid const &grid, connection_patterns const &conn,
-                        P const f[], P hier[], kronmult::workspace<P> &work) const
+  void pos2hier(sparse_grid const &grid, connection_patterns const &conn,
+                P const f[], P hier[], kronmult::workspace<P> &work) const
   {
     kronmult::block_cpu(pdof, grid, conn, perm_low_pos, nodal2hier_,
                         P{1}, f, P{0}, hier, work);
   }
 
-  void nodal2wav_hybrid(sparse_grid const &grid, connection_patterns const &conn,
-                        P alpha, P const f[], P beta, P vals[],
-                        kronmult::workspace<P> &work, std::vector<P> &t1) const
+  void pos2wav(sparse_grid const &grid, connection_patterns const &conn,
+               P alpha, P const f[], P beta, P vals[],
+               kronmult::workspace<P> &work, std::vector<P> &t1) const
   {
     kronmult::block_cpu(pdof, grid, conn, perm_low_pos, nodal2hier_,
                         P{1}, f, P{0}, t1.data(), work);
@@ -285,13 +285,13 @@ public:
     }
     if (plan.uses_hier()) {
       if (plan.uses_hybrid()) {
-        nodal2hier_hybrid(grid, conn, it2.data(), y, work);
+        pos2hier(grid, conn, it2.data(), y, work);
       } else {
         nodal2hier(grid, conn, it2.data(), y, work);
       }
     } else {
       if (plan.uses_hybrid()) {
-        nodal2wav_hybrid(grid, conn, alpha, it2.data(), beta, y, work, it1);
+        pos2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
       } else {
         nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
       }
@@ -322,7 +322,7 @@ public:
       func(time, nodes(grid), moments, it1);
     }
     if (plan.uses_hybrid())
-      nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+      pos2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
     else
       nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
@@ -381,7 +381,7 @@ public:
     // if (it2.size() != nentries)
     //   throw std::runtime_error("internal error: it2 wrong size");
     if (plan.uses_hybrid())
-      nodal2wav_hybrid(grid, conn, alpha, it1.data(), beta, y, work, it2);
+      pos2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
     else
       nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
@@ -434,30 +434,6 @@ public:
               P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
-
-  //! compute nodal values in position dimensions, retaining velocity coefficients
-  void wav2nodal_hybrid(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
-                        kronmult::workspace<P> &work) const
-  {
-    #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
-    int64_t const flops = [&, this]()-> int64_t {
-        if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
-          flop_info[id].grid_gen = grid.generation();
-        }
-        return flop_info[id].flops;
-      }();
-    tools::time_event performance_("hybrid wavelet-to-nodal-gpu", flops);
-    #else
-    // tools::time_event performance_("hybrid wavelet-to-nodal-gpu");
-    #endif
-    grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id],
-              P{pos_wav_scale}, f, P{0}, vals, work, wav2nodal_);
-    grid.use_gpu_default_xy();
-  }
-
   //! compute nodal values for the moment
   void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
@@ -528,20 +504,17 @@ public:
   }
 
   //! compute hirarchical coefficients from hybrid nodal values
-  void nodal2hier_hybrid(gpu::device dev, sparse_grid const &grid,
-                         connection_patterns const &conn,
-                         P const f[], P vals[],
-                         kronmult::workspace<P> &work) const
+  void pos2hier(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
+                P const f[], P vals[], kronmult::workspace<P> &work) const
   {
     block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, vals, work, nodal2hier_);
   }
 
   //! compute wavelet coefficients from hybrid nodal values
-  void nodal2wav_hybrid(gpu::device dev, sparse_grid const &grid,
-                        connection_patterns const &conn,
-                        P alpha, P const f[], P beta, P vals[],
-                        kronmult::workspace<P> &work, gpu::vector<P> &t1) const
+  void pos2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
+               P alpha, P const f[], P beta, P vals[],
+               kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
     block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
@@ -573,7 +546,7 @@ public:
             return gpu_ifield;
           } else {
             if (plan.uses_hybrid())
-              wav2nodal_hybrid(dev, grid, state, gpu_t1.data(), work);
+              pos2nodal(dev, grid, state, gpu_t1.data(), work);
             else
               wav2nodal(dev, grid, state, gpu_t1.data(), work);
             return gpu_t1;
@@ -590,12 +563,12 @@ public:
       }
       if (plan.uses_hier()) {
         if (plan.uses_hybrid())
-          nodal2hier_hybrid(dev, grid, conn, gpu_t2.data(), y, work);
+          pos2hier(dev, grid, conn, gpu_t2.data(), y, work);
         else
           nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
       } else {
         if (plan.uses_hybrid())
-          nodal2wav_hybrid(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+          pos2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
         else
           nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
       }
@@ -606,7 +579,7 @@ public:
             return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
           } else {
             if (plan.uses_hybrid())
-              wav2nodal_hybrid(dev, grid, state, gpu_t1.data(), work);
+              pos2nodal(dev, grid, state, gpu_t1.data(), work);
             else
               wav2nodal(dev, grid, state, gpu_t1.data(), work);
             gpu_t1.copy_to_host(t1);
@@ -624,12 +597,12 @@ public:
       gpu_t1 = t2;
       if (plan.uses_hier()) {
         if (plan.uses_hybrid())
-          nodal2hier_hybrid(dev, grid, conn, gpu_t1.data(), y, work);
+          pos2hier(dev, grid, conn, gpu_t1.data(), y, work);
         else
           nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
       } else {
         if (plan.uses_hybrid())
-          nodal2wav_hybrid(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+          pos2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
         else
           nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
       }

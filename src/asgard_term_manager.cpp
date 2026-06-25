@@ -334,7 +334,7 @@ void term_manager<P>::apply_tmpl_gpu(
     }
     if (not interp.hybrid_ifield.empty()) {
       interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
-      interp.wav2nodal_hybrid(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
       interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
     }
 
