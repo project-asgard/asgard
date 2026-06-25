@@ -544,7 +544,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin1(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
@@ -632,7 +632,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin2(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
@@ -734,7 +734,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         std::vector<P>  mulin3(dp1,0.0);
 
         #pragma omp for
-        for (int64_t i = 0; i < indexes.size()/static_cast<uint64_t>(2*domain_.num_vel()); i++)
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
         {
           // Loop over polynomial x dof in element
           for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
