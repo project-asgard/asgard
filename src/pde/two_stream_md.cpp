@@ -316,7 +316,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 - 0.1 * std::cos(0.5 * x[i]);
+        fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
     };
 
   auto ic_y = [](std::vector<P> const &y, P /* time */, std::vector<P> &fy) ->
