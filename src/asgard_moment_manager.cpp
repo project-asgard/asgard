@@ -652,12 +652,20 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
           res.resize(full_block * grid.num_indexes());
         }
         solve_poisson_gpu(conn, hier, interp, work);
+        auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
+        {
+          for (auto const &mom : this->gpu_moments[0]) {
+            if (mom.mid == mid)
+              return mom;
+          }
+          throw std::runtime_error("could not find the moment");
+        };
         for (moment_id const &mid : p.moments_electric()) {
           if (mid == moment_id::unset()) continue;
+          mom_on_gpu const &mom = find_mom(mid);
+          if (mom.interp_on_cpu()) continue; // solve_poisson_gpu will already copy if interp_on_cpu() is true
           gpu::vector<P> &res = gpu_interps[0][mid];
-          std::vector<P> &cpu_res = interps.get(mid);
-          cpu_res.resize(res.size());
-          res.copy_to_host(cpu_res);
+          res.copy_to_host(interps.get(mid));
         }
         #else
         std::ignore = interp;
@@ -688,11 +696,21 @@ void moment_manager<P>::solve_poisson_gpu(connection_patterns const &conn, hiera
         assert(work2[0].size() >= num_entries);
         gpu::wrap_array<P> w1(work1[0].data(), num_entries);
         gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+        auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
+        {
+          for (auto const &mom : this->gpu_moments[0]) {
+            if (mom.mid == mid)
+              return mom;
+          }
+          throw std::runtime_error("could not find the moment");
+        };
         auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
         {
           interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
           gpu::vector<P> &res = this->gpu_interps[0][mid];
           moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+          mom_on_gpu const &mom = find_mom(mid);
+          if (mom.interp_on_cpu()) res.copy_to_host(interps[mom.mid]);
         };
         // Solve
         p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
