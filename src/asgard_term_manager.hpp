@@ -1,6 +1,6 @@
 #pragma once
 
-#include "asgard_term_build.hpp"
+#include "asgard_moment_manager.hpp"
 
 namespace asgard
 {
@@ -20,7 +20,7 @@ namespace asgard
  *
  * Managing a large amount of functionality is challenging while breaking it into separate
  * modules, components or classes will create artificial API walls and even more overall
- * complexity, e.g., more dependencies for each function call, grant access with fiend classes,
+ * complexity, e.g., more dependencies for each function call, grant access with friend classes,
  * setter/getter methods, or incur computational cost by recomputing the same result more
  * than once. The solution here is to keep relevant data together but have the methods
  * split across multiple files.
@@ -250,6 +250,10 @@ struct term_manager
           rebuild_term1d(te, d, grid.current_level(d));
     }
   }
+  //! rebuild term[tmd][t1d], assumes non-identity
+  void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
+                      precon_method precon = precon_method::none, P alpha = 0,
+                      bool merge_with_interp = false);
   //! prepares the kronmult workspace
   void prapare_kron_workspace() {
     if (workspace_grid_gen == grid.generation())
@@ -395,12 +399,8 @@ protected:
   //! rebuild term[tid], loops over all dimensions
   void build_const_terms(int const tid,
                          precon_method precon = precon_method::none, P alpha = 0);
-  //! rebuild term[tmd][t1d], assumes non-identity
-  void rebuild_term1d(term_entry<P> &tentry, int const dim, int level,
-                      precon_method precon = precon_method::none, P alpha = 0,
-                      bool merge_with_interp = false);
   //! rebuild the 1d term chain to the given level
-  void rebuld_chain(term_entry<P> &tentry, int const dim, int const level,
+  void rebuld_chain(term_entry<P> &tentry, int const dim, int level,
                     block_diag_matrix<P> const *bmass, bool &is_diag,
                     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri);
 

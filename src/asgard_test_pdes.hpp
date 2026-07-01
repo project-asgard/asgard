@@ -395,14 +395,16 @@ double get_qoi_indicator(asgard::discretization_manager<P> const &disc) {
     int const level0   = disc.get_grid().current_level(0);
     int const num_cell = fm::ipow2(level0);
     P const dx         = disc.domain().length(0) / num_cell;
+    int const npos     = disc.domain().num_pos();
 
-    auto efield = disc.get_electric();
+    moment melectric_x = moment::electric(dimension_id(0), npos); // just E_x for now
+    auto efield = disc.get_moment_level(melectric_x); // 1D case
 
     P Ep = 0;
     for (auto e : efield) Ep += e * e;
     Ep *= dx;
 
-    std::vector<P> mom2 = disc.get_moment(moment_id{2}); // cheating here, why exactly 2
+    std::vector<P> mom2 = disc.get_moment(moment(2));
 
     P const Ek = mom2[0] * std::sqrt(disc.domain().length(0));
 

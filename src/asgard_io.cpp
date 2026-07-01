@@ -26,13 +26,15 @@ template<typename P>
 void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
                          int degree, sparse_grid const &grid,
                          time_data const &dtime, std::vector<P> const &state,
-                         moment_manager<P> const &moms,
+                         term_manager<P> const &terms,
                          std::vector<aux_field_entry<P>> const &aux_fields,
                          std::string const &filename)
 {
   tools::time_event writing("write output");
 
   assert(not filename.empty());
+
+  moment_manager<P> const &moms = terms.moms;
 
   HighFive::File file(filename, HighFive::File::ReadWrite |
                                   HighFive::File::Create |
@@ -136,15 +138,28 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
   }
 
   if (moms) { // saving moments as additional aux-fields
-    std::vector<P> vals;
+    if (moms.has_poisson()) {
+      moment_id m0 = moms.find_id(moment::zero(moms.num_vel()));
+      moms.cache_moment(m0, grid, state);
+      moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
+    }
     for (int i : iindexof(moms.num_moments()))
     {
       int const auxid = static_cast<int>(aux_fields.size()) + i;
-      moms.mcompute(grid, moment_id{i}, state, vals);
+      moment_id mid{i};
       auxiliary_strings auxstr{auxid};
       H5Easy::dump(file, auxstr.name,
-                   std::string("__moment_") + moms.get_by_id(moment_id{i}).to_string());
-      write_vector(auxstr.data, vals);
+                   std::string("__moment_") + moms.get_by_id(mid).to_string());
+      if (moms.needs_poisson(mid)) {
+        if (domain.num_pos() == 1)
+          write_vector(auxstr.data, moms.get_cached_level(mid)); // only the level is computed for poisson_1d
+        else
+          write_vector(auxstr.data, moms.get_cached_raw(mid));
+      } else {
+        std::vector<P> vals;
+        moms.mcompute(grid, mid, state, vals);
+        write_vector(auxstr.data, vals);
+      }
       write_vector(auxstr.grid, moms.get_grid_indexes());
       H5Easy::dump(file, auxstr.dims, domain.num_pos());
     }

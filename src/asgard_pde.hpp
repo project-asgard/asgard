@@ -1249,6 +1249,31 @@ public:
   bool is_separable() const { return (mode_ == mode::separable); }
   //! return true if the term uses interpolation
   bool is_interpolatory() const { return (mode_ == mode::interpolatory); }
+  //! return true if the term uses the electric field
+  bool is_electric(moments_list const &moments) const {
+    auto check_poisson = [](term_1d<P> const &single)
+    -> bool {
+      return (single.depends() == term_dependence::electric_field or
+              single.depends() == term_dependence::electric_field_only);
+    };
+    switch(mode_) {
+      case mode::chain:
+        for (term_md<P> const &ch : chain_)
+          if (ch.is_electric(moments)) return true;
+        break;
+      case mode::separable:
+        for (term_1d<P> const &sep : get_sep())
+          if (check_poisson(sep)) return true;
+        break;
+      case mode::interpolatory:
+        for (moment_id const &mid : mids_)
+          if (moments[mid].is_electric()) return true;
+        break;
+      default:
+        throw std::runtime_error("Unknown term_md mode #" + std::to_string(static_cast<int>(mode_)) + " found");
+    }
+    return false;
+  }
   //! return true if the term uses interpolation on the GPU device
   bool is_gpu_interpolatory() const {
     return std::holds_alternative<md_gpu_func_f<P>>(interp_)
@@ -1361,7 +1386,9 @@ public:
     std::get<md_gpu_mom_func_f<P>>(interp_)(num_points, t, x, moments, f, vals);
   }
 
-  // allow direct access to the private data
+  // both the pde_scheme and term_manager need access to the internal data
+  // to manage the internals of the term_md
+  friend class pde_scheme<P>;
   friend struct term_manager<P>;
 
 private:
@@ -1770,14 +1797,29 @@ public:
   }
   //! register a moment and obtain the moment id
   moment_id register_moment(moment const &mom) {
-    rassert(domain_.num_vel() == mom.num_dims(),
-            "mismatch between the velocity dimensions for the domain and "
-            "the dimensions of the moment");
+    if (mom.is_electric()) {
+      rassert(domain_.num_pos() == mom.num_dims(),
+              "mismatch between the position dimensions for the domain and "
+              "the dimensions of the electric field moment");
+    } else {
+      rassert(domain_.num_vel() == mom.num_dims(),
+              "mismatch between the velocity dimensions for the domain and "
+              "the dimensions of the moment");
+    }
+    
     moment_id const id = mlist.get_add_id(mom);
     if (current_term_group >= 0)
       mom_groups[current_term_group].get_add_id(mom);
     return id;
   }
+  //! register an electric field moment in the specified dimension and obtain the moment id
+  //! i.e. register_electric_moment(dimension_id(0)) corresponds to E_x
+  moment_id register_electric_moment(dimension_id dim, int num_pos_dims) { // this function is not really needed as it just calls the other register function
+    moment mom = moment::electric(dim, num_pos_dims);
+    return this->register_moment(mom);
+  }
+  //! return true if the pde contains an electric field moment
+  bool is_electric() { return mlist.has_electric(); }
   //! returns a reference to all moments (mostly for testing)
   moments_list const &moments() const { return mlist; }
   //! returns a reference to all moments (mostly for testing)

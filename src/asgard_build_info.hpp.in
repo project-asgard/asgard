@@ -71,6 +71,11 @@ inline constexpr int max_num_dimensions = 6;
  * i.e., dimensions that have to be folded to compute the moments.
  */
 inline constexpr int max_mom_dims = 3;
+/*!
+ * Similar to max_num_dimensions, represent the maximum number of position dimensions,
+ * i.e., dimensions that exist after folding to compute the moments.
+ */
+inline constexpr int max_pos_dims = 3;
 
 inline constexpr int max_num_gpus = ASGARD_MAX_NUM_GPUS;
 

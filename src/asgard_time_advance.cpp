@@ -952,11 +952,7 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
       manager.grid_sync(); // no-op, unless MPI or GPUs are enabled
 
       if (grid.generation() != gen) {
-        if (manager.is_leader())
-          grid.remap(manager.terms.block_size(), next);
-        manager.terms.prapare_kron_workspace();
-        if (manager.poisson)
-          manager.poisson.update_level(grid.current_level(0));
+        manager.update_grid(next);
         if (stepper.is_steady_state()) {
           num_steps = 1;
           grid_strategy = sparse_grid::strategy::refine;

@@ -110,7 +110,7 @@ void refinement_manager<P>::refine_(std::vector<P> const &state, strategy mode,
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
     if (iweights_.is_moment()) {
-      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.kwork);
+      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.conn, terms.hier, terms.kwork);
       iplan.use_moments(true);
       terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
                    1, iweights_, 0, terms.t1.data(), terms.kwork);
@@ -146,8 +146,8 @@ void refinement_manager<P>::refine_(gpu::vector<P> const &state, strategy mode,
     if (iweights_.is_moment()) {
       iplan.use_moments(true);
 
-      terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.kwork,
-                                 state, not iweights_.is_gpu());
+      terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.conn, terms.hier,
+                                 terms.kwork, state, not iweights_.is_gpu());
     } else {
       iplan.use_moments(false);
     }

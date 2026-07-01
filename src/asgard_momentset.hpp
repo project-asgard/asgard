@@ -6,6 +6,24 @@ namespace asgard
 {
 
 /*!
+ * \ingroup asgard_pde_definition
+ * \brief Strong-type, usage separable_func<double> func; func.set(dimension_id{2}, val);
+ */
+struct dimension_id {
+  //! do not create an empty dimension id
+  dimension_id() = delete;
+  //! set the index dimension
+  explicit dimension_id(int n) : id(n) {
+    rassert(0 <= n and n < max_num_dimensions,
+            "invalid dimension, must be in 0 ... 5 for 1D through 6D problems");
+  }
+  //! holds the id of the position dimensions
+  int const id;
+  //! returns the index with a simple call
+  int operator()() const { return id; }
+};
+
+/*!
  * \ingroup asgard_funcdef
  * \brief Holds the power coefficients for the moments
  */
@@ -17,18 +35,25 @@ struct moment
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
+  //! produces a moment for the electric field in the dim dimension
+  //! i.e. dim = dimension_id(0) corresponds to E_x
+  static moment electric(dimension_id dim, int num_pos_dims) {
+    moment m = moment::zero(num_pos_dims);
+    m.pows[dim()] = electric_flag;
+    return m;
+  }
   //! creating a placeholder (invalid) moment
-  moment() : pows{-1, -1, -1} {}
+  moment() : pows{unset_flag, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 1D moment with the given power
-  moment(int pv1) : pows{pv1, -1, -1} {}
+  moment(int pv1) : pows{pv1, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2) : pows{pv1, pv2, -1} {}
+  moment(int pv1, int pv2) : pows{pv1, pv2, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
+  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} { static_assert(max_mom_dims == 3); }
   //! number of valid powers
   int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
-      if (pows[i] < 0) return i;
+      if (pows[i] == unset_flag) return i;
     return max_mom_dims;
   }
   //! return the d-th power
@@ -41,11 +66,32 @@ struct moment
   bool operator != (moment const &other) const {
     return not (*this == other);
   }
+  //! check whether a moment has all zero powers
+  bool is_zero() const {
+    for (int const pow : pows) {
+      if (pow == unset_flag) return true;
+      if (pow != 0) return false;
+    }
+    return true;
+  }
+  //! check whether a moment is an electric field moment
+  bool is_electric() const {
+    for (int const pow : pows)
+      if (pow == electric_flag) return true;
+    return false;
+  }
+  //! get the direction of the electric field corresponding to the moment
+  int get_electric_direction() const {
+    for (int const i : iindexof(pows))
+      if (pows[i] == electric_flag) return i;
+    throw std::runtime_error("The moment must be an electric field moment to get its direction");
+    return -1; // unreachable due to rassert
+  }
   //! convert the moment to a string containing the powers (consistent with python)
   std::string to_string() const {
-    std::string m = (pows[0] == -1) ? "x" : std::to_string(pows[0]);
-    m += (pows[1] == -1) ? "x" : std::to_string(pows[1]);
-    m += (pows[2] == -1) ? "x" : std::to_string(pows[2]);
+    std::string m = (pows[0] == unset_flag) ? "x" : std::to_string(pows[0]);
+    m += (pows[1] == unset_flag) ? "x" : std::to_string(pows[1]);
+    m += (pows[2] == unset_flag) ? "x" : std::to_string(pows[2]);
     return m;
   }
   //! print information about the moment to an std::ostream
@@ -63,6 +109,10 @@ struct moment
 
   //! holds the powers
   std::array<int, max_mom_dims> pows;
+
+  private:
+    static int const unset_flag = -1;
+    static int const electric_flag = -0xef; // ef for electric field, this has a decimal value of -239
 };
 
 /*!
@@ -124,15 +174,22 @@ public:
   }
   //! \brief returns the ID of the moment, adds the moment to the list (if not there already)
   moment_id get_add_id(moment const &mom) {
-    for (int i = 0; i < static_cast<int>(moms_.size()); i++)
+    for (int const i : iindexof(moms_))
       if (moms_[i] == mom)
         return moment_id{i};
     moms_.push_back(mom);
     return moment_id{static_cast<int>(moms_.size() - 1)};
   }
+  //! returns the ID of the moment if it exists, otherwise it returns an unset moment ID
+  moment_id get_check_id(moment const &mom) const {
+    for (int const i : iindexof(moms_))
+      if (moms_[i] == mom)
+        return moment_id{i};
+    return moment_id::unset();
+  }
   //! returns the ID of an already existing moment
   moment_id get_id(moment const &mom) const {
-    for (int i = 0; i < static_cast<int>(moms_.size()); i++)
+    for (int const i : iindexof(moms_))
       if (moms_[i] == mom)
         return moment_id{i};
     throw std::runtime_error("cannot find the specified moment");
@@ -155,6 +212,13 @@ public:
   void print(std::ostream &os = std::cout) const {
     for (auto const &m : moms_)
       os << m << "  ";
+  }
+  //! true if a moment requires a poisson solver
+  bool has_electric() {
+    for(moment const &mom : moms_)
+      if (mom.is_electric())
+        return true;
+    return false;
   }
 
 private:

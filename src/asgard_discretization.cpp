@@ -214,14 +214,25 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
-  if (terms.moms)
-    compute_moments_(group_id::all(), state);
-
+  if (not terms.moms) return;
   if (terms.has_poisson()) {
-    moment_id const m0 = terms.moms.find_id(moment::zero(domain_.num_vel()));
-    poisson = solvers::poisson(degree(), domain_.xleft(0), domain_.xright(0),
-                               terms.grid.current_level(0), m0);
+    auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
+      this->terms.rebuild_term1d(tentry, dim, level);
+    };
+    #ifdef ASGARD_USE_GPU
+    auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
+                                  gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
+      return this->poisson_iter.solve(apply_lhs, rhs, x);
+    };
+    #else
+    auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
+                                  std::vector<precision> const &rhs, std::vector<precision> &x) -> int {
+      return this->poisson_iter.solve(apply_lhs, rhs, x);
+    };
+    #endif
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
   }
+  compute_moments_(group_id::all(), state);
 }
 
 template<typename precision>
@@ -250,9 +261,7 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_local(
     group_id gid, std::vector<precision> const &f) const
 {
-  terms.moms.cache_moments(gid, terms.grid, f);
-  terms.moms.load_interp(gid, terms.interp, terms.kwork);
-  compute_poisson(gid);
+  terms.moms.cache_moments(gid, terms.grid, f, terms.conn, terms.hier, terms.interp, terms.kwork);
   terms.rebuild_moment_terms(gid);
 }
 
@@ -264,7 +273,7 @@ void discretization_manager<precision>::save_snapshot(std::filesystem::path cons
     return;
   #endif
   h5manager<precision>::write(options_, domain_, degree(), terms.grid, stepper.data,
-                              state, terms.moms, aux_fields, filename);
+                              state, terms, aux_fields, filename);
 #else
   std::ignore = filename;
   throw std::runtime_error("saving to a file requires CMake option -DASGARD_USE_HIGHFIVE=ON");
@@ -390,14 +399,41 @@ discretization_manager<precision>::project_function(
 
 template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_moment(moment_id id) const {
+  if (terms.moms.needs_poisson(id)) {
+    rassert(domain_.num_pos() > 1, "Only the moment level is computed for poisson_1d, use get_moment_level instead")
+    std::visit([&](auto &p) {
+      if constexpr (not std::is_same_v<std::decay_t<decltype(p)>, std::monostate>)
+        terms.moms.cache_moment(p.moment0(), terms.grid, state);
+      else
+        throw std::runtime_error("an electric moment was requested but no poisson solver is set");
+    }, get_poisson());
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
+    return terms.moms.get_cached_raw(id);
+  }
   std::vector<precision> result;
   terms.moms.mcompute(terms.grid, id, state, result);
   return result;
 }
 
 template<typename precision>
+std::vector<precision> discretization_manager<precision>::get_moment(moment mom) const {
+  moment_id id = terms.moms.find_id(mom);
+  return get_moment(id);
+}
+
+template<typename precision>
 std::vector<precision> discretization_manager<precision>::get_moment_level(moment_id id) const {
   rassert(domain_.num_pos() == 1, "level completion is done only for 1 position dimension");
+  if (terms.moms.needs_poisson(id)) {
+    std::visit([&](auto &p) {
+      if constexpr (not std::is_same_v<std::decay_t<decltype(p)>, std::monostate>)
+        terms.moms.cache_moment(p.moment0(), terms.grid, state);
+      else
+        throw std::runtime_error("an electric moment was requested but no poisson solver is set");
+    }, get_poisson());
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
+    return terms.moms.get_cached_level(id, terms.hier);
+  }
   std::vector<precision> tmp;
   std::vector<precision> result;
   terms.moms.mcompute(terms.grid, id, state, tmp);
@@ -406,12 +442,9 @@ std::vector<precision> discretization_manager<precision>::get_moment_level(momen
 }
 
 template<typename precision>
-std::vector<precision> discretization_manager<precision>::get_electric() const {
-  rassert(poisson, "get_electric() requires a PDE with terms with electric dependence");
-  terms.moms.cache_moment(poisson.moment0(), terms.grid, state);
-  poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), terms.hier),
-                         terms.moms.edit_poisson_level());
-  return terms.moms.poisson_level();
+std::vector<precision> discretization_manager<precision>::get_moment_level(moment mom) const {
+  moment_id id = terms.moms.find_id(mom);
+  return get_moment_level(id);
 }
 
 template<typename precision>
@@ -680,9 +713,8 @@ void discretization_manager<precision>::compute_moments_local_gpu(
   {
     // const-cast is safe here, since wf is only used as "const" in the call
     gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.kwork, wf.vec);
+    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork, wf.vec);
   }
-  compute_poisson(gid);
   terms.rebuild_moment_terms(gid);
 }
 

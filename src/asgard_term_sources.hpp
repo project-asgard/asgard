@@ -1,7 +1,6 @@
 #pragma once
 
 #include "asgard_interp.hpp"
-#include "asgard_moment_manager.hpp"
 
 namespace asgard
 {

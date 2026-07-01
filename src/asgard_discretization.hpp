@@ -33,7 +33,8 @@ class discretization_manager
 {
 public:
   //! allows the creation of a null manager, has to be reinitialized later
-  discretization_manager() {
+  discretization_manager() : poisson_iter(1e-6, 10000)
+  {
     #ifdef ASGARD_ENABLE_DOUBLE
     #ifdef ASGARD_ENABLE_FLOAT
     static_assert(is_double<precision> or is_float<precision>,
@@ -118,9 +119,11 @@ public:
   }
 
   //! check if the terms have poisson dependence
-  bool has_poisson() const { return poisson; }
+  bool has_poisson() const {
+    return terms.has_poisson();
+  }
   //! check if the terms have moment dependence
-  bool has_moments() const { return terms.moms; }
+  bool has_moments() const { return terms.moms; } 
 
   //! computes the right-hand-side of the ode
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,
@@ -551,10 +554,14 @@ public:
   }
   //! computes a specific moment for the current state
   std::vector<precision> get_moment(moment_id id) const;
+  //! computes a specific moment for the current state if the moment is registered
+  std::vector<precision> get_moment(moment mom) const;
   //! computes a specific moment for the current state
   std::vector<precision> get_moment_level(moment_id id) const;
-  //! computes and returns the electric field for the current state
-  std::vector<precision> get_electric() const;
+  //! computes a specific moment for the current state if the moment is registered
+  std::vector<precision> get_moment_level(moment mom) const;
+  //! returns the poisson solver
+  auto &get_poisson() const { return terms.moms.poisson_solver; }
 
   //! allows an auxiliary field to be saved for post-processing
   void add_aux_field(aux_field_entry<precision> f) {
@@ -628,19 +635,6 @@ public:
   hierarchy_manipulator<precision> const &get_hier() const { return terms.hier; }
   //! return the connection patterns
   connection_patterns const &get_conn() const { return terms.conn; }
-
-  //! recomputes the Poisson term for the given group
-  void compute_poisson(group_id gid = group_id::all()) const {
-    if (not poisson or not terms.has_poisson(gid))
-      return;
-
-    // currently we only support 1d in position space, so the solver is trivial
-    // the cost is so low, that everyone can do it even if it is repeated work
-    // when we get to multi-d Poisson problems, the leader will be needed
-    // to help the communication process
-    poisson.solve_periodic(terms.moms.get_cached_level(poisson.moment0(), terms.hier),
-                           terms.moms.edit_poisson_level());
-  }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
@@ -748,6 +742,20 @@ protected:
 
     return shot;
   }
+  //! updates the sparse grid and remaps the next state to the new grid
+  void update_grid(std::vector<precision> &next)
+  {
+    if (is_leader())
+      terms.grid.remap(terms.block_size(), next);
+    terms.prapare_kron_workspace();
+    if (has_poisson())
+      std::visit([&](auto &p)
+      {
+        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+          p.update_level(terms.grid.current_level(0));
+        }
+      }, get_poisson());
+  }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, std::vector<precision> const &f)
   {
@@ -756,6 +764,20 @@ protected:
     refinement.refine(f, mode, terms);
   }
   #ifdef ASGARD_USE_GPU
+  //! updates the sparse grid and remaps the next state to the new grid
+  void update_grid(gpu::vector<precision> &next)
+  {
+    if (is_leader())
+      terms.grid.remap(terms.block_size(), next);
+    terms.prapare_kron_workspace();
+    if (has_poisson())
+      std::visit([&](auto &p)
+      {
+        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+          p.update_level(terms.grid.current_level(0));
+        }
+      }, get_poisson());
+  }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, gpu::vector<precision> const &f)
   {
@@ -800,9 +822,6 @@ private:
 
   refinement_manager<precision> refinement;
 
-  // poisson solver data
-  mutable solvers::poisson<precision> poisson;
-
   //! term manager holding coefficient matrices and kronmult meta-data
   mutable term_manager<precision> terms;
   //! time advance manager for the different methods
@@ -822,6 +841,9 @@ private:
 
   //! fields to store and save for plotting
   std::vector<aux_field_entry<precision>> aux_fields;
+
+  //! Just testing for now
+  solvers::bicgstab<precision> poisson_iter;
 };
 
 } // namespace asgard
