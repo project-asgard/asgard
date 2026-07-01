@@ -122,6 +122,8 @@ public:
   {
     solve(density, moms, position_grid, conn, work, poisson_bc::periodic);
   }
+  //! returns the electric potential vector - used for testing
+  std::vector<P> const &get_potential() { return potential; };
   #endif
 
   //! indicates whether the solver has been initialized
@@ -145,6 +147,8 @@ public:
   {
     solve(density, position_grid, conn, interpolate, work, poisson_bc::periodic);
   }
+  //! returns the electric potential vector - used for testing
+  gpu::vector<P> const &get_potential() { return gpu_potential; };
   #endif
 
 private:

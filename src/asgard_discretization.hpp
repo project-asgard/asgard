@@ -561,7 +561,7 @@ public:
   //! computes a specific moment for the current state if the moment is registered
   std::vector<precision> get_moment_level(moment mom) const;
   //! returns the poisson solver
-  auto &get_poisson() const { return terms.moms.get_poisson(); }
+  auto &get_poisson() const { return terms.moms.poisson_solver; }
 
   //! allows an auxiliary field to be saved for post-processing
   void add_aux_field(aux_field_entry<precision> f) {

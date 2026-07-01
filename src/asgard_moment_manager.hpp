@@ -107,8 +107,6 @@ public:
   momentset<P> const &get_cached_interps() const { return interps; }
   //! return the current position grid where the raw moments are defined
   sparse_grid const &get_position_grid() const { return pos_grid; }
-  //! return the poisson solver
-  auto &get_poisson() const { return poisson_solver; }
   //! return the cached raw moment defined on the position grid with moment id mid
   std::vector<P> const &get_cached_raw(moment_id mid) const {
     rassert(not (num_pos_ == 1 and needs_poisson(mid)), "The electric field moment is only computed for the full level in 1D");
@@ -190,6 +188,9 @@ public:
 
   //! Updates the dsort_ field of the position grid
   void update_position_grid_dsort() const;
+
+  //! Poisson solver data
+  mutable std::variant<std::monostate, poisson_1d<P>, poisson_md<P>> poisson_solver = std::monostate{};
 
 protected:
   //! set the new groups
@@ -320,9 +321,6 @@ private:
 
   mutable std::array<momentset_gpu<P>, max_num_gpus> gpu_interps; // moment values for interpolation on the GPU
   #endif
-
-  // poisson solver data
-  mutable std::variant<std::monostate, poisson_1d<P>, poisson_md<P>> poisson_solver = std::monostate{};
 };
 
 } // namespace asgard

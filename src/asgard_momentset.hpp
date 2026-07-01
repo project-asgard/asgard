@@ -43,13 +43,13 @@ struct moment
     return m;
   }
   //! creating a placeholder (invalid) moment
-  moment() : pows{unset_flag, unset_flag, unset_flag} {}
+  moment() : pows{unset_flag, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 1D moment with the given power
-  moment(int pv1) : pows{pv1, unset_flag, unset_flag} {}
+  moment(int pv1) : pows{pv1, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2) : pows{pv1, pv2, unset_flag} {}
+  moment(int pv1, int pv2) : pows{pv1, pv2, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} {}
+  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} { static_assert(max_mom_dims == 3); }
   //! number of valid powers
   int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
@@ -84,7 +84,7 @@ struct moment
   int get_electric_direction() const {
     for (int const i : iindexof(pows))
       if (pows[i] == electric_flag) return i;
-    rassert(false, "The moment must be an electric field moment to get its direction");
+    throw std::runtime_error("The moment must be an electric field moment to get its direction");
     return -1; // unreachable due to rassert
   }
   //! convert the moment to a string containing the powers (consistent with python)

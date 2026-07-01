@@ -28,8 +28,8 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
     moms_electric[d] = mlist.get_check_id(moment::electric(dimension_id(d), num_pos));
 
   // set up the terms for the laplician: laplacian(f) = div(grad(f))
-  term_1d<P> div = term_div<P>(-1, flux_type::upwind, boundary_type::none);
-  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::bothsides);
+  term_1d<P> div = term_div<P>(-1, flux_type::upwind, boundary_type::periodic);
+  term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::periodic);
 
   // the multi-dimensional Laplacian, initially set to identity in all dimensions
   std::vector<term_1d<P>> ops(num_dims, term_identity{});
@@ -140,7 +140,8 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
   };
 
   // Execute the Solve
-  std::ignore = iter_solve(apply_lhs, density, potential);
+  int num_iter = iter_solve(apply_lhs, density, potential);
+  std::ignore = num_iter;
 
   // Restore the density
   if (bc == poisson_bc::periodic)
@@ -212,7 +213,8 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
 
   // Execute the Solve
   compute->set_device(gpu::device{0});
-  std::ignore = iter_solve(apply_lhs, density, gpu_potential);
+  int num_iter = iter_solve(apply_lhs, density, gpu_potential);
+  std::ignore = num_iter;
 
   // Restore the density
   if (bc == poisson_bc::periodic)
