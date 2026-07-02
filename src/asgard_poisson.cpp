@@ -103,7 +103,7 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
     moms[mid].resize(n);
     kronmult::permutes perm = std::vector<int>{d, };
     block_cpu(pdof, position_grid, conn, perm, derivative_mat,
-              derivative_scale[d], potential.data(), P{0.0}, moms[mid].data(), work);
+              -derivative_scale[d], potential.data(), P{0.0}, moms[mid].data(), work);
   }
 }
 
@@ -172,7 +172,7 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
     if (mid == moment_id::unset()) continue;
     kronmult::permutes perm = std::vector<int>{d, };
     block_gpu(gpu::device{0}, pdof, position_grid, conn, perm, gpu_derivative_mat,
-              derivative_scale[d], gpu_potential.data(), P{0.0}, gpu_efield.data(), work, derivative_mat);
+              -derivative_scale[d], gpu_potential.data(), P{0.0}, gpu_efield.data(), work, derivative_mat);
 
     // interpolate electric field moment
     interpolate(gpu_efield, mid);

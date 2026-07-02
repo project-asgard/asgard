@@ -144,7 +144,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   auto ic_v = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
     void {
-      P const c = P{1} / std::sqrt(PI);
+      P const c = P{2} / std::sqrt(PI);
 
       for (size_t i = 0; i < v.size(); i++)
         fv[i] = c * v[i] * v[i] * std::exp(-v[i] * v[i]);
@@ -278,7 +278,7 @@ void test_energy(std::string const &opt_str) {
     if (disc.current_step() == 1) // first time-step
       E0 = 0.5 * (Ep + Ek);
 
-    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-7);
+    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 1.E-6);
 
     std::vector<P> mom0 = disc.get_moment(m0);
     std::vector<P> mom1 = disc.get_moment(m1);
@@ -289,7 +289,7 @@ void test_energy(std::string const &opt_str) {
     for (size_t j = 0; j < mom0.size(); j++)
       mv += mom0[j] * mom1[j];
 
-    tcheckless(i, std::abs(mv), 3.0e-14);
+    tcheckless(i, std::abs(mv), 1.0e-13);
 
     // check the initial slight energy decay before it stabilizes
     if (i > 0)

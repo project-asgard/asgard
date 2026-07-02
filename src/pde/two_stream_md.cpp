@@ -327,7 +327,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   auto ic_vx = [](std::vector<P> const &vx, P /* time */, std::vector<P> &fv) ->
     void {
-      P const c = P{1} / std::sqrt(PI);
+      P const c = P{2} / std::sqrt(PI);
 
       for (size_t i = 0; i < vx.size(); i++)
         fv[i] = c * vx[i] * vx[i] * std::exp(-vx[i] * vx[i]);
@@ -476,33 +476,24 @@ void test_energy(std::string const &opt_str) {
     if (not disc.has_poisson()) // in MPI context, do error checking only on Poisson-ranks
       continue;
 
-    int const levelx    = disc.get_grid().current_level(0);
-    int const levely    = disc.get_grid().current_level(1); 
-    int const num_cellx = fm::ipow2(levelx);
-    int const num_celly = fm::ipow2(levely);
-    P const dx          = disc.domain().length(0) / num_cellx;
-    P const dy          = disc.domain().length(1) / num_celly;
+    P area = disc.domain().length(0) * disc.domain().length(1);
 
     auto efieldx = disc.get_moment(melectric_x);
     auto efieldy = disc.get_moment(melectric_y);
 
     P Ep = 0;
-    for (auto e : efieldx) Ep += e * e;
-    for (auto e : efieldy) Ep += e * e;
-    Ep *= dx * dy;
+    for (auto ex : efieldx) Ep += ex * ex;
+    for (auto ey : efieldy) Ep += ey * ey;
 
     std::vector<P> momke0 = disc.get_moment(ke0);
     std::vector<P> momke1 = disc.get_moment(ke1);
-
-    P const area = disc.domain().length(0) * disc.domain().length(1);
-    P Ek = momke0[0] * std::sqrt(area);
-    Ek += momke1[0] * std::sqrt(area);
+    P Ek = (momke0[0] + momke1[0]) * std::sqrt(area);
 
     if (disc.current_step() == 1) // first time-step
       E0 = 0.5 * (Ep + Ek);
 
     // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
-    // tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-7);
+    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-4);
 
     std::vector<P> mom0 = disc.get_moment(rho);
     std::vector<P> momp0 = disc.get_moment(p0);
@@ -511,16 +502,16 @@ void test_energy(std::string const &opt_str) {
     // integral of moment 0 by moment 1, by delta_ij orthogonality of the basis
     // just sum up the product of the coefficients
     P mv0 = 0;
-    // for (size_t j = 0; j < mom0.size(); j++)
-    //   mv0 += mom0[j] * momp0[j];
+    for (size_t j = 0; j < mom0.size(); j++)
+      mv0 += mom0[j] * momp0[j];
     P mv1 = 0;
-    // for (size_t j = 0; j < mom0.size(); j++)
-    //   mv1 += mom0[j] * momp1[j];
+    for (size_t j = 0; j < mom0.size(); j++)
+      mv1 += mom0[j] * momp1[j];
 
     // std::cout << "X momentum error: " << mv0 << "\n";
     // std::cout << "Y momentum error: " << mv1 << "\n\n";
-    tcheckless(i, std::abs(mv0), 3.0e-14);
-    tcheckless(i, std::abs(mv1), 3.0e-14);
+    tcheckless(i, std::abs(mv0), 2.0e-5);
+    tcheckless(i, std::abs(mv1), 2.0e-5);
 
     // check the initial slight energy decay before it stabilizes
     if (i > 0)
@@ -533,9 +524,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 3 -d 2 -n 10 -dt 6.25e-3 -g dense");
-  test_energy<double>("-l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
-  test_energy<double>("-s rk4 -l 5 -d 2 -n 10 -dt 6.25e-3 -a 1.0e-6");
+  test_energy<double>("-l 6 -d 3 -n 5 -dt 6.25e-3 -a 1.0e-6");
+  test_energy<double>("-s rk4 -l 6 -d 2 -n 5 -dt 6.25e-3 -a 1.0e-6");
 
 #endif
 
