@@ -115,7 +115,7 @@ public:
 
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu = false) const;
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
@@ -162,7 +162,7 @@ public:
                        gpu::vector<P> const &state, bool result_to_cpu = false) const;
                    
   void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
+                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu = false) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation

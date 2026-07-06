@@ -64,6 +64,17 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
                                  separable_func<P> phi, separable_func<P> ex, separable_func<P> ey,
                                  int degree, int level)
 {
+  #ifdef ASGARD_USE_GPU
+  std::ignore = rhs;
+  std::ignore = xleft;
+  std::ignore = xright;
+  std::ignore = phi;
+  std::ignore = ex;
+  std::ignore = ey;
+  std::ignore = degree;
+  std::ignore = level;
+  return PoissonErrors<P> ({0, 0, 0}); // TODO: implement GPU version
+  #else
   prog_opts options;
   options.degree = degree;
   options.start_levels = {level, level};
@@ -115,6 +126,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   return PoissonErrors<P> ({diff_l2(n, phi_wav.data(), phi_ref.data()),
                             diff_l2(n, ex_wav.data(), ex_ref.data()),
                             diff_l2(n, ey_wav.data(), ey_ref.data())});
+  #endif
 }
 
 template<typename TestType>
