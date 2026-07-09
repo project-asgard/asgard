@@ -1,4 +1,5 @@
 #include "asgard_discretization.hpp"
+#include "asgard_small_mats.hpp"
 
 #ifdef ASGARD_USE_GPU
 #include "asgard_gpu_algorithms.hpp"
@@ -222,16 +223,39 @@ void discretization_manager<precision>::start_moments() {
     #ifdef ASGARD_USE_GPU
     auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
                                   gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
-      return this->poisson_iter.solve(apply_lhs, rhs, x);
+      if (this->poisson_preconditioner.method() == precon_method::jacobi) {
+        return this->poisson_iter.solve([&](precision y[]) -> void
+          {
+            tools::time_event timing_("poisson_md jacobi preconditioner");
+            gpu::jacobi_apply(this->poisson_preconditioner.gpu_jacobi(), y);
+          }, apply_lhs, rhs, x);
+      }
+      return this->poisson_iter.solve(nullptr, apply_lhs, rhs, x);
     };
     #else
     auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
                                   std::vector<precision> const &rhs, std::vector<precision> &x) -> int {
-      return this->poisson_iter.solve(apply_lhs, rhs, x);
+      if (this->poisson_preconditioner.method() == precon_method::jacobi) {
+        return this->poisson_iter.solve([&](precision y[]) -> void
+          {
+            tools::time_event timing_("poisson_md jacobi preconditioner");
+            fm::jacobi_apply(x.size(), this->poisson_preconditioner.jacobi(), y);
+          }, apply_lhs, rhs, x);
+      }
+      return this->poisson_iter.solve(nullptr, apply_lhs, rhs, x);
     };
     #endif
     terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
   }
+  terms.moms.update_position_grid(terms.grid);
+  std::visit([&](auto &p)
+    {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+        p.update_level(terms.grid.current_level(0));
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_preconditioner);
+      }
+    }, get_poisson());
   compute_moments_(group_id::all(), state);
 }
 
@@ -408,7 +432,6 @@ std::vector<precision> discretization_manager<precision>::get_moment(moment_id i
         throw std::runtime_error("an electric moment was requested but no poisson solver is set");
     }, get_poisson());
     terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork, true);
-    std::cout << terms.moms.get_cached_raw(id)[0] << std::endl;
     return terms.moms.get_cached_raw(id);
   }
   std::vector<precision> result;

@@ -22,6 +22,9 @@ using operation_apply_lhs =
 namespace asgard
 {
 
+template<typename P>
+struct preconditioner_data;
+
 #ifdef ASGARD_USE_GPU
 /*!
  * \internal
@@ -126,6 +129,9 @@ public:
   std::vector<P> const &get_potential() { return potential; };
   #endif
 
+  //! update the preconditioner for the iterative solver, called on refinement
+  void update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
+                             preconditioner_data<P> &precon) const;
   //! indicates whether the solver has been initialized
   operator bool() const { return (num_dims > 0); }
   //! returns the id for the zero moment
@@ -155,6 +161,9 @@ private:
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
+  //! build the diagonal preconditioner
+  void kron_diag(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
+                 int const block_size, std::vector<P> &y) const;
   #ifdef ASGARD_USE_GPU
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,

@@ -510,8 +510,7 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
 }
 
 template<typename P>
-void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
-                                 std::vector<P> const &state, std::vector<P> &vals) const
+void moment_manager<P>::update_position_grid(sparse_grid const &grid) const
 {
   if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
     switch (pos_grid.num_dims()) {
@@ -529,6 +528,13 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
     };
     pos_grid.generation_ = grid.generation();
   }
+}
+
+template<typename P>
+void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
+                                 std::vector<P> const &state, std::vector<P> &vals) const
+{
+  update_position_grid(grid);
 
   switch (num_vel_) {
   case 1:

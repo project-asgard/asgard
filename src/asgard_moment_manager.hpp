@@ -186,6 +186,8 @@ public:
                    build_term_func<P> build_func,
                    iter_solve_func<P> iter_func);
 
+  //! Updates the position grid if needed
+  void update_position_grid(sparse_grid const &grid) const;
   //! Updates the dsort_ field of the position grid
   void update_position_grid_dsort() const;
 

@@ -140,33 +140,49 @@ public:
       : tolerance_(tolerance), max_iter_(maxi) {}
 
   //! solve for the given linear operator, right-hand-side and initial iterate
-  int solve(operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const;
+  int solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_lhs,
+            std::vector<P> const &rhs, std::vector<P> &x) const;
 
 #ifdef ASGARD_USE_GPU
   //! solve for the given linear operator, right-hand-side and initial iterate, uses gpus
-  int solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
+  int solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_lhs,
+            gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
 #endif
 
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_rhs;
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_y;
+  //! preconditioning requires three extra workspace vectors
+  mutable std::vector<P> prec_yb;
   //! returns the set tolerance
   P tolerance() const { return tolerance_; }
   //! returns the set max-number of iterations
   int max_iter() const { return max_iter_; }
+
+  #ifdef ASGARD_USE_GPU
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_rhs_gpu;
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_y_gpu;
+  //! preconditioning requires three extra workspace vectors
+  mutable gpu::vector<P> prec_yb_gpu;
+  #endif
+
   //! computes approximate memory usage by the object
   size_t used_bytes() const;
 
 private:
-  P tolerance_ = 0.0;
+  P tolerance_ = 0;
   int max_iter_ = 0;
 
-  // CPU workspace
-  mutable std::vector<P> r, p, q;
-
+  //! CPU workspace
+  mutable std::vector<P> r, p, q, z;
 #ifdef ASGARD_USE_GPU
-  // GPU workspace
-  mutable gpu::vector<P> gr, gp, gq;
-  
-  // VRAM Scalars
-  mutable gpu::vector<P> d_rho, d_rho_new, d_p_dot_q, d_alpha, d_beta;
+  //! GPU workspace
+  mutable gpu::vector<P> gr, gp, gq, gz;
+  //! VRAM Scalars
+  mutable gpu::vector<P> gpu_rho, gpu_rho_new, gpu_p_dot_q, gpu_alpha, gpu_beta, gpu_r2;
 #endif
 };
 

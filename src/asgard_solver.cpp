@@ -11,15 +11,16 @@ namespace asgard::solvers
 {
 
 template<typename P>
-int cg<P>::solve(
-    operatoin_apply_lhs<P> apply_lhs, std::vector<P> const &rhs, std::vector<P> &x) const
+int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_lhs,
+                 std::vector<P> const &rhs, std::vector<P> &x) const
 {
   tools::time_event timing_("cg::solve");
   int64_t const n = static_cast<int64_t>(rhs.size());
 
-  if (r.size() != rhs.size()) r.resize(n);
-  if (p.size() != rhs.size()) p.resize(n);
-  if (q.size() != rhs.size()) q.resize(n);
+  r.resize(n);
+  if (precon != nullptr) z.resize(n);
+  p.resize(n);
+  q.resize(n);
 
   auto dot = [&](std::vector<P> const &a, std::vector<P> const &b) -> P {
       P sum = 0;
@@ -29,14 +30,26 @@ int cg<P>::solve(
   };
 
   r = rhs;
-  int num_appy = 1;
+  int num_apply = 1;
   apply_lhs(-1.0, x.data(), 1.0, r.data()); // r = b - A * x
 
-  p = r;
-  P rho = dot(r, r);
+  P r2 = dot(r, r);
+  if (r2 < tolerance_)
+    return num_apply;
+
+  P rho;
+  if (precon != nullptr) { 
+    z = r;
+    precon(z.data());
+    p = z;
+    rho = dot(r, z);
+  } else {
+    p = r;
+    rho = r2;
+  }
 
   for (int i = 0; i < max_iter_; i++) {
-    ++num_appy;
+    ++num_apply;
     apply_lhs(1.0, p.data(), 0.0, q.data()); // q = A * p
 
     P const p_dot_q = dot(p, q);
@@ -48,30 +61,46 @@ int cg<P>::solve(
         r[k] -= alpha * q[k];
     }
 
-    P const rho_new = dot(r, r);
+    r2 = dot(r, r);
 
     // Exact check based on the new residual
-    if (std::sqrt(rho_new) < tolerance_) {
-      return num_appy;
+    if (r2 < tolerance_) {
+      return num_apply;
+    }
+
+    P rho_new;
+    if (precon != nullptr) {
+      z = r;
+      precon(z.data());
+      rho_new = dot(r, z);
+    } else {
+      rho_new = r2;
     }
 
     P const beta = rho_new / rho;
 
-    ASGARD_OMP_PARFOR_SIMD
-    for (int64_t k = 0; k < n; k++) {
-        p[k] = r[k] + beta * p[k];
+    if (precon != nullptr) {
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t k = 0; k < n; k++) {
+          p[k] = z[k] + beta * p[k];
+      }
+    } else {
+      ASGARD_OMP_PARFOR_SIMD
+      for (int64_t k = 0; k < n; k++) {
+          p[k] = r[k] + beta * p[k];
+      }
     }
 
     rho = rho_new;
   }
   std::cerr << "Warning: ASGarD CPU CG solver failed to converge within " << max_iter_ << " iterations.\n";
-  return num_appy;
+  return num_apply;
 }
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-int cg<P>::solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
-                 gpu::vector<P> &x) const
+int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_lhs,
+                 gpu::vector<P> const &rhs, gpu::vector<P> &x) const
 {
   tools::time_event timing_("cg::solve-gpu");
   int64_t const n = rhs.size();
@@ -80,11 +109,11 @@ int cg<P>::solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
     gr.resize(n);
     gp.resize(n);
     gq.resize(n);
-    d_rho.resize(1);
-    d_rho_new.resize(1);
-    d_p_dot_q.resize(1);
-    d_alpha.resize(1);
-    d_beta.resize(1);
+    gpu_rho.resize(1);
+    gpu_rho_new.resize(1);
+    gpu_p_dot_q.resize(1);
+    gpu_alpha.resize(1);
+    gpu_beta.resize(1);
   }
 
   gr = rhs;
@@ -94,34 +123,34 @@ int cg<P>::solve(operatoin_apply_lhs<P> apply_lhs, gpu::vector<P> const &rhs,
 
   gp = gr;
 
-  compute->dot1_device(n, gr.data(), d_rho.data());
+  compute->dot1_device(n, gr.data(), gpu_rho.data());
 
   for (int i = 0; i < max_iter_; i++) {
     ++num_appy;
 
     apply_lhs(1.0, gp.data(), 0.0, gq.data()); 
 
-    compute->dot_device(n, gp.data(), gq.data(), d_p_dot_q.data());
+    compute->dot_device(n, gp.data(), gq.data(), gpu_p_dot_q.data());
 
-    gpu::cg_calc_alpha(d_rho.data(), d_p_dot_q.data(), d_alpha.data());
+    gpu::cg_calc_alpha(gpu_rho.data(), gpu_p_dot_q.data(), gpu_alpha.data());
 
-    gpu::cg_update_x_r(n, d_alpha.data(), gp.data(), gq.data(), x.data(), gr.data());
+    gpu::cg_update_x_r(n, gpu_alpha.data(), gp.data(), gq.data(), x.data(), gr.data());
 
-    compute->dot1_device(n, gr.data(), d_rho_new.data());
+    compute->dot1_device(n, gr.data(), gpu_rho_new.data());
 
     if (i % 10 == 0) {
         P cpu_rho_new;
-        d_rho_new.copy_to_host(1, &cpu_rho_new); 
-        if (std::sqrt(cpu_rho_new) < tolerance_) {
+        gpu_rho_new.copy_to_host(1, &cpu_rho_new); 
+        if (cpu_rho_new < tolerance_) {
             return num_appy;
         }
     }
 
-    gpu::cg_calc_beta(d_rho_new.data(), d_rho.data(), d_beta.data());
+    gpu::cg_calc_beta(gpu_rho_new.data(), gpu_rho.data(), gpu_beta.data());
 
-    gpu::cg_update_p(n, d_beta.data(), gr.data(), gp.data());
+    gpu::cg_update_p(n, gpu_beta.data(), gr.data(), gp.data());
 
-    gpu::cg_update_rho(d_rho_new.data(), d_rho.data());
+    gpu::cg_update_rho(gpu_rho_new.data(), gpu_rho.data());
   }
 
   std::cerr << "Warning: ASGarD GPU CG solver failed to converge within " << max_iter_ << " iterations.\n";
