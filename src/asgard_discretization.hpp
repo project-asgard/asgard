@@ -33,7 +33,7 @@ class discretization_manager
 {
 public:
   //! allows the creation of a null manager, has to be reinitialized later
-  discretization_manager() : poisson_iter(1e-6, 10000), poisson_preconditioner(/* precon_method::jacobi */)
+  discretization_manager() : poisson_iter(1e-6, 10000), poisson_preconditioner(precon_method::jacobi)
   {
     #ifdef ASGARD_ENABLE_DOUBLE
     #ifdef ASGARD_ENABLE_FLOAT

@@ -33,11 +33,10 @@ int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_
   int num_apply = 1;
   apply_lhs(-1.0, x.data(), 1.0, r.data()); // r = b - A * x
 
-  P r2 = dot(r, r);
-  if (r2 < tolerance_)
+  P rho = dot(r, r);
+  if (rho < tolerance_)
     return num_apply;
 
-  P rho;
   if (precon != nullptr) { 
     z = r;
     precon(z.data());
@@ -45,7 +44,6 @@ int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_
     rho = dot(r, z);
   } else {
     p = r;
-    rho = r2;
   }
 
   for (int i = 0; i < max_iter_; i++) {
@@ -61,20 +59,17 @@ int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_
         r[k] -= alpha * q[k];
     }
 
-    r2 = dot(r, r);
+    P rho_new = dot(r, r);
 
     // Exact check based on the new residual
-    if (r2 < tolerance_) {
+    if (rho_new < tolerance_) {
       return num_apply;
     }
 
-    P rho_new;
     if (precon != nullptr) {
       z = r;
       precon(z.data());
       rho_new = dot(r, z);
-    } else {
-      rho_new = r2;
     }
 
     P const beta = rho_new / rho;
@@ -105,56 +100,63 @@ int cg<P>::solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_
   tools::time_event timing_("cg::solve-gpu");
   int64_t const n = rhs.size();
 
-  if (gq.size() != n) {
+  if (gr.size() != n) {
     gr.resize(n);
+    if (precon != nullptr) gz.resize(n);
     gp.resize(n);
     gq.resize(n);
-    gpu_rho.resize(1);
-    gpu_rho_new.resize(1);
-    gpu_p_dot_q.resize(1);
-    gpu_alpha.resize(1);
-    gpu_beta.resize(1);
   }
 
   gr = rhs;
+  int num_apply = 1;
+  apply_lhs(-1.0, x.data(), 1.0, gr.data());
+  compute->dot1_device(n, gr.data(), grho.data());
 
-  int num_appy = 1;
-  apply_lhs(-1.0, x.data(), 1.0, gr.data()); 
-
-  gp = gr;
-
-  compute->dot1_device(n, gr.data(), gpu_rho.data());
+  if (precon != nullptr) {
+    gz = gr;
+    precon(gz.data());
+    gp = gz;
+    compute->dot_device(n, gr.data(), gz.data(), grho.data());
+  } else {
+    gp = gr;
+  }
 
   for (int i = 0; i < max_iter_; i++) {
-    ++num_appy;
+    ++num_apply;
 
     apply_lhs(1.0, gp.data(), 0.0, gq.data()); 
 
-    compute->dot_device(n, gp.data(), gq.data(), gpu_p_dot_q.data());
+    compute->dot_device(n, gp.data(), gq.data(), gp_dot_gq.data());
+    gpu::cg_calc_alpha(grho.data(), gp_dot_gq.data(), galpha.data());
 
-    gpu::cg_calc_alpha(gpu_rho.data(), gpu_p_dot_q.data(), gpu_alpha.data());
-
-    gpu::cg_update_x_r(n, gpu_alpha.data(), gp.data(), gq.data(), x.data(), gr.data());
-
-    compute->dot1_device(n, gr.data(), gpu_rho_new.data());
+    gpu::cg_update_x_r(n, galpha.data(), gp.data(), gq.data(), x.data(), gr.data());
+    compute->dot1_device(n, gr.data(), grho_new.data());
 
     if (i % 10 == 0) {
-        P cpu_rho_new;
-        gpu_rho_new.copy_to_host(1, &cpu_rho_new); 
-        if (cpu_rho_new < tolerance_) {
-            return num_appy;
-        }
+      P rho_new;
+      grho_new.copy_to_host(1, &rho_new); 
+      if (rho_new < tolerance_) {
+        return num_apply;
+      }
     }
 
-    gpu::cg_calc_beta(gpu_rho_new.data(), gpu_rho.data(), gpu_beta.data());
+    if (precon != nullptr) {
+      gz = gr;
+      precon(gz.data());
+      compute->dot_device(n, gr.data(), gz.data(), grho_new.data());
+    }
 
-    gpu::cg_update_p(n, gpu_beta.data(), gr.data(), gp.data());
-
-    gpu::cg_update_rho(gpu_rho_new.data(), gpu_rho.data());
+    gpu::cg_calc_beta(grho_new.data(), grho.data(), gbeta.data());
+    if (precon != nullptr) {
+      gpu::cg_update_p(n, gbeta.data(), gz.data(), gp.data());
+    } else {
+      gpu::cg_update_p(n, gbeta.data(), gr.data(), gp.data());
+    }
+    gpu::cg_update_rho(grho_new.data(), grho.data());
   }
 
   std::cerr << "Warning: ASGarD GPU CG solver failed to converge within " << max_iter_ << " iterations.\n";
-  return num_appy;
+  return num_apply;
 }
 #endif
 

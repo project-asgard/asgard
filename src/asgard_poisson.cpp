@@ -195,7 +195,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
   if (bc == poisson_bc::periodic) {
     gpu::memcopy_dev2dev(1, density.data(), gpu_density0.data());
-    gpu::fill_zeros(1, density.data());
+    gpu::set_zero(density.data());
   }
   
   // Define the Matrix-Vector Product (The LHS)
@@ -238,7 +238,7 @@ void poisson_md<P>::kron_diag(term_entry<P> const &tme, sparse_grid const &grid,
 
       for (int t : iindexof(block_size)) {
         P a = 1;
-        int tt = i;
+        int tt = t;
         for (int d = num_dims - 1; d >= 0; --d)
         {
           if (amats[d] != nullptr) {
@@ -282,12 +282,9 @@ void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, conn
     for (term_entry<P> const &tentry : laplacian_terms)
       kron_diag(tentry, position_grid, conn, block_size, jacobi);
 
-    size_t const num_level_zero_entries = fm::ipow(pdof, num_dims);
+    jacobi[0] = P{0};
     ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = 0; i < num_level_zero_entries; i++)
-      jacobi[i] = P{1e-8};
-    ASGARD_OMP_PARFOR_SIMD
-    for (size_t i = num_level_zero_entries; i < jacobi.size(); i++)
+    for (size_t i = 1; i < jacobi.size(); i++)
       jacobi[i] = P{1} / jacobi[i];
 
     #ifdef ASGARD_USE_GPU

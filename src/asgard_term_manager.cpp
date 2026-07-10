@@ -472,7 +472,7 @@ void term_manager<P>::kron_diag(
 
       for (int t : iindexof(block_size)) {
         P a = 1;
-        int tt = i;
+        int tt = t;
         for (int d = num_dims - 1; d >= 0; --d)
         {
           if (amats[d] != nullptr) {

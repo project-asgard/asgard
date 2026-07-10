@@ -136,8 +136,15 @@ public:
   cg() = default;
 
   //! construct and set the tolerance and maximum number of iterations
-  cg(P tolerance, int maxi)
-      : tolerance_(tolerance), max_iter_(maxi) {}
+  cg(P tolerance, int maxi) : tolerance_(tolerance), max_iter_(maxi) {
+    #ifdef ASGARD_USE_GPU
+    grho.resize(1);
+    grho_new.resize(1);
+    gp_dot_gq.resize(1);
+    galpha.resize(1);
+    gbeta.resize(1);
+    #endif
+  }
 
   //! solve for the given linear operator, right-hand-side and initial iterate
   int solve(operatoin_apply_precon<P> precon, operatoin_apply_lhs<P> apply_lhs,
@@ -182,7 +189,7 @@ private:
   //! GPU workspace
   mutable gpu::vector<P> gr, gp, gq, gz;
   //! VRAM Scalars
-  mutable gpu::vector<P> gpu_rho, gpu_rho_new, gpu_p_dot_q, gpu_alpha, gpu_beta, gpu_r2;
+  mutable gpu::vector<P> grho, grho_new, gp_dot_gq, galpha, gbeta;
 #endif
 };
 
