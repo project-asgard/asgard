@@ -1608,6 +1608,13 @@ public:
         options_.isolver_iterations = options_.default_isolver_iterations.value();
       if (not options_.isolver_inner_iterations and options_.default_isolver_inner_iterations)
         options_.isolver_inner_iterations = options_.default_isolver_inner_iterations.value();
+      // setting up the poisson solver options for a possible poisson solver
+      if (not options_.poisson_precon and options_.default_poisson_precon)
+        options_.poisson_precon = options_.default_poisson_precon.value();
+      if (not options_.poisson_tolerance and options_.default_poisson_tolerance)
+        options_.poisson_tolerance = options_.default_poisson_tolerance.value();
+      if (not options_.poisson_iterations and options_.default_poisson_iterations)
+        options_.poisson_iterations = options_.default_poisson_iterations.value();
     }
   }
 

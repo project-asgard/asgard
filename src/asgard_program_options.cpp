@@ -161,6 +161,15 @@ Options          Short   Value      Description
                                     for GMRES this is the number of outer iterations.
 -isolve-inner    -isn    int        (GMRES only) The maximum number of inner GMRES iterations,
                                     this is ignored by BiCGSTAB.
+-poisson-precon  -ppc    string     accepts: none/jacobi
+                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
+                                    specifies the preconditioner for the Poisson solver
+                                    none - is not advisable as it takes too long
+                                    jacobi - preconditioner that applies basic rescaling
+-poisson-tol     -pt     double     Poisson solver tolerance,
+                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
+-poisson-iter    -pi     int        Poisson solver maximum number of iterations,
+                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
 
 )help";
 }
@@ -198,6 +207,9 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-isolve-iter", optentry::isol_iterations}, {"-isi", optentry::isol_iterations},
       {"-isolve-inner", optentry::isol_inner_iterations},
       {"-isn", optentry::isol_inner_iterations},
+      {"-poisson-precon", optentry::poisson_precond}, {"-ppc", optentry::poisson_precond},
+      {"-poisson-tol", optentry::poisson_tolerance}, {"-pt", optentry::poisson_tolerance},
+      {"-poisson-iter", optentry::poisson_iterations}, {"-pi", optentry::poisson_iterations},
       {"-restart", optentry::restart_file},
   };
 
@@ -499,6 +511,45 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         throw std::runtime_error(report_no_value());
       try {
         isolver_inner_iterations = std::stoi(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::poisson_precond: {
+      // if we get more preconditioners we may switch to a map
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      if (*selected == "none")
+        poisson_precon = precon_method::none;
+      else if (*selected == "jacobi")
+        poisson_precon = precon_method::jacobi;
+      else
+        throw std::runtime_error(report_wrong_value());
+    }
+    break;
+    case optentry::poisson_tolerance: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        poisson_tolerance = std::stod(selected->data());
+      } catch(std::invalid_argument &) {
+        throw std::runtime_error(report_wrong_value());
+      } catch(std::out_of_range &) {
+        throw std::runtime_error(report_wrong_value());
+      }
+    }
+    break;
+    case optentry::poisson_iterations: {
+      auto selected = move_process_next();
+      if (not selected)
+        throw std::runtime_error(report_no_value());
+      try {
+        poisson_iterations = std::stoi(selected->data());
       } catch(std::invalid_argument &) {
         throw std::runtime_error(report_wrong_value());
       } catch(std::out_of_range &) {

@@ -62,7 +62,7 @@ public:
   poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-             build_term_func<P> build, moment_id const m0);
+             build_term_func<P> build, moment_id const m0, prog_opts const &opts);
   #ifndef ASGARD_USE_GPU
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space

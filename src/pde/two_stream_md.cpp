@@ -100,6 +100,9 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   options.default_degree = default_degree;
   options.default_start_levels = {7, 7, 7, 7};
+  options.default_poisson_tolerance = 1e-6;
+  options.default_poisson_iterations = 1000;
+  options.default_poisson_precon = asgard::precon_method::jacobi;
 
   options.default_plotter_colormap = "viridis";
 
@@ -524,7 +527,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 6 -d 3 -n 5 -dt 6.25e-3 -a 1.0e-6");
+  test_energy<double>("-l 6 -d 3 -n 5 -dt 6.25e-3 -a 1.0e-6 -ppc none");
   test_energy<double>("-s rk4 -l 6 -d 2 -n 5 -dt 6.25e-3 -a 1.0e-6");
 
 #endif

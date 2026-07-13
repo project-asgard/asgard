@@ -203,7 +203,7 @@ public:
                    std::array<P, max_num_dimensions> const &xright,
                    connection_patterns const &conn,
                    hierarchy_manipulator<P> const &hier,
-                   build_term_func<P> build_func);
+                   build_term_func<P> build_func, prog_opts const &opts);
 
   //! Updates the position grid if needed
   void update_position_grid(sparse_grid const &grid) const;

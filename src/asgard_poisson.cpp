@@ -12,8 +12,10 @@ template<typename P>
 poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
                           std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
                           hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-                          build_term_func<P> build, moment_id const m0)
-  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), cg_solver(1e-8, 1000), precon(precon_method::jacobi)
+                          build_term_func<P> build, moment_id const m0, prog_opts const &opts)
+  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0),
+    cg_solver(opts.poisson_tolerance.value(), opts.poisson_iterations.value()),
+    precon(opts.poisson_precon.value_or(precon_method::none))
 {
   assert((num_dims > 1) and (num_dims <= max_pos_dims));
   int const nelem = fm::ipow2(max_level);
@@ -274,11 +276,11 @@ template<typename P>
 void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
                                           poisson_bc const bc)
 {
-  tools::time_event timing_("updating poisson_md preconditioner");
-
   // return if nothing more to do
   if (precon.valid_for(position_grid))
     return;
+
+  tools::time_event timing_("updating poisson_md preconditioner");
 
   precon.grid_gen = position_grid.generation(); // update the grid gen
 

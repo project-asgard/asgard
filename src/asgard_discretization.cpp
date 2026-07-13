@@ -220,7 +220,7 @@ void discretization_manager<precision>::start_moments() {
     auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
       this->terms.rebuild_term1d(tentry, dim, level);
     };
-    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func);
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, options_);
   }
   terms.moms.update_position_grid(terms.grid);
   std::visit([&](auto &p)
