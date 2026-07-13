@@ -1,5 +1,4 @@
 #include "asgard_poisson.hpp"
-#include "asgard_solver.hpp"
 #include "asgard_small_mats.hpp"
 
 #ifdef ASGARD_USE_GPU
@@ -13,8 +12,8 @@ template<typename P>
 poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
                           std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
                           hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-                          build_term_func<P> build, iter_solve_func<P> iter_solve_func, moment_id const m0)
-  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), iter_solve(iter_solve_func)
+                          build_term_func<P> build, moment_id const m0)
+  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), cg_solver(1e-8, 1000), precon(precon_method::jacobi)
 {
   rassert((num_dims > 1) and (num_dims <= max_pos_dims), "poisson_md should only be used for 2 or 3 spatial dimensions");
   int const nelem = fm::ipow2(max_level);
@@ -140,7 +139,16 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
   };
 
   // Execute the Solve
-  int num_iter = iter_solve(apply_lhs, density, potential);
+  int num_iter = 0;
+  if (precon.method() == precon_method::jacobi) {
+    num_iter = cg_solver.solve([&](P y[]) -> void
+      {
+        tools::time_event timing_("poisson_md jacobi preconditioner");
+        fm::jacobi_apply(density.size(), precon.jacobi(), y);
+      }, apply_lhs, density, potential);
+  } else {
+    num_iter = cg_solver.solve(nullptr, apply_lhs, density, potential);
+  }
   // std::cout << num_iter << " iterations\n";
   std::ignore = num_iter;
 
@@ -195,7 +203,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
   if (bc == poisson_bc::periodic) {
     gpu::memcopy_dev2dev(1, density.data(), gpu_density0.data());
-    gpu::set_zero(density.data());
+    gpu::fill_zeros(1, density.data());
   }
   
   // Define the Matrix-Vector Product (The LHS)
@@ -214,7 +222,16 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
 
   // Execute the Solve
   compute->set_device(gpu::device{0});
-  int num_iter = iter_solve(apply_lhs, density, gpu_potential);
+  int num_iter = 0;
+  if (precon.method() == precon_method::jacobi) {
+    num_iter = cg_solver.solve([&](P y[]) -> void
+      {
+        tools::time_event timing_("poisson_md jacobi preconditioner");
+        gpu::jacobi_apply(precon.gpu_jacobi(), y);
+      }, apply_lhs, density, gpu_potential);
+  } else {
+    num_iter = cg_solver.solve(nullptr, apply_lhs, density, gpu_potential);
+  }
   std::ignore = num_iter;
 
   // Restore the density
@@ -255,7 +272,7 @@ void poisson_md<P>::kron_diag(term_entry<P> const &tme, sparse_grid const &grid,
 
 template<typename P>
 void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
-                                          preconditioner_data<P> &precon) const
+                                          poisson_bc const bc)
 {
   tools::time_event timing_("updating poisson_md preconditioner");
 
@@ -282,7 +299,10 @@ void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, conn
     for (term_entry<P> const &tentry : laplacian_terms)
       kron_diag(tentry, position_grid, conn, block_size, jacobi);
 
-    jacobi[0] = P{0};
+    if (bc == poisson_bc::periodic)
+      jacobi[0] = P{0};
+    else
+      jacobi[0] = P{1} / jacobi[0];
     ASGARD_OMP_PARFOR_SIMD
     for (size_t i = 1; i < jacobi.size(); i++)
       jacobi[i] = P{1} / jacobi[i];
@@ -296,7 +316,7 @@ void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, conn
 
 template<typename P>
 void poisson_1d<P>::solve(std::vector<P> const &density, P dleft, P dright,
-                       poisson_bc const bc, std::vector<P> &efield)
+                          poisson_bc const bc, std::vector<P> &efield)
 {
   tools::time_event psolve_("poisson_1d");
 

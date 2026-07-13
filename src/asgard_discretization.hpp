@@ -33,7 +33,7 @@ class discretization_manager
 {
 public:
   //! allows the creation of a null manager, has to be reinitialized later
-  discretization_manager() : poisson_iter(1e-6, 10000), poisson_preconditioner(precon_method::jacobi)
+  discretization_manager()
   {
     #ifdef ASGARD_ENABLE_DOUBLE
     #ifdef ASGARD_ENABLE_FLOAT
@@ -754,7 +754,7 @@ protected:
         p.update_level(terms.grid.current_level(0));
       } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
         terms.moms.update_position_grid(terms.grid);
-        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_preconditioner);
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
       }
     }, get_poisson());
   }
@@ -778,7 +778,7 @@ protected:
         p.update_level(terms.grid.current_level(0));
       } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
         terms.moms.update_position_grid(terms.grid);
-        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_preconditioner);
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
       }
     }, get_poisson());
   }
@@ -845,10 +845,6 @@ private:
 
   //! fields to store and save for plotting
   std::vector<aux_field_entry<precision>> aux_fields;
-
-  //! Just testing for now
-  solvers::cg<precision> poisson_iter;
-  mutable preconditioner_data<precision> poisson_preconditioner;
 };
 
 } // namespace asgard

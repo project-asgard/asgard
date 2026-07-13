@@ -88,22 +88,11 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   moments_list mlist;
   moment_id mex = mlist.get_add_id(moment::electric(dimension_id{0}, 2));
   moment_id mey = mlist.get_add_id(moment::electric(dimension_id{1}, 2));
-  solvers::cg<P> poisson_iter(1e-12, 10000);
   auto build_func = [&terms](term_entry<P> &tentry, int const dim, int const lvl) -> void {
     terms.rebuild_term1d(tentry, dim, lvl);
   };
-  #ifdef ASGARD_USE_GPU
-  auto iter_solve_func = [&poisson_iter](solvers::operation_apply_lhs<P> apply_lhs,
-                                         gpu::vector<P> const &b, gpu::vector<P> &x) -> int {
-    return poisson_iter.solve(nullptr, apply_lhs, b, x);
-  };
-  #else
-  auto iter_solve_func = [&poisson_iter](solvers::operation_apply_lhs<P> apply_lhs,
-                                         std::vector<P> const &b, std::vector<P> &x) -> int {
-    return poisson_iter.solve(nullptr, apply_lhs, b, x);
-  };
-  #endif
-  poisson_md<P> poisson(2, level, terms.xleft, terms.xright, terms.conn, terms.hier, mlist, build_func, iter_solve_func, moment_id{0});
+  poisson_md<P> poisson(2, level, terms.xleft, terms.xright, terms.conn, terms.hier, mlist, build_func, moment_id{0});
+  poisson.update_preconditioner(terms.grid, terms.conn, poisson_bc::periodic);
 
   // fill vectors from functions
   int n = terms.grid.num_dof();

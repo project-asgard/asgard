@@ -1,29 +1,9 @@
 #pragma once
 
-#include "asgard_term_build.hpp"
-
-namespace asgard::solvers
-{
-
-/*!
- * \internal
- * \brief Signature for the left-hand linear operation for a solver, raw-array variant
- *
- * Computes `y = alpha * A * x + beta * y`
- *
- * \endinternal
- */
-template<typename P>
-using operation_apply_lhs =
-  std::function<void(P alpha, P const x[], P beta, P y[])>;
-
-} // namespace asgard::solvers
+#include "asgard_iterative_solver.hpp"
 
 namespace asgard
 {
-
-template<typename P>
-struct preconditioner_data;
 
 #ifdef ASGARD_USE_GPU
 /*!
@@ -65,34 +45,6 @@ template<typename P>
 using build_term_func =
   std::function<void(term_entry<P> &tentry, int const dim, int const level)>;
 
-#ifdef ASGARD_USE_GPU
-/*!
- * \internal
- * \brief Signature for the iterative solve function
- *
- * Uses an iterative solver to solve the Poisson equation
- *
- * \endinternal
- */
-template<typename P>
-using iter_solve_func =
-  std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
-                     gpu::vector<P> const &rhs, gpu::vector<P> &x)>;
-#else
-/*!
- * \internal
- * \brief Signature for the iterative solve function
- *
- * Uses an iterative solver to solve the Poisson equation
- *
- * \endinternal
- */
-template<typename P>
-using iter_solve_func =
-  std::function<int(solvers::operation_apply_lhs<P> apply_lhs,
-                     std::vector<P> const &rhs, std::vector<P> &x)>;
-#endif
-
 /*!
  * \brief Stores the data for a multi-dimensional poisson solver
  *
@@ -110,7 +62,7 @@ public:
   poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-             build_term_func<P> build, iter_solve_func<P> iter_solve_func, moment_id const m0);
+             build_term_func<P> build, moment_id const m0);
   #ifndef ASGARD_USE_GPU
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
@@ -131,7 +83,7 @@ public:
 
   //! update the preconditioner for the iterative solver, called on refinement
   void update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
-                             preconditioner_data<P> &precon) const;
+                             poisson_bc const bc);
   //! indicates whether the solver has been initialized
   operator bool() const { return (num_dims > 0); }
   //! returns the id for the zero moment
@@ -178,7 +130,8 @@ private:
   block_sparse_matrix<P> derivative_mat;
   std::array<P, max_pos_dims> derivative_scale;
   std::vector<P> potential;
-  iter_solve_func<P> iter_solve;
+  solvers::cg<P> cg_solver;
+  preconditioner_data<P> precon;
   #ifdef ASGARD_USE_GPU
   #ifdef ASGARD_GPU_MEMGREEDY
   //! gpu derivative matrix

@@ -406,6 +406,7 @@ set(asgard_components
     grid_1d
     indexset
     interp
+    iterative_solver
     kronmult
     kronmult_common
     kronmult_cpu
@@ -414,6 +415,7 @@ set(asgard_components
     momentset
     pde
     pde_functions
+    poisson
     program_options
     quadrature
     reconstruct
@@ -421,7 +423,6 @@ set(asgard_components
     resource_groups
     small_mats
     solver
-    poisson
     term_build
     term_manager
     term_sources
