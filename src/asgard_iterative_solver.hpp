@@ -1,9 +1,5 @@
 #include "asgard_term_build.hpp"
 
-#ifdef ASGARD_USE_GPU
-#include "asgard_gpu_algorithms.hpp"
-#endif
-
 namespace asgard::solvers
 {
 

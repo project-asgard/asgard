@@ -2,6 +2,10 @@
 
 #include "asgard_blas.hpp"
 
+#ifdef ASGARD_USE_GPU
+#include "asgard_gpu_algorithms.hpp"
+#endif
+
 namespace asgard::solvers
 {
 
@@ -28,7 +32,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
   if (rho < tolerance_)
     return num_apply;
 
-  if (precon != nullptr) { 
+  if (precon != nullptr) {
     z = r;
     precon(z.data());
     p = z;
@@ -111,7 +115,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
   for (int i = 0; i < max_iter_; i++) {
     ++num_apply;
 
-    apply_lhs(1.0, gp.data(), 0.0, gq.data()); 
+    apply_lhs(1.0, gp.data(), 0.0, gq.data());
 
     compute->dot_device(n, gp.data(), gq.data(), gp_dot_gq.data());
     gpu::cg_update_x_r(n, grho.data(), gp_dot_gq.data(), gp.data(), gq.data(), x.data(), gr.data());
@@ -119,7 +123,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
 
     if (i % 10 == 0) {
       P rho_new;
-      grho_new.copy_to_host(1, &rho_new); 
+      grho_new.copy_to_host(1, &rho_new);
       if (rho_new < tolerance_) {
         return num_apply;
       }

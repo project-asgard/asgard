@@ -415,6 +415,40 @@ int num_non_finite(int64_t num, P const x[]) {
   return cpu_res;
 }
 
+template<typename P, int num_threads>
+__global__ void cg_update_x_r_kernel(int64_t num, P const *rho, P const *p_dot_q, P const p[], P const q[], P x[], P r[]) {
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  P alpha = *rho / *p_dot_q;
+  while (i < num) {
+    x[i] += alpha * p[i];
+    r[i] -= alpha * q[i];
+    i += num_threads * gridDim.x;
+  }
+}
+
+template<typename P, int num_threads>
+__global__ void cg_update_p_kernel(int64_t num, P const *rho_new, P const *rho, P const r[], P p[]) {
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  P beta = *rho_new / *rho;
+  while (i < num) {
+    p[i] = r[i] + beta * p[i];
+    i += num_threads * gridDim.x;
+  }
+}
+
+template<typename P>
+void cg_update_x_r(int64_t num, P const *rho, P const *p_dot_q, P const p[], P const q[], P x[], P r[]) {
+  constexpr int max_threads = 1024;
+  int const num_blocks = round_up(num, max_threads);
+  cg_update_x_r_kernel<P, max_threads><<<num_blocks, max_threads>>>(num, rho, p_dot_q, p, q, x, r);
+}
+template<typename P>
+void cg_update_p(int64_t num, P const *rho_new, P const *rho, P const r[], P p[]) {
+  constexpr int max_threads = 1024;
+  int const num_blocks = round_up(num, max_threads);
+  cg_update_p_kernel<P, max_threads><<<num_blocks, max_threads>>>(num, rho_new, rho, r, p);
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void jacobi_apply<double>(gpu::vector<double> const &, double[]);
 template void compute_last_bicgstab<double>(double, double, gpu::vector<double> const &,
@@ -436,6 +470,9 @@ template void tensor_by_index(int, int, int, int const[], double const[], double
                               double const[], double const[], double const[], double[]);
 
 template int num_non_finite(int64_t num, double const x[]);
+
+template void cg_update_x_r<double>(int64_t, double const*, double const*, double const[], double const[], double[], double[]);
+template void cg_update_p<double>(int64_t, double const*, double const*, double const[], double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -459,5 +496,8 @@ template void tensor_by_index(int, int, int, int const[], float const[], float c
                               float const[], float const[], float const[], float[]);
 
 template int num_non_finite(int64_t num, float const x[]);
+
+template void cg_update_x_r<float>(int64_t, float const*, float const*, float const[], float const[], float[], float[]);
+template void cg_update_p<float>(int64_t, float const*, float const*, float const[], float[]);
 #endif
 }
