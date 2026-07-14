@@ -4,21 +4,21 @@
 
 /*!
  * \internal
- * \file two_stream.cpp
- * \brief Two stream instability example
+ * \file landau_damping.cpp
+ * \brief Landau damping example
  * \author The ASGarD Team
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_landau
  *
  * \endinternal
  */
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_two_stream Example: Two stream instability
+ * \addtogroup asgard_examples_landau_damping Example: Landau damping
  *
- * \par Two stream instability
+ * \par Landau damping
  * Solves the Vlasov-Poisson equation in a common example
- * often called the two stream instability problem
+ * often called the landau damping problem
  * \f[ \frac{\partial}{\partial t} f(x, v) + v \cdot \nabla_x f(x, v, t) + E(x, t) \nabla_v \cdot f(x, v, t) = 0 \f]
  * where the electric field term depends on the Poisson equation
  * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
@@ -36,7 +36,7 @@
  */
 
 /*!
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_landau_damping
  * \brief The ratio of circumference to diameter of a circle
  */
 double constexpr PI = asgard::PI;
@@ -66,10 +66,10 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
 #endif
 
 /*!
- * \ingroup asgard_examples_two_stream
- * \brief Make single two-stream PDE
+ * \ingroup asgard_examples_landau_damping
+ * \brief Make single landau damping PDE
  *
- * Constructs the pde description for the given umber of dimensions
+ * Constructs the pde description for the given number of dimensions
  * and options.
  *
  * \tparam P is either double or float, the asgard::default_precision will select
@@ -79,15 +79,15 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
  *
  * \returns the asgard::pde_scheme definition
  *
- * \snippet two_stream.cpp two_stream make
+ * \snippet landau_damping.cpp landau make
  */
 template<typename P = asgard::default_precision>
-asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
+asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream make]
+//! [landau make]
 #endif
 
-  options.title = "Multi-D Two Stream Instability";
+  options.title = "Multi-D Landau Damping";
 
   // the domain has one position and one velocity dimension: 1x1v
   asgard::pde_domain<P> domain(asgard::position_dims{2}, asgard::velocity_dims{2},
@@ -316,29 +316,29 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
   auto ic_x = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
-        fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
+        fx[i] = 1.0 + 0.05 * std::cos(0.5 * x[i]);
     };
 
   auto ic_y = [](std::vector<P> const &y, P /* time */, std::vector<P> &fy) ->
     void {
       for (size_t i = 0; i < y.size(); i++)
-        fy[i] = 1.0;
+        fy[i] = 1.0 + 0.05 * std::cos(0.5 * y[i]);
     };
 
   auto ic_vx = [](std::vector<P> const &vx, P /* time */, std::vector<P> &fv) ->
     void {
-      P const c = P{2} / std::sqrt(PI);
+      P const c = P{1} / std::sqrt(2 * PI);
 
       for (size_t i = 0; i < vx.size(); i++)
-        fv[i] = c * vx[i] * vx[i] * std::exp(-vx[i] * vx[i]);
+        fv[i] = c * std::exp(-0.5 * vx[i] * vx[i]);
     };
 
   auto ic_vy = [](std::vector<P> const &vy, P /* time */, std::vector<P> &fv) ->
     void {
-      P const c = P{1} / std::sqrt(PI);
+      P const c = P{1} / std::sqrt(2 * PI);
 
       for (size_t i = 0; i < vy.size(); i++)
-        fv[i] = c * std::exp(-vy[i] * vy[i]);
+        fv[i] = c * std::exp(-0.5 * vy[i] * vy[i]);
     };
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_y, ic_vx, ic_vy}));
@@ -346,22 +346,22 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
   return pde;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream make]
+//! [landau make]
 #endif
 }
 
 /*!
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_landau_damping
  * \brief main() for the diffusion example
  *
- * The main() processes the command line arguments and calls make_two_stream().
+ * The main() processes the command line arguments and calls make_landau().
  *
- * \snippet two_stream.cpp two_stream main
+ * \snippet landau_damping.cpp landau main
  */
 int main(int argc, char** argv)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream main]
+//! [landau main]
 #endif
 
   // if MPI is enabled, call MPI_Init(), otherwise do nothing
@@ -375,9 +375,9 @@ int main(int argc, char** argv)
   asgard::prog_opts options(argc, argv);
 
   // if help was selected in the command line, show general information about
-  // this example runs 2D problem, testing does more options
+  // this example runs 4D problem, testing does more options
   if (options.show_help) {
-    std::cout << "\n solves the two stream Vlasov-Poisson in 2x-2v dimensions\n\n";
+    std::cout << "\n solves the Landau damping Vlasov-Poisson in 2x-2v dimensions\n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
     std::cout << "<< additional options for this file >>\n";
@@ -398,7 +398,7 @@ int main(int argc, char** argv)
 
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_two_stream(options),
+  asgard::discretization_manager<P> disc(make_landau(options),
                                          asgard::verbosity_level::low);
 
   // save the initial condition
@@ -429,7 +429,7 @@ int main(int argc, char** argv)
   return 0;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream main]
+//! [landau main]
 #endif
 };
 
@@ -444,7 +444,7 @@ int main(int argc, char** argv)
 using namespace asgard;
 
 template<typename P>
-void test_energy(std::string const &opt_str) {
+void test_damping(std::string const &opt_str) {
   current_test<P> test_(opt_str, 2);
   // analytic solution is not available, hence we use energy conservation for
   // the test quantity in place of an L^2 error
@@ -453,21 +453,16 @@ void test_energy(std::string const &opt_str) {
 
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
-  auto pde = make_two_stream(options);
-  moment_id const rho = pde.register_moment({0, 0});
-  moment_id const p0 = pde.register_moment({1, 0}); // needed for verification, but not running
-  moment_id const p1 = pde.register_moment({0, 1});
-  moment_id const ke0 = pde.register_moment({2, 0});
-  moment_id const ke1 = pde.register_moment({0, 2});
+  auto pde = make_landau(options);
   moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
   moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
-  P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
+  int64_t const nt = disc.remaining_steps();
+  std::vector<P> efield(nt);
+  std::vector<P> time(nt);
 
-  int64_t const n = disc.remaining_steps();
-
-  for (int64_t i = 0; i < n; i++)
+  for (int64_t i = 0; i < nt; i++)
   {
     tassert( disc.advance_time(1) );
 
@@ -476,56 +471,56 @@ void test_energy(std::string const &opt_str) {
     if (not disc.has_poisson()) // in MPI context, do error checking only on Poisson-ranks
       continue;
 
-    P area = disc.domain().length(0) * disc.domain().length(1);
-
     auto efieldx = disc.get_moment(melectric_x);
     auto efieldy = disc.get_moment(melectric_y);
 
     P Ep = 0;
     for (auto ex : efieldx) Ep += ex * ex;
     for (auto ey : efieldy) Ep += ey * ey;
+    efield[i] = Ep;
+    time[i] = disc.time();
+  }
+  std::vector<std::pair<P, P>> peaks;
+  for (size_t i = 1; i < efield.size() - 1; i++) {
+    if (efield[i] > efield[i - 1] and efield[i] > efield[i + 1])
+      peaks.emplace_back(time[i], std::log(efield[i]));
+  }
 
-    std::vector<P> momke0 = disc.get_moment(ke0);
-    std::vector<P> momke1 = disc.get_moment(ke1);
-    P Ek = (momke0[0] + momke1[0]) * std::sqrt(area);
+  P sum_t = 0;
+  P sum_lnE = 0;
+  P sum_t_lnE = 0;
+  P sum_t2 = 0;
+  size_t n = peaks.size();
+  tassert(n > 1);
+  for (std::pair<P, P> const &peak : peaks) {
+    P t = peak.first;
+    P lnE = peak.second;
 
-    if (disc.current_step() == 1) // first time-step
-      E0 = 0.5 * (Ep + Ek);
+    sum_t += t;
+    sum_lnE += lnE;
+    sum_t_lnE += t * lnE;
+    sum_t2 += t * t;
+  }
+  P numerator = n * sum_t_lnE - sum_t * sum_lnE;
+  P denominator = n * sum_t2 - sum_t * sum_t;
+  P gamma = numerator / denominator;
+  P gamma_theory = -0.3067189338;
+  tassert(std::abs(gamma - gamma_theory) < 1.e-2);
 
-    // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
-    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-4);
-
-    std::vector<P> mom0 = disc.get_moment(rho);
-    std::vector<P> momp0 = disc.get_moment(p0);
-    std::vector<P> momp1 = disc.get_moment(p1);
-
-    // integral of moment 0 by moment 1, by delta_ij orthogonality of the basis
-    // just sum up the product of the coefficients
-    P mv0 = 0;
-    for (size_t j = 0; j < mom0.size(); j++)
-      mv0 += mom0[j] * momp0[j];
-    P mv1 = 0;
-    for (size_t j = 0; j < mom0.size(); j++)
-      mv1 += mom0[j] * momp1[j];
-
-    // std::cout << "X momentum error: " << mv0 << "\n";
-    // std::cout << "Y momentum error: " << mv1 << "\n\n";
-    tcheckless(i, std::abs(mv0), 2.0e-5);
-    tcheckless(i, std::abs(mv1), 2.0e-5);
-
-    // check the initial slight energy decay before it stabilizes
-    if (i > 0)
-      tassert(std::abs(Ep + Ek - E0) > 1.E-9);
+  P omega_theory = 1.4156618886;
+  for (size_t i = 1; i < peaks.size(); i++) {
+    P dt = peaks[i].first - peaks[i - 1].first;
+    P omega = asgard::PI / dt;
+    tcheckless(i, std::abs(omega - omega_theory), 1.e-2);
   }
 }
 
 void self_test() {
-  all_tests testing_("multi-d two-stream instability");
+  all_tests testing_("multi-d landau damping");
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 6 -d 3 -n 5 -dt 6.25e-3 -a 1.0e-6");
-  test_energy<double>("-s rk4 -l 6 -d 2 -n 5 -dt 6.25e-3 -a 1.0e-6");
+  test_damping<double>("-l 4 -a 1.e-3 -t 4.8");
 
 #endif
 

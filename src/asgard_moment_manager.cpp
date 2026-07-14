@@ -80,18 +80,17 @@ void moment_manager<P>::set_poisson(int const max_level, sparse_grid const &grid
                                     std::array<P, max_num_dimensions> const &xright,
                                     connection_patterns const &conn,
                                     hierarchy_manipulator<P> const &hier,
-                                    build_term_func<P> build_func,
-                                    iter_solve_func<P> iter_func)
+                                    build_term_func<P> build_func)
 {
   if (mlist.has_electric()) {
     moment_id const m0 = find_id(moment::zero(num_vel_));
     if (num_pos_ == 1) {
       moment_id const melectric = find_id(moment::electric(dimension_id(0), num_pos_));
       poisson_solver = poisson_1d<P>(hier.degree(), xleft[0], xright[0],
-                                              grid.current_level(0), m0, melectric);
+                                     grid.current_level(0), m0, melectric);
     } else {
       poisson_solver = poisson_md<P>(num_pos_, max_level, xleft, xright, conn, hier,
-                                              mlist, build_func, iter_func, m0);
+                                     mlist, build_func, m0);
     }
   }
 }
@@ -510,8 +509,7 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
 }
 
 template<typename P>
-void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
-                                 std::vector<P> const &state, std::vector<P> &vals) const
+void moment_manager<P>::update_position_grid(sparse_grid const &grid) const
 {
   if (pos_grid.generation() != grid.generation()) { // grid changed, must rebuild
     switch (pos_grid.num_dims()) {
@@ -529,6 +527,13 @@ void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
     };
     pos_grid.generation_ = grid.generation();
   }
+}
+
+template<typename P>
+void moment_manager<P>::mcompute(sparse_grid const &grid, moment_id id,
+                                 std::vector<P> const &state, std::vector<P> &vals) const
+{
+  update_position_grid(grid);
 
   switch (num_vel_) {
   case 1:
@@ -634,7 +639,7 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
 template<typename P>
 void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patterns const &conn,
                                       hierarchy_manipulator<P> const &hier, interpolation_manager<P> const &interp,
-                                      kronmult::workspace<P> &work) const
+                                      kronmult::workspace<P> &work, bool raw_on_cpu) const
 {
   std::visit([&](auto &p) {
       if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
@@ -651,7 +656,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
           gpu::vector<P> &res = gpu_interps[0][mid];
           res.resize(full_block * grid.num_indexes());
         }
-        solve_poisson_gpu(conn, hier, interp, work);
+        solve_poisson_gpu(conn, hier, interp, work, raw_on_cpu);
         auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
         {
           for (auto const &mom : this->gpu_moments[0]) {
@@ -670,6 +675,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
         #else
         std::ignore = interp;
         std::ignore = grid;
+        std::ignore = raw_on_cpu;
         update_position_grid_dsort();
         p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
         #endif
@@ -680,7 +686,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
 #ifdef ASGARD_USE_GPU
 template<typename P>
 void moment_manager<P>::solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const
+                                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu) const
 {
   std::visit([&](auto &p) {
       if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
@@ -706,6 +712,10 @@ void moment_manager<P>::solve_poisson_gpu(connection_patterns const &conn, hiera
         };
         auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
         {
+          if (raw_on_cpu) {
+            efield.copy_to_host(this->raw_vals[mid]);
+            this->full_level.get(mid).resize(0);
+          }
           interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
           gpu::vector<P> &res = this->gpu_interps[0][mid];
           moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);

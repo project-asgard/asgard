@@ -170,6 +170,38 @@ public:
   }
 
   template<typename P>
+  void dot_device(int num, P const x[], P const y[], P* result_dev) const {
+      // 1. Tell rocBLAS to write the result to a pointer on the DEVICE
+      rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_device);
+
+      // 2. Perform the dot product
+      if constexpr (std::is_same_v<P, double>) {
+          rocblas_ddot(rocblas, num, x, 1, y, 1, result_dev);
+      } else {
+          rocblas_fdot(rocblas, num, x, 1, y, 1, result_dev);
+      }
+
+      // 3. Reset to HOST mode for standard ASGarD operations
+      rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_host);
+  }
+
+  template<typename P>
+  void nrm2_device(int num, P const x[], P* result_dev) const {
+      // 1. Tell rocBLAS to write the result to a pointer on the DEVICE
+      rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_device);
+
+      // 2. Perform the norm calculation
+      if constexpr (std::is_same_v<P, double>) {
+          cublas_dnrm2(rocblas, num, x, 1, result_dev);
+      } else {
+          cublas_snrm2(rocblas, num, x, 1, result_dev);
+      }
+
+      // 3. Reset to HOST mode
+      rocblas_set_pointer_mode(rocblas, rocblas_pointer_mode_host);
+  }
+
+  template<typename P>
   void gemtv(int m, int n, P alpha, P const A[], P const x[], P beta, P y[]) const {
     if constexpr (is_float<P>) {
       asgard_rocblas_check_error( rocblas_sgemv(rocblas, rocblas_operation_transpose,

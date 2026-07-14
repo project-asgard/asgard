@@ -296,6 +296,21 @@ public:
     P const n = blas_.nrm2(num, x);
     return n;
   }
+  //! dot product between two vectors, result in VRAM
+  template<typename P>
+  void dot_device(int num, P const x[], P const y[], P* result_dev) const {
+    blas_.dot_device(num, x, y, result_dev);
+  }
+  //! dot product of a vector with itself, result in VRAM
+  template<typename P>
+  void dot1_device(int num, P const x[], P* result_dev) const {
+    blas_.dot_device(num, x, x, result_dev);
+  }
+  //! norm-2 of a vector, result in VRAM
+  template<typename P>
+  void nrm2_device(int num, P const x[], P* result_dev) const {
+    blas_.nrm2_device(num, x, result_dev);
+  }
   //! transpose of a matrix, times a vector
   template<typename P>
   void gemtv(int m, int n, no_deduce<P> alpha, P const A[], P const x[],

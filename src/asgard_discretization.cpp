@@ -1,4 +1,5 @@
 #include "asgard_discretization.hpp"
+#include "asgard_small_mats.hpp"
 
 #ifdef ASGARD_USE_GPU
 #include "asgard_gpu_algorithms.hpp"
@@ -219,19 +220,17 @@ void discretization_manager<precision>::start_moments() {
     auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
       this->terms.rebuild_term1d(tentry, dim, level);
     };
-    #ifdef ASGARD_USE_GPU
-    auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
-                                  gpu::vector<precision> const &rhs, gpu::vector<precision> &x) -> int {
-      return this->poisson_iter.solve(apply_lhs, rhs, x);
-    };
-    #else
-    auto iter_solve_func = [this](solvers::operation_apply_lhs<precision> apply_lhs,
-                                  std::vector<precision> const &rhs, std::vector<precision> &x) -> int {
-      return this->poisson_iter.solve(apply_lhs, rhs, x);
-    };
-    #endif
-    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, iter_solve_func);
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func);
   }
+  terms.moms.update_position_grid(terms.grid);
+  std::visit([&](auto &p)
+    {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+        p.update_level(terms.grid.current_level(0));
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+      }
+    }, get_poisson());
   compute_moments_(group_id::all(), state);
 }
 
@@ -407,7 +406,7 @@ std::vector<precision> discretization_manager<precision>::get_moment(moment_id i
       else
         throw std::runtime_error("an electric moment was requested but no poisson solver is set");
     }, get_poisson());
-    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork, true);
     return terms.moms.get_cached_raw(id);
   }
   std::vector<precision> result;

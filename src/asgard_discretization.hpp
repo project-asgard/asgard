@@ -33,7 +33,7 @@ class discretization_manager
 {
 public:
   //! allows the creation of a null manager, has to be reinitialized later
-  discretization_manager() : poisson_iter(1e-6, 10000)
+  discretization_manager()
   {
     #ifdef ASGARD_ENABLE_DOUBLE
     #ifdef ASGARD_ENABLE_FLOAT
@@ -748,13 +748,15 @@ protected:
     if (is_leader())
       terms.grid.remap(terms.block_size(), next);
     terms.prapare_kron_workspace();
-    if (has_poisson())
-      std::visit([&](auto &p)
-      {
-        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
-          p.update_level(terms.grid.current_level(0));
-        }
-      }, get_poisson());
+    std::visit([&](auto &p)
+    {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+        p.update_level(terms.grid.current_level(0));
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
+        terms.moms.update_position_grid(terms.grid);
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+      }
+    }, get_poisson());
   }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, std::vector<precision> const &f)
@@ -770,13 +772,15 @@ protected:
     if (is_leader())
       terms.grid.remap(terms.block_size(), next);
     terms.prapare_kron_workspace();
-    if (has_poisson())
-      std::visit([&](auto &p)
-      {
-        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
-          p.update_level(terms.grid.current_level(0));
-        }
-      }, get_poisson());
+    std::visit([&](auto &p)
+    {
+      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<precision>>) {
+        p.update_level(terms.grid.current_level(0));
+      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<precision>>) {
+        terms.moms.update_position_grid(terms.grid);
+        p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+      }
+    }, get_poisson());
   }
   //! refines the sparse grid using the given strategy and
   void refine(sparse_grid::strategy mode, gpu::vector<precision> const &f)
@@ -841,9 +845,6 @@ private:
 
   //! fields to store and save for plotting
   std::vector<aux_field_entry<precision>> aux_fields;
-
-  //! Just testing for now
-  solvers::bicgstab<precision> poisson_iter;
 };
 
 } // namespace asgard

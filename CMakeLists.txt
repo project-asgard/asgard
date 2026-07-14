@@ -129,7 +129,7 @@ endif()
 # to configure the examples cmake file, so it needs to be a single string as opposed to a list
 # on the other hand, the additional internal (testing) PDEs are just a normal list
 set (_asgard_doc_pdes "continuity_2d inputs_1d continuity diffusion spherical_diffusion elliptic elliptic_nonsep robin_bc sinwav two_stream vplb sod_shock burgers bgk")
-set (_asgard_gpu_pdes "burgers_gpu two_stream_md")
+set (_asgard_gpu_pdes "burgers_gpu two_stream_md landau_damping")
 set (_asgard_int_pdes bound_internal interp_internal interp_bc_internal multichain_internal relaxation_internal varcoeff_internal misc_internal)
 
 set (_asgard_doc_pdes_str "${_asgard_doc_pdes}") # save for examples configuration
@@ -406,6 +406,7 @@ set(asgard_components
     grid_1d
     indexset
     interp
+    iterative_solver
     kronmult
     kronmult_common
     kronmult_cpu
@@ -414,6 +415,7 @@ set(asgard_components
     momentset
     pde
     pde_functions
+    poisson
     program_options
     quadrature
     reconstruct
@@ -421,7 +423,6 @@ set(asgard_components
     resource_groups
     small_mats
     solver
-    poisson
     term_build
     term_manager
     term_sources
