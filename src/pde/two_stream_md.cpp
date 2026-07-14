@@ -100,7 +100,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   options.default_degree = default_degree;
   options.default_start_levels = {7, 7, 7, 7};
-  options.default_poisson_tolerance = 1e-6;
+  options.default_poisson_tolerance = 1e-8;
   options.default_poisson_iterations = 1000;
   options.default_poisson_precon = asgard::precon_method::jacobi;
 

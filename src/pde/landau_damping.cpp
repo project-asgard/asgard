@@ -100,7 +100,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
 
   options.default_degree = default_degree;
   options.default_start_levels = {7, 7, 7, 7};
-  options.default_poisson_tolerance = 1e-6;
+  options.default_poisson_tolerance = 1e-8;
   options.default_poisson_iterations = 1000;
   options.default_poisson_precon = asgard::precon_method::jacobi;
 
@@ -523,7 +523,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_damping<double>("-l 4 -a 1.e-3 -t 4.8");
+  test_damping<double>("-l 4 -a 1.e-3 -t 4.8 -ppc none");
+  test_damping<double>("-s rk4 -l 4 -a 1.e-3 -t 4.8");
 
 #endif
 
