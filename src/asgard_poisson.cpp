@@ -15,7 +15,7 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
                           build_term_func<P> build, moment_id const m0)
   : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), cg_solver(1e-8, 1000), precon(precon_method::jacobi)
 {
-  rassert((num_dims > 1) and (num_dims <= max_pos_dims), "poisson_md should only be used for 2 or 3 spatial dimensions");
+  assert((num_dims > 1) and (num_dims <= max_pos_dims));
   int const nelem = fm::ipow2(max_level);
 
   // set up scaling for each direction
