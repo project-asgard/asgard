@@ -1038,7 +1038,7 @@ void moment_manager<P>::compute_moments(
 
       // solve poisson equation while w1 holds density
       if (mom.is_zero()) {
-        assert(g == 0); // poisson used gpu 0 for solve
+        assert(g == 0); // poisson uses gpu 0 for solve
         solve_poisson_gpu(conn, hier, interp, kwork);
       }
 

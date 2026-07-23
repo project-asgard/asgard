@@ -145,7 +145,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_x = moments[melectric_x];
+      std::vector<P> const &e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::max(P{0}, e_x[i]);
@@ -155,7 +155,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_x = moments[melectric_x];
+      std::vector<P> const &e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::min(P{0}, e_x[i]);
@@ -165,7 +165,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_y = moments[melectric_y];
+      std::vector<P> const &e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::max(P{0}, e_y[i]);
@@ -175,7 +175,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_y = moments[melectric_y];
+      std::vector<P> const &e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::min(P{0}, e_y[i]);

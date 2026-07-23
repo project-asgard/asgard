@@ -112,7 +112,7 @@ public:
 private:
   #ifndef ASGARD_USE_GPU
   //! remaps a vector from the old grid to the new grid, used for warm starting the potential
-  void remap_(std::vector<P> &x, indexset const& iset_old, indexset const &iset_new) const;
+  void remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const;
   //! solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
@@ -122,7 +122,7 @@ private:
                  int const block_size, std::vector<P> &y) const;
   #ifdef ASGARD_USE_GPU
   //! remaps a vector from the old grid to the new grid, used for warm starting the potential
-  void remap_(gpu::vector<P> &x, indexset const& iset_old, indexset const &iset_new) const;
+  void remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const;
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);

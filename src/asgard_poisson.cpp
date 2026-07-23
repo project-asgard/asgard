@@ -109,7 +109,7 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
 }
 
 template<typename P>
-void poisson_md<P>::remap_(std::vector<P> &x, indexset const& iset_old, indexset const &iset_new) const
+void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const
 {
   int64_t const num_old = iset_old.num_indexes();
   int64_t const num_new = iset_new.num_indexes();
@@ -162,7 +162,7 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
 {
   // Remap the previous potential to the new grid if needed to use as a warm start
   if (generation != position_grid.generation()) {
-    remap_(potential, iset_, position_grid.iset());
+    remap_(iset_, position_grid.iset(), potential);
     iset_ = position_grid.iset();
     generation = position_grid.generation();
   }
@@ -240,7 +240,7 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
 }
 
 template<typename P>
-void poisson_md<P>::remap_(gpu::vector<P> &x, indexset const& iset_old, indexset const &iset_new) const
+void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const
 {
   int64_t const num_old = iset_old.num_indexes();
   int64_t const num_new = iset_new.num_indexes();
@@ -273,6 +273,7 @@ void poisson_md<P>::remap_(gpu::vector<P> &x, indexset const& iset_old, indexset
 
     if (relation == index_relation::asameb) {
       // Point survived adaptation: Transfer data
+      // TODO: make these memcopies into a single kernel
       gpu::memcopy_dev2dev(block_size, x.data() + iold * block_size, x_new.data() + inew * block_size);
       inew++;
       iold++;
@@ -293,7 +294,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
 {
   // Remap the previous potential to the new grid if needed to use as a warm start
   if (generation != position_grid.generation()) {
-    remap_(gpu_potential, iset_, position_grid.iset());
+    remap_(iset_, position_grid.iset(), gpu_potential);
     iset_ = position_grid.iset();
     generation = position_grid.generation();
   }

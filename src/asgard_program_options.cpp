@@ -166,9 +166,9 @@ Options          Short   Value      Description
                                     specifies the preconditioner for the Poisson solver
                                     none - is not advisable as it takes too long
                                     jacobi - preconditioner that applies basic rescaling
--poisson-tol     -pt     double     Poisson solver tolerance,
+-poisson-tol     -ptol   double     Poisson solver tolerance,
                                     applies to domains with 2 or 3 spatial dimensions and an electric field moment
--poisson-iter    -pi     int        Poisson solver maximum number of iterations,
+-poisson-iter    -piter  int        Poisson solver maximum number of iterations,
                                     applies to domains with 2 or 3 spatial dimensions and an electric field moment
 
 )help";
@@ -208,8 +208,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-isolve-inner", optentry::isol_inner_iterations},
       {"-isn", optentry::isol_inner_iterations},
       {"-poisson-precon", optentry::poisson_precond}, {"-ppc", optentry::poisson_precond},
-      {"-poisson-tol", optentry::poisson_tolerance}, {"-pt", optentry::poisson_tolerance},
-      {"-poisson-iter", optentry::poisson_iterations}, {"-pi", optentry::poisson_iterations},
+      {"-poisson-tol", optentry::poisson_tolerance}, {"-ptol", optentry::poisson_tolerance},
+      {"-poisson-iter", optentry::poisson_iterations}, {"-piter", optentry::poisson_iterations},
       {"-restart", optentry::restart_file},
   };
 

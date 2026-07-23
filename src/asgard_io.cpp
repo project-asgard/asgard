@@ -141,7 +141,8 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
     if (moms.has_poisson()) {
       moment_id m0 = moms.find_id(moment::zero(moms.num_vel()));
       moms.cache_moment(m0, grid, state);
-      moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
+      constexpr bool raw_on_cpu = true;
+      moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork, raw_on_cpu);
     }
     for (int i : iindexof(moms.num_moments()))
     {
