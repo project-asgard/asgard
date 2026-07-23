@@ -49,19 +49,30 @@ void self_test();
 #ifdef ASGARD_USE_GPU
 template<typename P>
 __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom, P* out) {
-    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < num) {
-        // Avoiding std::max to prevent __device__ compilation header conflicts
-        out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0); 
-    }
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  while (i < num) {
+    // Avoiding std::max to prevent __device__ compilation header conflicts
+    out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0); 
+    i += blockDim.x * gridDim.x;
+  }
 }
 
 template<typename P>
 __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom, P* out) {
-    int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < num) {
-        out[i] = field[i] * ((mom[i] < 0.0) ? mom[i] : 0.0);
-    }
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  while (i < num) {
+    out[i] = field[i] * ((mom[i] < 0.0) ? mom[i] : 0.0);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+template<typename P>
+__global__ void weight_kernel(int64_t num, P const *field, P const *ex, P const *ey, P* out) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  while (i < num) {
+    out[i] = field[i] * (ex[i] * ex[i] + ey[i] * ey[i]);
+    i += blockDim.x * gridDim.x;
+  }
 }
 #endif
 
@@ -273,6 +284,16 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
       }
     };
+
+  auto weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
+    {
+      int threads = 256;
+      int blocks = (num + threads - 1) / threads;
+
+      asgard::gpu::vector<P> const &e_x = moments[melectric_x];
+      asgard::gpu::vector<P> const &e_y = moments[melectric_y];
+      weight_kernel<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), fx);
+    };
 #else
   pde += asgard::term_md<P>{
       asgard::term_md(asgard::term_interp<P>(md_positive_x, {melectric_x, })),
@@ -313,6 +334,17 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
       }
     };
+
+  auto weight = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
+    {
+      std::vector<P> const &e_x = moments[melectric_x];
+      std::vector<P> const &e_y = moments[melectric_y];
+#pragma omp parallel for
+      for (size_t i = 0; i < vals.size(); i++)
+        vals[i] = field[i] * (e_x[i] * e_x[i] + e_y[i] * e_y[i]);
+    };
 #endif
 
   // initial conditions in x and v
@@ -345,6 +377,8 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
     };
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_y, ic_vx, ic_vy}));
+
+  pde.set_adapt_weight(weight, {melectric_x, melectric_y});
 
   return pde;
 
@@ -496,7 +530,7 @@ void test_energy(std::string const &opt_str) {
       E0 = 0.5 * (Ep + Ek);
 
     // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
-    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 3.E-4);
+    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 7.E-6);
 
     std::vector<P> mom0 = disc.get_moment(rho);
     std::vector<P> momp0 = disc.get_moment(p0);
@@ -527,7 +561,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 6 -d 3 -n 5 -dt 6.25e-3 -a 1.0e-6 -ppc none");
+  test_energy<double>("-l 6 -d 3 -n 10 -dt 6.25e-3 -a 1.0e-6 -ppc none");
   test_energy<double>("-s rk4 -l 6 -d 2 -n 5 -dt 6.25e-3 -a 1.0e-6");
 
 #endif
