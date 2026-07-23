@@ -175,6 +175,26 @@ __global__ void kernel_sum5(int64_t num, P const x[], P a1, P const x1[],
     i += num_threads * gridDim.x;
   }
 }
+template<typename P, int num_threads>
+__global__ void kernel_flagged_memcopy(int block_size, int64_t num_transfers,
+                                       int64_t const transfers[], P const src[], P dest[])
+{
+  int i = threadIdx.x + blockIdx.x * num_threads;
+  int64_t total_elements = block_size * num_transfers;
+  while (i < total_elements) {
+    int64_t transfer_idx = i / block_size;
+    int64_t element_offset = i % block_size;
+
+    // 3. Look up the old and new block indices from the transfer map
+    // transfers is packed as: [src_idx_0, dest_idx_0, src_idx_1, dest_idx_1, ...]
+    int64_t src_block_idx = transfers[transfer_idx * 2];
+    int64_t dest_block_idx = transfers[transfer_idx * 2 + 1];
+
+    // 4. Perform the exact element copy
+    dest[dest_block_idx * block_size + element_offset] = src[src_block_idx * block_size + element_offset];
+    i += num_threads * gridDim.x;
+  }
+}
 
 template<typename P>
 void sum2(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, gpu::vector<P> &y) {
@@ -209,6 +229,16 @@ void sum5(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no
   int const num_blocks = round_up(num, max_threads);
   kernel_sum5<P, max_threads><<<num_blocks, max_threads>>>(
       num, x.data(), a1, x1.data(), a2, x2.data(), a3, x3.data(), a4, x4.data(), y.data());
+}
+template<typename P>
+void flagged_memcopy_dev2dev(int block_size, gpu::vector<int64_t> const &transfers, gpu::vector<P> const &src, gpu::vector<P> &dest) {
+  assert(transfers.size() % 2 == 0);
+  constexpr int max_threads = 1024;
+  int64_t const num_transfers = transfers.size() / 2;
+  int64_t const num = block_size * num_transfers;
+  int const num_blocks = round_up(num, max_threads);
+  kernel_flagged_memcopy<P, max_threads><<<num_blocks, max_threads>>>(
+      block_size, num_transfers, transfers.data(), src.data(), dest.data());
 }
 
 template<typename P>
@@ -465,6 +495,8 @@ template void sum4(gpu::vector<double> const &, double, gpu::vector<double> cons
                    double, gpu::vector<double> const &, double, gpu::vector<double> const &, gpu::vector<double> &);
 template void sum5(gpu::vector<double> const &, double, gpu::vector<double> const &, double, gpu::vector<double> const &,
                    double, gpu::vector<double> const &, double, gpu::vector<double> const &, gpu::vector<double> &);
+template void flagged_memcopy_dev2dev(int block_size, gpu::vector<int64_t> const &transfers, gpu::vector<double> const &src,
+                                      gpu::vector<double> &dest);
 
 template void tensor_by_index(int, int, int, int const[], double const[], double const[], double const[],
                               double const[], double const[], double const[], double[]);
@@ -491,6 +523,8 @@ template void sum4(gpu::vector<float> const &, float, gpu::vector<float> const &
                    float, gpu::vector<float> const &, float, gpu::vector<float> const &, gpu::vector<float> &);
 template void sum5(gpu::vector<float> const &, float, gpu::vector<float> const &, float, gpu::vector<float> const &,
                    float, gpu::vector<float> const &, float, gpu::vector<float> const &, gpu::vector<float> &);
+template void flagged_memcopy_dev2dev(int block_size, gpu::vector<int64_t> const &transfers, gpu::vector<float> const &src,
+                                      gpu::vector<float> &dest);
 
 template void tensor_by_index(int, int, int, int const[], float const[], float const[], float const[],
                               float const[], float const[], float const[], float[]);

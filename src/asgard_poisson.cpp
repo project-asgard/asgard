@@ -248,6 +248,9 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
 
   // Initialize exactly to 0.0 to automatically handle newly refined points
   gpu::vector<P> x_new(num_new * block_size);
+  gpu::fill_zeros(x_new.size(), x_new.data());
+  std::vector<int64_t> transfers;
+  transfers.reserve(num_old + num_new);
 
   int64_t iold = 0;
   int64_t inew = 0;
@@ -273,8 +276,8 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
 
     if (relation == index_relation::asameb) {
       // Point survived adaptation: Transfer data
-      // TODO: make these memcopies into a single kernel
-      gpu::memcopy_dev2dev(block_size, x.data() + iold * block_size, x_new.data() + inew * block_size);
+      transfers.push_back(iold);
+      transfers.push_back(inew);
       inew++;
       iold++;
     } else if (relation == index_relation::abeforeb) {
@@ -285,6 +288,10 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
       iold++;
     }
   }
+
+  // Peform copy on GPU
+  gpu::vector<int64_t> gpu_transfers(transfers);
+  gpu::flagged_memcopy_dev2dev(block_size, gpu_transfers, x, x_new);
   std::swap(x, x_new);
 }
 
