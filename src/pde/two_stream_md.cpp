@@ -67,10 +67,19 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
 }
 
 template<typename P>
-__global__ void weight_kernel(int64_t num, P const *field, P const *ex, P const *ey, P* out) {
+__global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P const *ey, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
     out[i] = field[i] * (ex[i] * ex[i] + ey[i] * ey[i]);
+    i += blockDim.x * gridDim.x;
+  }
+}
+
+template<typename P>
+__global__ void weight_kernel_3d(int64_t num, P const *field, P const *ex, P const *ey, P const *ez, P* out) {
+  int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  while (i < num) {
+    out[i] = field[i] * (ex[i] * ex[i] + ey[i] * ey[i] + ez[i] * ez[i]);
     i += blockDim.x * gridDim.x;
   }
 }
@@ -93,24 +102,34 @@ __global__ void weight_kernel(int64_t num, P const *field, P const *ex, P const 
  * \snippet two_stream.cpp two_stream make
  */
 template<typename P = asgard::default_precision>
-asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
+asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! [two_stream make]
 #endif
 
-  options.title = "Multi-D Two Stream Instability";
+  options.title = std::to_string(pos_dims) + "X" + std::to_string(pos_dims) + "V Two Stream Instability";
 
-  // the domain has one position and one velocity dimension: 1x1v
-  asgard::pde_domain<P> domain(asgard::position_dims{2}, asgard::velocity_dims{2},
-                               {{-2 * PI, 2 * PI}, {-2 * PI, 2 * PI},
-                                {-2 * PI, 2 * PI}, {-2 * PI, 2 * PI}});
+  asgard::pde_domain<P> domain;
+  if (pos_dims == 2) {
+    domain = asgard::pde_domain<P>(asgard::position_dims{2}, asgard::velocity_dims{2},
+                                 {{-2 * PI, 2 * PI}, {-2 * PI, 2 * PI},
+                                  {-2 * PI, 2 * PI}, {-2 * PI, 2 * PI}});
+    options.default_start_levels = {7, 7, 7, 7};
+  } else if (pos_dims == 3) {
+    domain = asgard::pde_domain<P>(asgard::position_dims{3}, asgard::velocity_dims{3},
+                                 {{-2 * PI, 2 * PI}, {-2 * PI, 2 * PI},
+                                  {-2 * PI, 2 * PI}, {-2 * PI, 2 * PI},
+                                  {-2 * PI, 2 * PI}, {-2 * PI, 2 * PI}});
+    options.default_start_levels = {6, 6, 6, 6, 6, 6};
+  } else {
+    throw std::runtime_error("dims must be 2 or 3");
+  }
 
   // setting some default options
   // defaults are used only the corresponding values are missing from the command line
   int const default_degree = 2;
 
   options.default_degree = default_degree;
-  options.default_start_levels = {7, 7, 7, 7};
   options.default_poisson_tolerance = 1e-8;
   options.default_poisson_iterations = 1000;
   options.default_poisson_precon = asgard::precon_method::jacobi;
@@ -123,7 +142,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
   int const n = (1 << options.max_level());
   options.default_dt = 3.0 / (2 * (2 * k + 1) * n);
 
-  options.default_stop_time = 0.25;
+  options.default_stop_time = 2.0;
 
   // using explicit RK2
   options.default_step_method = asgard::time_method::rk2;
@@ -149,8 +168,17 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         y[i] = std::min(P{0}, x[i]);
     };
 
-  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  asgard::moment_id melectric_x;
+  asgard::moment_id melectric_y;
+  asgard::moment_id melectric_z;
+  if (pos_dims == 2) {
+    melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
+    melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  } else {
+    melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 3);
+    melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 3);
+    melectric_z = pde.register_electric_moment(asgard::dimension_id(2), 3);
+  }
 
   auto md_positive_x = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
@@ -192,33 +220,110 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         vals[i] = field[i] * std::min(P{0}, e_y[i]);
     };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-      asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
-      asgard::term_identity{},
-      asgard::term_volume<P>(positive),
-      asgard::term_identity{}
-    });
+  auto md_positive_z = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
+    {
+      std::vector<P> const &e_z = moments[melectric_z];
+#pragma omp parallel for
+      for (size_t i = 0; i < vals.size(); i++)
+        vals[i] = field[i] * std::max(P{0}, e_z[i]);
+    };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-    asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
-    asgard::term_identity{},
-    asgard::term_volume<P>(negative),
-    asgard::term_identity{}
-    });
+  auto md_negative_z = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                    asgard::momentset<P> const &moments, std::vector<P> const &field,
+                    std::vector<P> &vals)
+    {
+      std::vector<P> const &e_z = moments[melectric_z];
+#pragma omp parallel for
+      for (size_t i = 0; i < vals.size(); i++)
+        vals[i] = field[i] * std::min(P{0}, e_z[i]);
+    };
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-    asgard::term_identity{},
-    asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
-    asgard::term_identity{},
-    asgard::term_volume<P>(positive)
-  });
 
-  pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
-    asgard::term_identity{},
-    asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
-    asgard::term_identity{},
-    asgard::term_volume<P>(negative)
-    });
+  if (pos_dims == 2) {
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_volume<P>(positive),
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_volume<P>(negative),
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_volume<P>(positive)
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_volume<P>(negative)
+      });
+  } else {
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(positive),
+        asgard::term_identity{},
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(negative),
+        asgard::term_identity{},
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(positive),
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(negative),
+        asgard::term_identity{}
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(positive)
+      });
+
+    pde += asgard::term_md<P>(std::vector<asgard::term_1d<P>>{
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::periodic),
+        asgard::term_identity{},
+        asgard::term_identity{},
+        asgard::term_volume<P>(negative)
+      });
+  }
 
 #ifdef ASGARD_USE_GPU
   auto gpu_md_positive_x = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
@@ -245,106 +350,296 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
       interp_negative_kernel<<<blocks, threads>>>(num, f, moments[melectric_y].data(), fx);
   };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(gpu_md_positive_x, {melectric_x, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
-        asgard::term_identity{}
-      }
-    };
+  auto gpu_md_positive_z = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+      int threads = 256;
+      int blocks = (num + threads - 1) / threads;
+      interp_positive_kernel<<<blocks, threads>>>(num, f, moments[melectric_z].data(), fx);
+  };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(gpu_md_negative_x, {melectric_x, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
-        asgard::term_identity{}
-      }
-    };
+  auto gpu_md_negative_z = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+      int threads = 256;
+      int blocks = (num + threads - 1) / threads;
+      interp_negative_kernel<<<blocks, threads>>>(num, f, moments[melectric_z].data(), fx);
+  };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(gpu_md_positive_y, {melectric_y, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
-      }
-    };
+  std::function<void(int64_t, P, P const[], asgard::momentset_gpu<P> const&, P const[], P[])> weight;
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(gpu_md_negative_y, {melectric_y, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
-      }
-    };
+  if (pos_dims == 2) {
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_positive_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
 
-  auto weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_negative_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_positive_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_negative_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
     {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
 
       asgard::gpu::vector<P> const &e_x = moments[melectric_x];
       asgard::gpu::vector<P> const &e_y = moments[melectric_y];
-      weight_kernel<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), fx);
-    };
-#else
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(md_positive_x, {melectric_x, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
-        asgard::term_identity{}
-      }
+      weight_kernel_2d<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), fx);
     };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(md_negative_x, {melectric_x, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
-        asgard::term_identity{}
-      }
-    };
+  } else {
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_positive_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{},
+          asgard::term_identity{}
+        }
+      };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(md_positive_y, {melectric_y, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
-      }
-    };
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_negative_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{},
+          asgard::term_identity{}
+        }
+      };
 
-  pde += asgard::term_md<P>{
-      asgard::term_md(asgard::term_interp<P>(md_negative_y, {melectric_y, })),
-      asgard::term_md<P>{
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_identity{},
-        asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
-      }
-    };
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_positive_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
 
-  auto weight = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
-                    asgard::momentset<P> const &moments, std::vector<P> const &field,
-                    std::vector<P> &vals)
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_negative_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+      pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_positive_z, {melectric_z, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(gpu_md_negative_z, {melectric_z, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
     {
-      std::vector<P> const &e_x = moments[melectric_x];
-      std::vector<P> const &e_y = moments[melectric_y];
-#pragma omp parallel for
-      for (size_t i = 0; i < vals.size(); i++)
-        vals[i] = field[i] * (e_x[i] * e_x[i] + e_y[i] * e_y[i]);
+      int threads = 256;
+      int blocks = (num + threads - 1) / threads;
+
+      asgard::gpu::vector<P> const &e_x = moments[melectric_x];
+      asgard::gpu::vector<P> const &e_y = moments[melectric_y];
+      asgard::gpu::vector<P> const &e_z = moments[melectric_z];
+      weight_kernel_3d<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), e_z.data(), fx);
     };
+  }
+
+#else
+  std::function<void(P, asgard::vector2d<P> const&, asgard::momentset<P> const&,
+                     std::vector<P> const&, std::vector<P>&)> weight;
+
+  if (pos_dims == 2) {
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_positive_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_negative_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_positive_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_negative_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    weight = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                      asgard::momentset<P> const &moments, std::vector<P> const &field,
+                      std::vector<P> &vals)
+      {
+        std::vector<P> const &e_x = moments[melectric_x];
+        std::vector<P> const &e_y = moments[melectric_y];
+  #pragma omp parallel for
+        for (size_t i = 0; i < vals.size(); i++)
+          vals[i] = field[i] * (e_x[i] * e_x[i] + e_y[i] * e_y[i]);
+      };
+  } else {
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_positive_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{},
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_negative_x, {melectric_x, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{},
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_positive_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_negative_y, {melectric_y, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides)),
+          asgard::term_identity{}
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_positive_z, {melectric_z, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    pde += asgard::term_md<P>{
+        asgard::term_md(asgard::term_interp<P>(md_negative_z, {melectric_z, })),
+        asgard::term_md<P>{
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_identity{},
+          asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides))
+        }
+      };
+
+    weight = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
+                      asgard::momentset<P> const &moments, std::vector<P> const &field,
+                      std::vector<P> &vals)
+      {
+        std::vector<P> const &e_x = moments[melectric_x];
+        std::vector<P> const &e_y = moments[melectric_y];
+        std::vector<P> const &e_z = moments[melectric_z];
+  #pragma omp parallel for
+        for (size_t i = 0; i < vals.size(); i++)
+          vals[i] = field[i] * (e_x[i] * e_x[i] + e_y[i] * e_y[i] + e_z[i] * e_z[i]);
+      };
+  }
 #endif
 
   // initial conditions in x and v
@@ -358,6 +653,12 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
     void {
       for (size_t i = 0; i < y.size(); i++)
         fy[i] = 1.0;
+    };
+
+  auto ic_z = [](std::vector<P> const &z, P /* time */, std::vector<P> &fz) ->
+    void {
+      for (size_t i = 0; i < z.size(); i++)
+        fz[i] = 1.0;
     };
 
   auto ic_vx = [](std::vector<P> const &vx, P /* time */, std::vector<P> &fv) ->
@@ -376,9 +677,21 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
         fv[i] = c * std::exp(-vy[i] * vy[i]);
     };
 
-  pde.add_initial(asgard::separable_func<P>({ic_x, ic_y, ic_vx, ic_vy}));
+  auto ic_vz = [](std::vector<P> const &vz, P /* time */, std::vector<P> &fv) ->
+    void {
+      P const c = P{1} / std::sqrt(PI);
 
-  pde.set_adapt_weight(weight, {melectric_x, melectric_y});
+      for (size_t i = 0; i < vz.size(); i++)
+        fv[i] = c * std::exp(-vz[i] * vz[i]);
+    };
+
+  if (pos_dims == 2) {
+    pde.add_initial(asgard::separable_func<P>({ic_x, ic_y, ic_vx, ic_vy}));
+    pde.set_adapt_weight(weight, {melectric_x, melectric_y});
+  } else {
+    pde.add_initial(asgard::separable_func<P>({ic_x, ic_y, ic_z, ic_vx, ic_vy, ic_vz}));
+    pde.set_adapt_weight(weight, {melectric_x, melectric_y, melectric_z});
+  }
 
   return pde;
 
@@ -417,15 +730,19 @@ int main(int argc, char** argv)
     std::cout << "\n solves the two stream Vlasov-Poisson in 2x-2v dimensions\n\n";
     std::cout << "    -- standard ASGarD options --";
     options.print_help(std::cout);
-    std::cout << "<< additional options for this file >>\n";
-    std::cout << "-test                               perform self-testing\n\n";
+    std::cout <<
+R"help(<< additional options for this file >>
+-dims            -dm     int        accepts: 2 or 3
+                                    the number of position dimensions
+-test                               perform self-testing
+)help";
     return 0;
   }
 
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test"}, {});
+  options.throw_if_argv_not_in({"-test", "--test"}, {"-dims", "-dm"});
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -433,9 +750,11 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  int const pos_dims = options.extra_cli_value_group<int>({"-dims", "-dm"}).value_or(2);
+
   // the discretization_manager takes in a pde and handles sparse-grid construction
   // separable and non-separable operators, holds the current state, etc.
-  asgard::discretization_manager<P> disc(make_two_stream(options),
+  asgard::discretization_manager<P> disc(make_two_stream(pos_dims, options),
                                          asgard::verbosity_level::low);
 
   // save the initial condition
@@ -490,7 +809,7 @@ void test_energy(std::string const &opt_str) {
 
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
-  auto pde = make_two_stream(options);
+  auto pde = make_two_stream(2, options);
   moment_id const rho = pde.register_moment({0, 0});
   moment_id const p0 = pde.register_moment({1, 0}); // needed for verification, but not running
   moment_id const p1 = pde.register_moment({0, 1});
