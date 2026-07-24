@@ -12,8 +12,10 @@ template<typename P>
 poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
                           std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
                           hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-                          build_term_func<P> build, moment_id const m0)
-  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0), cg_solver(1e-8, 1000), precon(precon_method::jacobi)
+                          build_term_func<P> build, moment_id const m0, prog_opts const &opts)
+  : num_dims(num_pos), pdof(hier.degree() + 1), mom0(m0),
+    cg_solver(opts.poisson_tolerance.value(), opts.poisson_iterations.value()),
+    precon(opts.poisson_precon.value_or(precon_method::none))
 {
   assert((num_dims > 1) and (num_dims <= max_pos_dims));
   int const nelem = fm::ipow2(max_level);
@@ -107,23 +109,71 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
 }
 
 template<typename P>
+void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const
+{
+  int64_t const num_old = iset_old.num_indexes();
+  int64_t const num_new = iset_new.num_indexes();
+  int const block_size = fm::ipow(pdof, num_dims);
+
+  // Initialize exactly to 0 to automatically handle newly refined points
+  std::vector<P> x_new(num_new * block_size, P{0});
+
+  int64_t iold = 0;
+  int64_t inew = 0;
+
+  enum class index_relation
+  {
+    asameb,
+    abeforeb,
+    bbeforea
+  };
+
+  auto compare_indexes = [&](int const a[], int const b[]) -> index_relation
+    {
+      for(int const d : iindexof(num_dims)) {
+        if (a[d] < b[d]) return index_relation::abeforeb;
+        if (a[d] > b[d]) return index_relation::bbeforea;
+      }
+      return index_relation::asameb;
+    };
+
+  while (inew < num_new && iold < num_old) {
+    index_relation relation = compare_indexes(iset_new[inew], iset_old[iold]);
+
+    if (relation == index_relation::asameb) {
+      // Point survived adaptation: Transfer data
+      std::copy_n(x.data() + iold * block_size, block_size, x_new.data() + inew * block_size);
+      inew++;
+      iold++;
+    } else if (relation == index_relation::abeforeb) {
+      // New point added (Refinement): Already 0, just advance
+      inew++;
+    } else {
+      // Old point removed (Coarsening): Discard data
+      iold++;
+    }
+  }
+  std::swap(x, x_new);
+}
+
+template<typename P>
 void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const &position_grid,
                                      connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
 {
-  size_t const n = density.size();
-
-  // Resize efield and set an initial guess of zeros
-  potential.resize(n);
-  std::fill(potential.begin(), potential.end(), P{0.0});
+  // Remap the previous potential to the new grid if needed to use as a warm start
+  if (generation != position_grid.generation()) {
+    remap_(iset_, position_grid.iset(), potential);
+    iset_ = position_grid.iset();
+    generation = position_grid.generation();
+  }
 
   // Save the average density to restore it later
   P density0 = density[0];
 
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
-  if (bc == poisson_bc::periodic) {
+  if (bc == poisson_bc::periodic)
     density[0] = P{0};
-  }
 
   // Define the Matrix-Vector Product (The LHS)
   auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
@@ -190,14 +240,64 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
 }
 
 template<typename P>
+void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const
+{
+  int64_t const num_old = iset_old.num_indexes();
+  int64_t const num_new = iset_new.num_indexes();
+  int const block_size = fm::ipow(pdof, num_dims);
+
+  // Initialize exactly to 0.0 to automatically handle newly refined points
+  gpu::vector<P> x_new(num_new * block_size);
+
+  int64_t iold = 0;
+  int64_t inew = 0;
+
+  enum class index_relation
+  {
+    asameb,
+    abeforeb,
+    bbeforea
+  };
+
+  auto compare_indexes = [&](int const a[], int const b[]) -> index_relation
+    {
+      for(int const d : iindexof(num_dims)) {
+        if (a[d] < b[d]) return index_relation::abeforeb;
+        if (a[d] > b[d]) return index_relation::bbeforea;
+      }
+      return index_relation::asameb;
+    };
+
+  while (inew < num_new && iold < num_old) {
+    index_relation relation = compare_indexes(iset_new[inew], iset_old[iold]);
+
+    if (relation == index_relation::asameb) {
+      // Point survived adaptation: Transfer data
+      // TODO: make these memcopies into a single kernel
+      gpu::memcopy_dev2dev(block_size, x.data() + iold * block_size, x_new.data() + inew * block_size);
+      inew++;
+      iold++;
+    } else if (relation == index_relation::abeforeb) {
+      // New point added (Refinement): Already 0.0, just advance
+      inew++;
+    } else {
+      // Old point removed (Coarsening): Discard data
+      iold++;
+    }
+  }
+  std::swap(x, x_new);
+}
+
+template<typename P>
 void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const &position_grid,
                                      connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
 {
-  size_t const n = position_grid.num_dof();
-
-  // Resize efield and set an initial guess of zeros
-  gpu_potential.resize(n);
-  gpu::fill_zeros(n, gpu_potential.data());
+  // Remap the previous potential to the new grid if needed to use as a warm start
+  if (generation != position_grid.generation()) {
+    remap_(iset_, position_grid.iset(), gpu_potential);
+    iset_ = position_grid.iset();
+    generation = position_grid.generation();
+  }
 
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
@@ -232,6 +332,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
   } else {
     num_iter = cg_solver.solve(nullptr, apply_lhs, density, gpu_potential);
   }
+  // std::cout << num_iter << " iterations\n";
   std::ignore = num_iter;
 
   // Restore the density
@@ -241,7 +342,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
 #endif
 
 template<typename P>
-void poisson_md<P>::kron_diag(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
+void poisson_md<P>::kron_diag_(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
                               int const block_size, std::vector<P> &y) const
 {
 #pragma omp parallel
@@ -274,11 +375,11 @@ template<typename P>
 void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
                                           poisson_bc const bc)
 {
-  tools::time_event timing_("updating poisson_md preconditioner");
-
   // return if nothing more to do
   if (precon.valid_for(position_grid))
     return;
+
+  tools::time_event timing_("updating poisson_md preconditioner");
 
   precon.grid_gen = position_grid.generation(); // update the grid gen
 
@@ -297,7 +398,7 @@ void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, conn
     }
 
     for (term_entry<P> const &tentry : laplacian_terms)
-      kron_diag(tentry, position_grid, conn, block_size, jacobi);
+      kron_diag_(tentry, position_grid, conn, block_size, jacobi);
 
     if (bc == poisson_bc::periodic)
       jacobi[0] = P{0};

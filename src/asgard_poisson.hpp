@@ -62,7 +62,7 @@ public:
   poisson_md(int const num_pos, int const max_level, std::array<P, max_num_dimensions> const &xleft,
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
-             build_term_func<P> build, moment_id const m0);
+             build_term_func<P> build, moment_id const m0, prog_opts const &opts);
   #ifndef ASGARD_USE_GPU
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
@@ -110,20 +110,27 @@ public:
   #endif
 
 private:
-  // Solves for just the electric potential, used as a substep inside the solver
+  #ifndef ASGARD_USE_GPU
+  //! remaps a vector from the old grid to the new grid, used for warm starting the potential
+  void remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const;
+  //! solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
+  #endif
   //! build the diagonal preconditioner
-  void kron_diag(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
+  void kron_diag_(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
                  int const block_size, std::vector<P> &y) const;
   #ifdef ASGARD_USE_GPU
+  //! remaps a vector from the old grid to the new grid, used for warm starting the potential
+  void remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const;
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
   #endif
 
   int num_dims = -1;
-  int pdof = -1; 
+  int pdof = -1;
+  int generation = -1;
   moment_id mom0 = moment_id::unset();
   std::array<moment_id, max_pos_dims> moms_electric;
   std::vector<term_entry<P>> laplacian_terms;
@@ -132,6 +139,7 @@ private:
   std::vector<P> potential;
   solvers::cg<P> cg_solver;
   preconditioner_data<P> precon;
+  indexset iset_;
   #ifdef ASGARD_USE_GPU
   #ifdef ASGARD_GPU_MEMGREEDY
   //! gpu derivative matrix

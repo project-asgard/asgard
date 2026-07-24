@@ -62,11 +62,14 @@ struct PoissonErrors
 template<typename P>
 PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, std::array<P, 2> xright,
                                  separable_func<P> phi, separable_func<P> ex, separable_func<P> ey,
-                                 int degree, int level)
+                                 int degree, int level, int max_iter, precon_method precon)
 {
   prog_opts options;
   options.degree = degree;
   options.start_levels = {level, level};
+  options.poisson_tolerance = 1e-12;
+  options.poisson_iterations = max_iter;
+  options.poisson_precon = precon;
   pde_domain<P> domain(position_dims{2}, velocity_dims{0},
                        {{xleft[0], xright[0]}, {xleft[1], xright[1]}});
   pde_scheme<P> pde(options, domain);
@@ -80,7 +83,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   auto build_func = [&terms](term_entry<P> &tentry, int const dim, int const lvl) -> void {
     terms.rebuild_term1d(tentry, dim, lvl);
   };
-  poisson_md<P> poisson(2, level, terms.xleft, terms.xright, terms.conn, terms.hier, mlist, build_func, moment_id{0});
+  poisson_md<P> poisson(2, level, terms.xleft, terms.xright, terms.conn, terms.hier, mlist, build_func, moment_id{0}, options);
   poisson.update_preconditioner(terms.grid, terms.conn, poisson_bc::periodic);
 
   // fill vectors from functions
@@ -197,6 +200,7 @@ void poisson_tests()
 
     int const degree = 3;
     int const level = 8;
+    int const max_iter = 1000;
 
     // example 1, rhs(x, y) = 1 - 0.5 * cos(pi * x) over x: (-1, 1) and y: (-1, 1),
     // phi(x, y) = 0.5 * x^2 + 0.5 * cos(pi * x)/pi^2 + 0.5 * (1/pi^2 - 1)
@@ -212,7 +216,7 @@ void poisson_tests()
     separable_func<TestType> ey{{vectorize<TestType>(zero), vectorize<TestType>(zero)}};
 
     PoissonErrors<TestType> errs = test_poisson_md<TestType>(
-        rhs, {-1, -1}, {1, 1}, phi, ex, ey, degree, level);
+        rhs, {-1, -1}, {1, 1}, phi, ex, ey, degree, level, max_iter, precon_method::none);
 
     tassert(errs.phi < poisson_md_tol);
     tassert(errs.ex < poisson_md_tol);
@@ -225,6 +229,7 @@ void poisson_tests()
 
     int const degree = 3;
     int const level = 8;
+    int const max_iter = 2000;
 
     // example 2, rhs(x, y) =  4 * exp(-x^2 - y^2) * (x^2 + y^2 - 1) over x: (-5, 5) and y: (-5, 5),
     // phi(x, y) = exp(-x^2 - y^2)
@@ -243,7 +248,7 @@ void poisson_tests()
     separable_func<TestType> ey{{vectorize<TestType>(ey_x), vectorize<TestType>(ey_y)}};
 
     PoissonErrors<TestType> errs = test_poisson_md<TestType>(
-        rhs, {0, 0}, {2*pi, 2*pi}, phi, ex, ey, degree, level);
+        rhs, {0, 0}, {2*pi, 2*pi}, phi, ex, ey, degree, level, max_iter, precon_method::jacobi);
 
     tassert(errs.phi < poisson_md_tol);
     tassert(errs.ex < poisson_md_tol);

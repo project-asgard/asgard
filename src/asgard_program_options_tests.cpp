@@ -247,6 +247,41 @@ void new_prog_opts() {
     terror_message(prog_opts(vecstrview({"exe", "-pc", "dummy"})),
                    "invalid value for -pc, see exe -help");
   }{
+    current_test name_("-poisson_tol");
+    prog_opts prog(vecstrview({"", "-poisson-tol", "0.25"}));
+    tassert(prog.poisson_tolerance);
+    tassert(prog.poisson_tolerance.value() == 0.25);
+    tassert(prog_opts(vecstrview({"exe", "-ptol", "0.1"})).poisson_tolerance);
+    tassert(prog_opts(vecstrview({"exe", "-poisson-tol", "0.01"})).poisson_tolerance.value() < 0.02);
+    terror_message(prog_opts(vecstrview({"exe", "-poisson-tol"})),
+                   "-poisson-tol must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-ptol", "dummy"})),
+                   "invalid value for -ptol, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-ptol", "7.E+310"})),
+                   "invalid value for -ptol, see exe -help");
+  }{
+    current_test name_("-poisson_iter");
+    prog_opts prog(vecstrview({"", "-poisson-iter", "100"}));
+    tassert(prog.poisson_iterations);
+    tassert(prog.poisson_iterations.value() == 100);
+    terror_message(prog_opts(vecstrview({"exe", "-poisson-iter"})),
+                   "-poisson-iter must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-piter", "dummy"})),
+                   "invalid value for -piter, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-piter", "8100100100"})),
+                   "invalid value for -piter, see exe -help");
+  }{
+    current_test name_("-poisson_precon");
+    prog_opts prog(vecstrview({"", "-poisson-precon", "none"}));
+    tassert(prog.poisson_precon);
+    tassert(prog.poisson_precon.value() == precon_method::none);
+    tassert(prog_opts(vecstrview({"exe", "-poisson-precon", "jacobi"})).poisson_precon);
+    tassert(prog_opts(vecstrview({"exe", "-ppc", "jacobi"})).poisson_precon.value() == precon_method::jacobi);
+    terror_message(prog_opts(vecstrview({"exe", "-poisson-precon"})),
+                   "-poisson-precon must be followed by a value, see exe -help");
+    terror_message(prog_opts(vecstrview({"exe", "-ppc", "dummy"})),
+                   "invalid value for -ppc, see exe -help");
+  }{
     current_test name_("-title");
     prog_opts prog(vecstrview({"", "-title", "mypde"}));
     tassert(not prog.title.empty());

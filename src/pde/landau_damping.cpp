@@ -100,6 +100,9 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
 
   options.default_degree = default_degree;
   options.default_start_levels = {7, 7, 7, 7};
+  options.default_poisson_tolerance = 1e-8;
+  options.default_poisson_iterations = 1000;
+  options.default_poisson_precon = asgard::precon_method::jacobi;
 
   options.default_plotter_colormap = "viridis";
 
@@ -142,7 +145,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_x = moments[melectric_x];
+      std::vector<P> const &e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::max(P{0}, e_x[i]);
@@ -152,7 +155,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_x = moments[melectric_x];
+      std::vector<P> const &e_x = moments[melectric_x];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::min(P{0}, e_x[i]);
@@ -162,7 +165,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_y = moments[melectric_y];
+      std::vector<P> const &e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::max(P{0}, e_y[i]);
@@ -172,7 +175,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
                     std::vector<P> &vals)
     {
-      std::vector<P> e_y = moments[melectric_y];
+      std::vector<P> const &e_y = moments[melectric_y];
 #pragma omp parallel for
       for (size_t i = 0; i < vals.size(); i++)
         vals[i] = field[i] * std::min(P{0}, e_y[i]);
@@ -520,7 +523,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_damping<double>("-l 4 -a 1.e-3 -t 4.8");
+  test_damping<double>("-l 4 -a 1.e-3 -t 4.8 -ppc none");
+  test_damping<double>("-s rk4 -l 4 -a 1.e-3 -t 4.8");
 
 #endif
 

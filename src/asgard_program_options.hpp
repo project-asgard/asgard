@@ -367,6 +367,12 @@ struct prog_opts
   std::optional<int> isolver_iterations;
   //! max number of output gmres iterations
   std::optional<int> isolver_inner_iterations;
+  //! preconditioner, used for the poisson solver, if there is one
+  std::optional<precon_method> poisson_precon;
+  //! tolerance for the poisson solver, if there is one
+  std::optional<double> poisson_tolerance;
+  //! max number of iterations for the poisson solver, if there is one
+  std::optional<int> poisson_iterations;
 
   //! restart the simulation from a file
   std::string restart_file;
@@ -597,6 +603,12 @@ struct prog_opts
   std::optional<int> default_isolver_iterations;
   //! max number of outer gmres iterations
   std::optional<int> default_isolver_inner_iterations;
+  //! used in place of the poisson preconditioner type, if poisson preconditioner is not specified
+  std::optional<precon_method> default_poisson_precon;
+  //! used in place of the poisson tolerance, if poisson tolerance is not specified
+  std::optional<double> default_poisson_tolerance;
+  //! max number of iterations for the poisson solver
+  std::optional<int> default_poisson_iterations;
 
   //! returns the first available from stop-time, default-stop-time or -1
   double get_stop_time() const { return stop_time.value_or(default_stop_time.value_or(-1)); }
@@ -678,6 +690,9 @@ private:
     isol_tolerance,
     isol_iterations,
     isol_inner_iterations,
+    poisson_precond,
+    poisson_tolerance,
+    poisson_iterations,
     restart_file,
     view,
     set_verbosity,

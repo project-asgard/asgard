@@ -80,17 +80,19 @@ void moment_manager<P>::set_poisson(int const max_level, sparse_grid const &grid
                                     std::array<P, max_num_dimensions> const &xright,
                                     connection_patterns const &conn,
                                     hierarchy_manipulator<P> const &hier,
-                                    build_term_func<P> build_func)
+                                    build_term_func<P> build_func, prog_opts const &opts)
 {
   if (mlist.has_electric()) {
     moment_id const m0 = find_id(moment::zero(num_vel_));
     if (num_pos_ == 1) {
       moment_id const melectric = find_id(moment::electric(dimension_id(0), num_pos_));
-      poisson_solver = poisson_1d<P>(hier.degree(), xleft[0], xright[0],
-                                     grid.current_level(0), m0, melectric);
+      poisson_solver = poisson_1d<P>(hier.degree(), xleft[0], xright[0], grid.current_level(0), m0, melectric);
     } else {
-      poisson_solver = poisson_md<P>(num_pos_, max_level, xleft, xright, conn, hier,
-                                     mlist, build_func, m0);
+      rassert(opts.poisson_tolerance, "The tolerance for the poisson solver must be provided. "
+                                      "Use -poisson-tol or -pt");
+      rassert(opts.poisson_iterations, "The maximum number of iterations for the poisson solver must be provided. "
+                                       "Use -poisson-iter or -pi");
+      poisson_solver = poisson_md<P>(num_pos_, max_level, xleft, xright, conn, hier, mlist, build_func, m0, opts);
     }
   }
 }
@@ -1036,7 +1038,7 @@ void moment_manager<P>::compute_moments(
 
       // solve poisson equation while w1 holds density
       if (mom.is_zero()) {
-        assert(g == 0); // poisson used gpu 0 for solve
+        assert(g == 0); // poisson uses gpu 0 for solve
         solve_poisson_gpu(conn, hier, interp, kwork);
       }
 

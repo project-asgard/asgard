@@ -73,7 +73,7 @@ class pde_snapshot:
 
             self.degree = fdata['degree'][()]
             self.state  = fdata['state'][()]
-            assert np.isfinite(self.state).any(), "The state file is corrupt, contains 'inf' and/or 'nan'"
+            assert np.isfinite(self.state).all(), "The state file is corrupt, contains 'inf' and/or 'nan'"
 
             self.timer_report = fdata['timer_report'][()].decode("utf-8")
 
@@ -261,6 +261,20 @@ class pde_snapshot:
         for i in range(1, len(lpows)):
             name += f", {lpows[i]}"
         mom_field.title = f"moment ({name})"
+        mom_field.subtitle = ""
+
+        return mom_field
+
+    def get_efield(self, dim):
+        assert dim <= self.num_position, f"invalid dimension index {dim}, must be no larger than {self.num_position}"
+        name = "__moment_"
+        for p in range(self.num_velocity):
+            name += f"0" if p != dim - 1 else f"{-0xef}"
+        for i in range(self.num_velocity, 3):
+            name += "x"
+
+        mom_field = self.get_aux_field(name)
+        mom_field.title = f"moment E{dim}"
         mom_field.subtitle = ""
 
         return mom_field
@@ -507,6 +521,8 @@ def plot_with_args(argv = None):
         print(" -aux                        : auxilary field id")
         print(" -mom                        : plot a moment, must be registered in the pde-scheme")
         print('                               the format is -mom "0 1" or -mom "0:1" ')
+        print(" -efield                     : plot the electric field, must be registered in the pde-scheme")
+        print('                               the format is -efield {1 | 2 | 3} where the integer is the dimension index ')
         print(" -cmap                       : set the matplotlib colormap, see Matplotlib docs")
         print("")
         print("no file and no option provided, shows the version of the")
@@ -585,6 +601,12 @@ def plot_with_args(argv = None):
                     else:
                         lpows = moment.split(" ")
                     moment = [int(p) for p in lpows]
+                elif argv[i] == "-efield":
+                    assert auxfield is None, "cannot simultaneously plot aux field and electric field"
+                    efield = int(argv[i + 1]) if i + 1 < n else None
+                    assert 1 <= efield <= 3, "-efield requires an index between 1 and 3"
+                    i += 2
+                    assert efield is not None, "-efield requires an index, e.g., -efield 1 "
                 elif argv[i] == "-grid" or argv[i] == "-g":
                     addgrid = True
                     i += 1
@@ -604,6 +626,8 @@ def plot_with_args(argv = None):
             shot = shot.get_aux_field(auxfield)
         if moment is not None:
             shot = shot.get_moment(moment)
+        if efield is not None:
+            shot = shot.get_efield(efield)
 
         asgplot.title(shot.title, fontsize = 'large')
 

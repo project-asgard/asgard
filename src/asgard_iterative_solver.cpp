@@ -29,8 +29,6 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
   apply_lhs(-1.0, x.data(), 1.0, r.data()); // r = b - A * x
 
   P rho = dot(r, r);
-  if (rho < tolerance_)
-    return num_apply;
 
   if (precon != nullptr) {
     z = r;
