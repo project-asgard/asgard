@@ -244,7 +244,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
     auto gpu_md_positive = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
       int threads = 256;
       int blocks = (num + threads - 1) / threads;
-      interp_negative_kernel<<<blocks, threads>>>(num, f, moments[mid].data(), fx);
+      interp_positive_kernel<<<blocks, threads>>>(num, f, moments[mid].data(), fx);
     };
 
     auto gpu_md_negative = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
@@ -455,13 +455,16 @@ void test_energy(std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_two_stream(2, options);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
+  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+
+  // needed for verification but not for running
   moment_id const rho = pde.register_moment({0, 0});
-  moment_id const p0 = pde.register_moment({1, 0}); // needed for verification, but not running
+  moment_id const p0 = pde.register_moment({1, 0});
   moment_id const p1 = pde.register_moment({0, 1});
   moment_id const ke0 = pde.register_moment({2, 0});
   moment_id const ke1 = pde.register_moment({0, 2});
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration
