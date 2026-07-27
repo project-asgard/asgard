@@ -51,12 +51,6 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   pos_grid.block_size_ = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
-  wav_scale  = 1;
-  for (int d : iindexof(pos_grid.num_dims())) {
-    wav_scale *= (domain.xright(d) - domain.xleft(d));
-  }
-  wav_scale = P{1} / std::sqrt(wav_scale);
-
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -752,7 +746,7 @@ void moment_manager<P>::make_nodal(
                                                      // so there is no raw moment to interpolate
   update_position_grid_dsort();
 
-  interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
 
@@ -1048,7 +1042,7 @@ void moment_manager<P>::compute_moments(
       assert(work2[g].size() >= num_entries);
       gpu::wrap_array<P> w2(work2[g].data(), num_entries);
 
-      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
 
       moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2.vec, res);
 
@@ -1117,7 +1111,7 @@ void moment_manager<P>::compute_moments(
     assert(work2[0].size() >= num_entries);
     gpu::wrap_array<P> w2(work2[0].data(), num_entries);
 
-    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
 
     moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
 

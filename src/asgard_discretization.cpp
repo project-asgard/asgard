@@ -87,6 +87,7 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
   // initialize the terms, which will also initialize the kron and interpolation engines
   // this operation can take some time due to building mass matrices
   terms = term_manager<precision>(options_, domain_, pde, sparse_grid(options_));
+  global_grid = &terms.grid;
 
   { // setting up the time-stepper
     // reading the from the options, user-selected first, if missing fallback to default options
@@ -175,6 +176,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
   }
 
   terms = term_manager<precision>(options_, domain_, pde, std::move(grid));
+  global_grid = &terms.grid;
 
   refinement = refinement_manager<precision>(options_, pde);
 

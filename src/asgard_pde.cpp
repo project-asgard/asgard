@@ -1,4 +1,8 @@
 #include "asgard_pde_functions.hpp"
+#include "asgard_small_mats.hpp"
+#include "asgard_wavelet_basis.hpp"
+#include "asgard_discretization.hpp"
+#include "asgard_interp.hpp"
 
 #ifdef ASGARD_USE_GPU
 #include "asgard_gpu_pde.hpp"
@@ -373,10 +377,13 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 {
   static_assert(std::is_same_v<opmode, source<P>> or std::is_same_v<opmode, term_md<P>>);
 
+  int const dp1 = options_.degree.value()+1;
+
   rassert(domain_.num_pos() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no position dimensions");
   rassert(domain_.num_vel() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no velocity dimensions");
   rassert(domain_.num_pos() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 position dimensions");
   rassert(domain_.num_vel() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 velocity dimensions");
+  rassert((dp1 < 2) || (dp1 > 4), "simple_bgk_collisions only valid on polynomial degrees 1, 2, and 3.");
   rassert(bgkc.nu > 0, "the collision frequency has to be positive");
 
   P const nu = static_cast<P>(bgkc.nu);
@@ -387,7 +394,122 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     *this += asgard::term_md<P>(nuI);
   }
 
-  int const num_pos = domain_.num_pos();
+  std::array<std::vector<double>,4>basis_mats_ = asgard::legendre::generate_multi_wavelets(dp1-1); // H0, H1, G0, G1
+  // Convert to type P
+  std::array<std::vector<P>,4>basis_mats; 
+  for (std::size_t i = 0; i < 4; ++i) 
+  {
+    basis_mats[i].reserve(basis_mats_[i].size());
+    for (double x : basis_mats_[i]) basis_mats[i].push_back(static_cast<P>(x));
+  }
+
+
+  auto wavelet_maxwell = [&](
+      int64_t const v_lev, int64_t const v_pos, int64_t const poly_dp1,
+      P const a, P const b,
+      P const u, P const th,
+      std::vector<P> &mulin,
+      std::vector<P> &mulout
+    )
+  {
+
+    P dv = (v_lev == 0) ? b-a : (b-a)/(1 << (v_lev-1)); // (b-a)/2^(lev-1)
+    // Endpoints of wavelet element
+    P loca = a + v_pos*dv;
+
+    if (v_lev == 0)
+    {
+      // Integrate from -infty to infty to preserve collision invariants
+      P mid = 0.5*(b+a);
+
+      // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) for v=\pm\infty
+      P I0 = 1.0;
+      P I1 = u;
+      P I2 = th + u*u;
+      P I3 = 3.0*u*th + u*u*u;
+
+      // Integral of 1/√(2πt)(phi_0,phi_1,phi_2)exp(-(v-u)^2/2t) where 
+      //   phi_i are the orthonormal Legendre polynomials on each element
+      P jv = std::sqrt(2.0/dv); // inverse root jacobian
+      P jv2= jv*jv;
+      P L0 = std::sqrt(1.0/2.0)*jv*I0; 
+      P L1 = std::sqrt(3.0/2.0)*jv*jv2*( -I0*mid + I1 );
+      P L2 = std::sqrt(5.0/8.0)*jv*( (3.0*jv2*jv2*mid*mid-1.0)*I0 - 6.0*jv2*jv2*mid*I1 + 3.0*jv2*jv2*I2);
+      P L3 = std::sqrt(7.0/8.0)*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0 
+                                  + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1 
+                                  -  15.0*jv2*jv2*jv2*mid*I2
+                                  +  5.0*jv2*jv2*jv2*I3
+                                  );
+
+      // Populate to vals
+      mulout[0] = L0;
+      if (poly_dp1 > 1) mulout[1] = L1;
+      if (poly_dp1 > 2) mulout[2] = L2;
+      if (poly_dp1 > 3) mulout[3] = L3;
+
+    }
+    else 
+    {
+      // For v_lev > 0 wavlets are piecewise polynomials
+      // Integrate legendre polynomials the map to wavelets
+      for (int l=0; l<2; l++) 
+      {
+        P left  = loca + l*dv/2;
+        P right = loca + (l+1)*dv/2;
+        P mid = 0.5*(left+right);
+
+        // v -> (v-u)/sqrt(t)
+        P z_l = (left-u)/std::sqrt(th);
+        P z_r = (right-u)/std::sqrt(th);
+
+        // Integrals of 1/√(2π)(1,z,z^2)exp(-z^2/2) from z=a..b
+        P T0_l = 0.5*std::erf(z_l/std::sqrt(2.0));
+        P T0_r = 0.5*std::erf(z_r/std::sqrt(2.0));
+        P T1_l = 1.0/std::sqrt(2.0*PI)*std::exp(-0.5*z_l*z_l);
+        P T1_r = 1.0/std::sqrt(2.0*PI)*std::exp(-0.5*z_r*z_r);
+        P C0   =   T0_r - T0_l;
+        P C1   = -(T1_r - T1_l);
+        P C2   = -(z_r*T1_r - z_l*T1_l) + C0;
+        P C3   = (z_l*z_l+2.0)*T1_l - (z_r*z_r+2.0)*T1_r;
+
+        // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) dv using z = (v-u)/√t
+        P I0 =       C0;
+        P I1 =     u*C0 +         std::sqrt(th)*C1;
+        P I2 =   u*u*C0 +   2.0*u*std::sqrt(th)*C1 +       th*C2;
+        P I3 = u*u*u*C0 + 3.0*u*u*std::sqrt(th)*C1 + 3.0*u*th*C2 + std::sqrt(th)*th*C3;
+
+        // Integral of 1/√(2πt)(phi_0,phi_1,phi_2)exp(-(v-u)^2/2t) where 
+        //   phi_i are the orthonormal Legendre polynomials on each element
+        P jv = std::sqrt(4.0/dv); // inverse root jacobian
+        P jv2= jv*jv;
+        P L0 = std::sqrt(1.0/2.0)*jv*I0; 
+        P L1 = std::sqrt(3.0/2.0)*jv*jv*jv*( -I0*mid + I1 );
+        P L2 = std::sqrt(5.0/8.0)*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0 - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
+        P L3 = std::sqrt(7.0/8.0)*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0 
+                                    + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1 
+                                    -  15.0*jv2*jv2*jv2*mid*I2
+                                    +   5.0*jv2*jv2*jv2*I3
+                                  );
+
+        mulin[0] = L0;
+        if (poly_dp1 > 1) mulin[1] = L1;
+        if (poly_dp1 > 2) mulin[2] = L2;
+        if (poly_dp1 > 3) mulin[3] = L3;
+
+        // Multiply by G0/G1
+        if (l == 0)
+        {
+          asgard::smmat::gemv(poly_dp1,poly_dp1,basis_mats[2].data(),mulin.data(),mulout.data());
+        }
+        else
+        {
+          asgard::smmat::gemv1(poly_dp1,poly_dp1,basis_mats[3].data(),mulin.data(),mulout.data());
+        }
+      }
+
+    }
+
+  };
 
   switch(domain_.num_vel())
   {
@@ -406,32 +528,60 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments, 
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
       std::vector<P> const &m0 = moments[im0];
       std::vector<P> const &m1 = moments[im1];
       std::vector<P> const &m2 = moments[im2];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const v = nodes[i][num_pos];
+      #pragma omp parallel
+      {
 
-        P const n = m0[i];
-        P const u = m1[i] / m0[i];
-        P const t = m2[i] / m0[i] - u * u;
+        std::vector<P> mulout1(dp1,0.0);
+        std::vector<P>  mulin1(dp1,0.0);
 
-        vals[i] = nu * n / std::sqrt(2 * PI * t);
-        P const d = v - u;
-        vals[i] *= std::exp(- P{0.5} * d * d / t);
+        #pragma omp for
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
+        {
+          // Loop over polynomial x dof in element
+          for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
+          {
+            // Get index starting point of cell in this coordinate for x1,x2
+            int64_t const idx_start = (i*dp1 + poly_x1)*dp1;
+
+            // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+            P const n  = m0[idx_start];
+            P const u1 = m1[idx_start] / m0[idx_start];
+            P const t  = m2[idx_start] / m0[idx_start] - u1 * u1;
+
+            // Need v index
+            int64_t const v1_idx = indexes[2*i+1];
+
+            // Get level and position of current index
+            int64_t const v1_lev = int64_t(std::ceil(std::log2(v1_idx+1)));
+            int64_t const v1_pos = (v1_lev == 0) ? 0 : v1_idx - (1 << (v1_lev-1)); // v_idx - 2^(v_lev-1)
+
+            // Calculate 1D analytic maxwellian
+            wavelet_maxwell(v1_lev,v1_pos,dp1,domain_.xleft(1),domain_.xright(1),u1,t,mulin1,mulout1);
+
+            // Take kroneckor product and store
+            for (int poly_v1 = 0; poly_v1 < dp1; poly_v1++)
+            {
+              vals[idx_start + poly_v1] = nu*n*mulout1[poly_v1];
+            }
+          }
+        }
       }
     };
+
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
-      fbgk(time, nodes, moments, vals);
+      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
     };
     #endif
 
@@ -462,34 +612,72 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments, 
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
-      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m0  = moments[im0];
       std::vector<P> const &m10 = moments[im10];
       std::vector<P> const &m01 = moments[im01];
       std::vector<P> const &m20 = moments[im20];
       std::vector<P> const &m02 = moments[im02];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const n = m0[i];
-        P const u0 = m10[i] / m0[i];
-        P const u1 = m01[i] / m0[i];
-        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
+      #pragma omp parallel
+      {
 
-        P const vu0 = nodes[i][num_pos] - u0;
-        P const vu1 = nodes[i][num_pos + 1] - u1;
-        P const d = vu0 * vu0 + vu1 * vu1;
-        vals[i] = std::exp(- P{0.5} * d / t) * nu * n / (2 * PI * t);
+        std::vector<P> mulout1(dp1,0.0);
+        std::vector<P>  mulin1(dp1,0.0);
+        std::vector<P> mulout2(dp1,0.0);
+        std::vector<P>  mulin2(dp1,0.0);
+
+        #pragma omp for
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
+        {
+          // Loop over polynomial x dof in element
+          for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
+            for (int64_t poly_x2 = 0; poly_x2 < dp1; poly_x2++)
+            {
+              // Get index starting point of cell in this coordinate for x1,x2
+              int64_t const idx_start = (i*dp1*dp1 + poly_x1*dp1 + poly_x2)*dp1*dp1;
+
+              // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+              P const n  = m0[idx_start];
+              P const u1 = m10[idx_start] / m0[idx_start];
+              P const u2 = m01[idx_start] / m0[idx_start];
+              P const t  =  (1.0/2.0) * ((m20[idx_start] + m02[idx_start]) / m0[idx_start] - u1 * u1 - u2 * u2);
+
+              // Need v index
+              int64_t const v1_idx = indexes[4*i+2];
+              int64_t const v2_idx = indexes[4*i+3];
+
+              // Get level and position of current index
+              int64_t const v1_lev = int64_t(std::ceil(std::log2(v1_idx+1)));
+              int64_t const v1_pos = (v1_lev == 0) ? 0 : v1_idx - (1 << (v1_lev-1)); // v_idx - 2^(v_lev-1)
+
+              int64_t const v2_lev = int64_t(std::ceil(std::log2(v2_idx+1)));
+              int64_t const v2_pos = (v2_lev == 0) ? 0 : v2_idx - (1 << (v2_lev-1)); // v_idx - 2^(v_lev-1)
+
+              // Calculate 1D analytic maxwellian
+              wavelet_maxwell(v1_lev,v1_pos,dp1,domain_.xleft(2),domain_.xright(2),u1,t,mulin1,mulout1);
+              wavelet_maxwell(v2_lev,v2_pos,dp1,domain_.xleft(3),domain_.xright(3),u2,t,mulin2,mulout2);
+
+              // Take kroneckor product and store
+              for (int poly_v1 = 0; poly_v1 < dp1; poly_v1++)
+                for (int poly_v2 = 0; poly_v2 < dp1; poly_v2++)
+                {
+                  vals[idx_start + poly_v1*dp1 + poly_v2] = nu*n*mulout1[poly_v1]*mulout2[poly_v2];
+                }
+            }
+        }
       }
     };
+
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
-      fbgk(time, nodes, moments, vals);
+      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
     };
     #endif
 
@@ -522,10 +710,12 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       fbgk(num, time, nodes, moments, vals);
     };
     #else
-    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments, 
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
-      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m0   = moments[im0];
       std::vector<P> const &m100 = moments[im100];
       std::vector<P> const &m010 = moments[im010];
       std::vector<P> const &m001 = moments[im001];
@@ -533,29 +723,71 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       std::vector<P> const &m020 = moments[im020];
       std::vector<P> const &m002 = moments[im002];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const n = m0[i];
-        P const u0 = m100[i] / m0[i];
-        P const u1 = m010[i] / m0[i];
-        P const u2 = m001[i] / m0[i];
-        P const t = ((m200[i] + m020[i] + m002[i]) / m0[i] - u0 * u0 - u1 * u1 - u2 * u2) / P{3};
+      #pragma omp parallel
+      {
 
-        P const pit = 2 * PI * t;
-        vals[i] = nu * n / (pit * std::sqrt(pit));
-        P const vu0 = nodes[i][num_pos] - u0;
-        P const vu1 = nodes[i][num_pos + 1] - u1;
-        P const vu2 = nodes[i][num_pos + 2] - u2;
-        P const d = vu0 * vu0 + vu1 * vu1 + vu2 * vu2;
-        vals[i] *= std::exp(- P{0.5} * d / t);
+        std::vector<P> mulout1(dp1,0.0);
+        std::vector<P>  mulin1(dp1,0.0);
+        std::vector<P> mulout2(dp1,0.0);
+        std::vector<P>  mulin2(dp1,0.0);
+        std::vector<P> mulout3(dp1,0.0);
+        std::vector<P>  mulin3(dp1,0.0);
+
+        #pragma omp for
+        for (int64_t i = 0; i < static_cast<std::int64_t>(indexes.size()/domain_.num_dims()); i++)
+        {
+          // Loop over polynomial x dof in element
+          for (int64_t poly_x1 = 0; poly_x1 < dp1; poly_x1++)
+            for (int64_t poly_x2 = 0; poly_x2 < dp1; poly_x2++)
+              for (int64_t poly_x3 = 0; poly_x3 < dp1; poly_x3++)
+              {
+                // Get index starting point of cell in this coordinate for x1,x2
+                int64_t const idx_start = (i*dp1*dp1*dp1 + poly_x1*dp1*dp1 + poly_x2*dp1 + poly_x3)*dp1*dp1*dp1;
+
+                // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+                P const n  = m0[idx_start];
+                P const u1 = m100[idx_start] / m0[idx_start];
+                P const u2 = m010[idx_start] / m0[idx_start];
+                P const u3 = m001[idx_start] / m0[idx_start];
+                P const t  =  (1.0/3.0) * ((m200[idx_start] + m020[idx_start] + m002[idx_start]) / m0[idx_start] - u1 * u1 - u2 * u2 - u3 * u3);
+
+                // Need v index
+                int64_t const v1_idx = indexes[6*i+3];
+                int64_t const v2_idx = indexes[6*i+4];
+                int64_t const v3_idx = indexes[6*i+5];
+
+                // Get level and position of current index
+                int64_t const v1_lev = int64_t(std::ceil(std::log2(v1_idx+1)));
+                int64_t const v1_pos = (v1_lev == 0) ? 0 : v1_idx - (1 << (v1_lev-1)); // v_idx - 2^(v_lev-1)
+
+                int64_t const v2_lev = int64_t(std::ceil(std::log2(v2_idx+1)));
+                int64_t const v2_pos = (v2_lev == 0) ? 0 : v2_idx - (1 << (v2_lev-1)); // v_idx - 2^(v_lev-1)
+
+                int64_t const v3_lev = int64_t(std::ceil(std::log2(v3_idx+1)));
+                int64_t const v3_pos = (v3_lev == 0) ? 0 : v3_idx - (1 << (v3_lev-1)); // v_idx - 2^(v_lev-1)
+
+                // Calculate 1D analytic maxwellian
+                wavelet_maxwell(v1_lev,v1_pos,dp1,domain_.xleft(3),domain_.xright(3),u1,t,mulin1,mulout1);
+                wavelet_maxwell(v2_lev,v2_pos,dp1,domain_.xleft(4),domain_.xright(4),u2,t,mulin2,mulout2);
+                wavelet_maxwell(v3_lev,v3_pos,dp1,domain_.xleft(5),domain_.xright(5),u3,t,mulin3,mulout3);
+
+                // Take kroneckor product and store
+                for (int poly_v1 = 0; poly_v1 < dp1; poly_v1++)
+                  for (int poly_v2 = 0; poly_v2 < dp1; poly_v2++)
+                    for (int poly_v3 = 0; poly_v3 < dp1; poly_v3++)
+                    {
+                      vals[idx_start + poly_v1*dp1*dp1 + poly_v2*dp1 + poly_v3] = nu*n*mulout1[poly_v1]*mulout2[poly_v2]*mulout3[poly_v3];
+                    }
+              }
+        }
       }
     };
+
     auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
                     asgard::momentset<P> const &moments, std::vector<P> const &,
                     std::vector<P> &vals)
     {
-      fbgk(time, nodes, moments, vals);
+      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
     };
     #endif
 

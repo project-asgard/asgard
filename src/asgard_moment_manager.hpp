@@ -285,8 +285,6 @@ private:
   int vel_block = 0;
   int full_block = 0;
 
-  P wav_scale = 0;
-
   mutable int dsort_generation = -1; // keeps track of when dsort is set in the grid
   mutable sparse_grid pos_grid; // holds the reduced grid (could be 1 cell)
   // location of the zero-th entry of pos_grid in the global grid

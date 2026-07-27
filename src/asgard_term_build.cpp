@@ -57,6 +57,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
   pde.finalize_term_groups(); // if using groups, else this does nothing
 
+  auto check_hybrid_interp_domain = [&]() {
+    rassert(domain.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+  };
+
   if (pde.mass() and not pde.mass().is_identity())
     mass_term = std::move(pde.mass_);
 
@@ -219,8 +226,12 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
     sources_md.resize(pde.sources_md_.size());
-    for (size_t i = 0; i < pde.sources_md_.size(); i++)
+    for (size_t i = 0; i < pde.sources_md_.size(); i++) {
       sources_md[i].func = std::move(pde.sources_md_[i]);
+      sources_md[i].hybrid_interp = pde.sources_hybrid_[i];
+      if (sources_md[i].hybrid_interp)
+        check_hybrid_interp_domain();
+    }
 
     sources.reserve(num_sources);
 
@@ -333,6 +344,12 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         if (not t.tmd.get_interp_moments().empty()) {
           t.interplan.use_moments();
         }
+        if (t.tmd.uses_hybrid_interp()) {
+          rassert(not t.tmd.is_gpu_interpolatory(),
+                  "hybrid interpolation is not implemented for GPU interpolation functions");
+          check_hybrid_interp_domain();
+          t.interplan.use_hybrid();
+        }
         #ifdef ASGARD_USE_GPU
         if (t.tmd.is_gpu_interpolatory()) {
           t.interplan.use_gpu_func();
@@ -346,6 +363,15 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
     bool has_field_interp = false; // interpolating from a field
+    bool has_hybrid_field_interp = false; // position-only field interpolation
+    auto mark_field_interp = [&](term_entry<P> const &entry) {
+      if (entry.interplan.uses_field() and not entry.interplan.uses_gpu_func()) {
+        if (entry.interplan.uses_hybrid())
+          has_hybrid_field_interp = true;
+        else
+          has_field_interp = true;
+      }
+    };
     auto it = terms.begin();
     while (it < terms.end())
     {
@@ -357,12 +383,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       #endif
       if (it->is_chain_start()) {
         auto const itn = it + (it->num_chain -1); // first link of the chain
-        // if using field from the CPU
-        if (itn->interplan.uses_field() and not itn->interplan.uses_gpu_func())
-          has_field_interp = true;
+        mark_field_interp(*itn);
       } else {
-        if (it->interplan.uses_field() and not it->interplan.uses_gpu_func())
-          has_field_interp = true;
+        mark_field_interp(*it);
       }
 
       it += it->num_chain;
@@ -370,6 +393,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     if (has_field_interp)
       interp.ifield.resize(1);
+    if (has_hybrid_field_interp)
+      interp.hybrid_ifield.resize(1);
 
     // handle the moment dependencies, identify regular and interp moments for each group
     // respect the MPI and GPU distributions

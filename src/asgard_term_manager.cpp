@@ -85,6 +85,10 @@ void term_manager<P>::apply_tmpl(
     interp.ifield.resize(grid.num_dof());
     interp.wav2nodal(grid, px, interp.ifield.data(), kwork);
   }
+  if (not interp.hybrid_ifield.empty()) {
+    interp.hybrid_ifield.resize(grid.num_dof());
+    interp.pos2nodal(grid, px, interp.hybrid_ifield.data(), kwork);
+  }
 
   auto const group = terms_group_range(gid);
   int icurrent = group.ibegin();
@@ -328,6 +332,11 @@ void term_manager<P>::apply_tmpl_gpu(
       interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
       interp.gpu_it1[0].copy_to_host(interp.ifield);
     }
+    if (not interp.hybrid_ifield.empty()) {
+      interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
+      interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
+    }
 
     bool term_found = false; // does this GPU have at least 1 term
 
@@ -377,7 +386,7 @@ void term_manager<P>::apply_tmpl_gpu(
   }
 
   // #ifdef ASGARD_GPU_MEMGREEDY
-  // std::cout << " memory used: " << grid.used_xy_ram() << "MB\n";
+  // std::cout << " memory used: " << grid.used_xy_ram() << "MB_func\n";
   // #endif
 
   // collect the data across the GPUs
@@ -492,8 +501,8 @@ void term_manager<P>::kron_diag(
 
 template<typename P>
 void term_manager<P>::print_bytes(std::ostream &os) const {
-  auto MB = [](size_t bytes) -> std::string {
-    std::string s = std::to_string(bytes / (1024 * 1024)) + "MB\n";
+  auto MB_func = [](size_t bytes) -> std::string {
+    std::string s = std::to_string(bytes / (1024 * 1024)) + "MB_func\n";
     s.insert(0, 11 - s.size(), ' ');
     return s;
   };
@@ -502,27 +511,27 @@ void term_manager<P>::print_bytes(std::ostream &os) const {
   for (auto const &s : lmass) t += s.used_bytes();
   for (auto const &s : mass_forward) t += s.used_bytes();
   os << "terms\n";
-  os << "  mass      " << MB(t);
+  os << "  mass      " << MB_func(t);
   c = t;
   t = 0;
   for (auto const &s : terms) t += s.used_bytes();
-  os << "  separable " << MB(t);
+  os << "  separable " << MB_func(t);
   c += t;
   t = 0;
   for (auto const &s : sources) t += s.used_bytes();
-  os << "  sources   " << MB(t);
+  os << "  sources   " << MB_func(t);
   t = moms.used_bytes() + interp.used_bytes() + kwork.used_bytes();
-  os << "  moments   " << MB(moms.used_bytes());
-  os << "  interp    " << MB(interp.used_bytes());
-  os << "  kwork     " << MB(kwork.used_bytes());
+  os << "  moments   " << MB_func(moms.used_bytes());
+  os << "  interp    " << MB_func(interp.used_bytes());
+  os << "  kwork     " << MB_func(kwork.used_bytes());
   c += t;
   t = 0;
   t += interp.ifield.size() * sizeof(P);
   t += (t1.size() + t2.size()) * sizeof(P);
   t += (interp.it1.size() + interp.it2.size()) * sizeof(P);
   t += swork.size() * sizeof(P) + sweights.size() * sizeof(P);
-  os << "  workspace " << MB(t);
-  os << "  total     " << MB(c);
+  os << "  workspace " << MB_func(t);
+  os << "  total     " << MB_func(c);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
@@ -578,4 +587,3 @@ template void term_manager<float>::apply_tmpl_gpu<float const[], float[], comput
 #endif
 
 }
-

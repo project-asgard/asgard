@@ -26,6 +26,7 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     if (iweights_) {
       iplan.enable();
       iplan.stop_hier();
+      iplan.use_hybrid(pde.ref_hybrid_);
     }
   }
 }

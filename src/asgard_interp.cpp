@@ -1,5 +1,4 @@
 #include "asgard_interp.hpp"
-
 #include "asgard_small_mats.hpp"
 
 namespace asgard
@@ -18,10 +17,6 @@ interpolation_manager<P>::interpolation_manager(
   gpu_nodes_grid_gen_.fill(-1);
   #endif
 
-  if (domain.num_pos() > 0) {
-    perm_pos = kronmult::permutes(domain.num_pos());
-  }
-
   wav_scale  = 1;
   for (int d : iindexof(domain.num_dims())) {
     xmin[d]   = domain.xleft(d);
@@ -30,6 +25,22 @@ interpolation_manager<P>::interpolation_manager(
   }
   iwav_scale = std::sqrt(wav_scale);
   wav_scale  = P{1} / iwav_scale;
+
+  // if the grid has position dimensions, then there may be moment interpolation
+  // prepare the scale and the permutations
+  if (domain.num_pos() > 0)
+  {
+    pos_wav_scale = 1;
+    for (int d : iindexof(domain.num_pos()))
+      pos_wav_scale *= xscale[d];
+
+    pos_iwav_scale = std::sqrt(pos_wav_scale);
+    pos_wav_scale  = P{1} / pos_iwav_scale;
+
+    perm_pos     = kronmult::permutes(domain.num_pos());
+    perm_low_pos = kronmult::permutes(domain.num_pos(), conn_fill::lower_udiag);
+    perm_up_pos  = kronmult::permutes(domain.num_pos(), conn_fill::upper);
+  }
 
   // points represents the point locations in the canonical element (-1, 1)
   // horder represents the hierarchical order

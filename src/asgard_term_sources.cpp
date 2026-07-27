@@ -295,24 +295,36 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     }
   }
 
+  auto apply_interp = [&](source_entry_interp<P> const &src, P alpha_) {
+    interpolation_plan plan;
+    plan.enable();
+    plan.use_moments(src.is_moment());
+    plan.use_hybrid(src.hybrid_interp);
+
+    if (std::holds_alternative<md_mom_and_idx_func<P>>(src.func)) {
+      interp.eval_posonly_with_idx(plan, grid, conn, moms.get_cached_interps(),
+                                   time, alpha_, src, P{1}, y, kwork);
+    } else {
+      interp(plan, grid, conn, moms.get_cached_interps(),
+             time, alpha_, src, P{1}, y, kwork);
+    }
+  };
+
   if (group == group_id::all()) {
     for (auto const &src : sources_md) {
       if (not src or not resources.owns(src.rec)) continue;
 
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conn, moms.get_cached_interps(), time, 1, src, 1, y, kwork);
+        apply_interp(src, P{1});
       else
-        interp(grid, conn, moms.get_cached_interps(), time, alpha, src, 1, y, kwork);
+        apply_interp(src, alpha);
     }
   } else {
-    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()])
-    {
+    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()]) {
       if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conn, moms.get_cached_interps(), time, 1, sources_md[group()],
-               1, y, kwork);
+        apply_interp(sources_md[group()], P{1});
       else
-        interp(grid, conn, moms.get_cached_interps(), time, alpha, sources_md[group()],
-               1, y, kwork);
+        apply_interp(sources_md[group()], alpha);
     }
   }
 
