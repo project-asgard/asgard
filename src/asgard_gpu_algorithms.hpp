@@ -48,6 +48,10 @@ void sum4(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no
 template<typename P>
 void sum5(gpu::vector<P> const &x, no_deduce<P> a1, gpu::vector<P> const &x1, no_deduce<P> a2, gpu::vector<P> const &x2,
           no_deduce<P> a3, gpu::vector<P> const &x3, no_deduce<P> a4, gpu::vector<P> const &x4, gpu::vector<P> &y);
+//! copies block_size elements from src[transfers[i] * block_size] to dest[transfers[i + 1] * block_size]
+template<typename P>
+void flagged_memcopy_dev2dev(int block_size, gpu::vector<int64_t> const &transfers, gpu::vector<P> const &src,
+                             gpu::vector<P> &dest);
 
 //! returns the number of inf/nan entries in a vector
 template<typename P>

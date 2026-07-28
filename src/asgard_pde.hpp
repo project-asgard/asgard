@@ -1883,6 +1883,16 @@ public:
             "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
     ref_interp_  = std::move(func);
+    bool has_electric = false;
+    for (moment_id mid : moments) {
+      moment const mom = mlist[mid];
+      if (mom.is_electric()) {
+        has_electric = true;
+        break;
+      }
+    }
+    if (has_electric)
+      moments.push_back(mlist.get_id(moment::zero(domain_.num_vel())));
     ref_moments_ = std::move(moments);
   }
   //! set an interpolation function for adaptivity
@@ -1894,6 +1904,16 @@ public:
             "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
     ref_interp_  = std::move(func);
+    bool has_electric = false;
+    for (moment_id mid : moments) {
+      moment const mom = mlist[mid];
+      if (mom.is_electric()) {
+        has_electric = true;
+        break;
+      }
+    }
+    if (has_electric)
+      moments.push_back(mlist.get_id(moment::zero(domain_.num_vel())));
     ref_moments_ = std::move(moments);
   }
 

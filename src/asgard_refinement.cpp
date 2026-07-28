@@ -110,6 +110,15 @@ void refinement_manager<P>::refine_(std::vector<P> const &state, strategy mode,
   // add the correction due to the interpolation terms
   if (iplan.is_enabled()) {
     if (iweights_.is_moment()) {
+      terms.moms.update_position_grid(terms.grid);
+      std::visit([&](auto &p)
+        {
+          if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
+            p.update_level(terms.grid.current_level(0));
+          } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+            p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+          }
+        }, terms.moms.poisson_solver);
       terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.conn, terms.hier, terms.kwork);
       iplan.use_moments(true);
       terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
@@ -145,7 +154,15 @@ void refinement_manager<P>::refine_(gpu::vector<P> const &state, strategy mode,
   {
     if (iweights_.is_moment()) {
       iplan.use_moments(true);
-
+      terms.moms.update_position_grid(terms.grid);
+      std::visit([&](auto &p)
+        {
+          if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
+            p.update_level(terms.grid.current_level(0));
+          } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+            p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+          }
+        }, terms.moms.poisson_solver);
       terms.moms.compute_moments(moments_, terms.grid, terms.interp, terms.conn, terms.hier,
                                  terms.kwork, state, not iweights_.is_gpu());
     } else {

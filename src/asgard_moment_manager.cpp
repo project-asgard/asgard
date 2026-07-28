@@ -693,6 +693,11 @@ void moment_manager<P>::solve_poisson_gpu(connection_patterns const &conn, hiera
   std::visit([&](auto &p) {
       if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
         // This is fast enough on CPU
+        int64_t const num_entries = pos_grid.num_dof();
+        std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+        assert(work1[0].size() >= num_entries);
+        gpu::wrap_array<P> w1(work1[0].data(), num_entries);
+        w1.vec.copy_to_host(raw_vals[p.moment0()]);
         p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
       } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
         // Setup
@@ -786,7 +791,13 @@ void moment_manager<P>::compute_interps(
     else
       cache_moment(id, grid, state);
   }
-  if (has_poisson) solve_poisson(grid, conn, hier, interp, work);
+  if (has_poisson) {
+    std::visit([&](auto &p) {
+      if constexpr (not std::is_same_v<std::decay_t<decltype(p)>, std::monostate>)
+        cache_moment(p.moment0(), grid, state);
+      }, poisson_solver);
+    solve_poisson(grid, conn, hier, interp, work);
+  }
   for (auto const &id : ids)
     make_nodal(id, interp, work, interp.it1);
   interp.it1.resize(num_entries);
@@ -1082,6 +1093,16 @@ void moment_manager<P>::compute_moments(
   assert(work1[0].size() >= num_entries);
   gpu::wrap_array<P> w1(work1[0].data(), num_entries);
 
+  bool has_electric = false;
+  for (auto im : mids)
+  {
+    moment const mom = mlist[im];
+    if (mom.is_electric()) {
+      has_electric = true;
+      break;
+    }
+  }
+
   // perform work for all moments from im to iend
   for (auto im : mids)
   {
@@ -1124,7 +1145,7 @@ void moment_manager<P>::compute_moments(
     if (result_to_cpu) res.copy_to_host(interps[im]);
 
     // solve poisson equation while w1 holds density
-    if (mom.is_zero())
+    if (mom.is_zero() and has_electric)
       solve_poisson_gpu(conn, hier, interp, kwork);
   }
 }

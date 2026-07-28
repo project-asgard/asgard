@@ -571,6 +571,7 @@ def plot_with_args(argv = None):
         savefig  = None
         auxfield = None
         moment   = None
+        efield   = None
         addgrid  = False
         colormap = "asg_default"
         cmaps = {"-jet" : "jet", "-vir" : "viridis", "-hot" : "hot", "-cool" : "coolwarm",

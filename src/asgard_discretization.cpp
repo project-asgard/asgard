@@ -123,6 +123,13 @@ void discretization_manager<precision>::start_cold(pde_scheme<precision> &pde)
 
   refinement = refinement_manager<precision>(options_, pde);
 
+  if (terms.has_poisson()) {
+    auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
+      this->terms.rebuild_term1d(tentry, dim, level);
+    };
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, options_);
+  }
+
   // setting the initial conditions uses refinement, must come after the refinement_manager
   // this iterates depending on the adapt-weight and the separable/interpolation conditions
   // this is the first point of potentially heavy work
@@ -178,6 +185,13 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 
   refinement = refinement_manager<precision>(options_, pde);
 
+  if (terms.has_poisson()) {
+    auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
+      this->terms.rebuild_term1d(tentry, dim, level);
+    };
+    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, options_);
+  }
+  
   start_moments();
 
   terms.build_matrices();
@@ -216,12 +230,6 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
 template<typename precision>
 void discretization_manager<precision>::start_moments() {
   if (not terms.moms) return;
-  if (terms.has_poisson()) {
-    auto build_func = [this](term_entry<precision> &tentry, int const dim, int const level) -> void {
-      this->terms.rebuild_term1d(tentry, dim, level);
-    };
-    terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, options_);
-  }
   terms.moms.update_position_grid(terms.grid);
   std::visit([&](auto &p)
     {
