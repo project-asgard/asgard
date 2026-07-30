@@ -596,13 +596,13 @@ void moment_manager<P>::cache_moments(
   if (group == group_id::all()) {
     for (auto mid : interp_moments_) {
       if (skip_poisson(mid) or mid == moment_id::unset()) continue;
-      make_nodal(mid, interp, work, interp.it1);
+      make_nodal(mid, interp, hier, work, interp.it1);
     }
   } else {
     for (auto mid = first_in(group, interp_moments_);
          *mid != moment_id::unset(); mid++) {
       if (skip_poisson(*mid)) continue;
-      make_nodal(*mid, interp, work, interp.it1);
+      make_nodal(*mid, interp, hier, work, interp.it1);
     }
   }
   interp.it1.resize(num_entries);
@@ -751,12 +751,16 @@ void moment_manager<P>::update_position_grid_dsort() const
 template<typename P>
 void moment_manager<P>::make_nodal(
     moment_id id, interpolation_manager<P> const &interp,
+    hierarchy_manipulator<P> const &hier,
     kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
 {
-  assert(not (num_pos_ == 1 and needs_poisson(id))); // poisson_1d solves the moment for the full level
-                                                     // so there is no raw moment to interpolate
   update_position_grid_dsort();
 
+  if (num_pos_ == 1 and needs_poisson(id)) {
+    constexpr int level_degree = 0;
+    std::vector<P> padded_level = pad_degree(level_degree, pdof - 1, full_level[id]);
+    hier.transform(level, padded_level, raw_vals[id]);
+  }
   interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);
@@ -799,7 +803,7 @@ void moment_manager<P>::compute_interps(
     solve_poisson(grid, conn, hier, interp, work);
   }
   for (auto const &id : ids)
-    make_nodal(id, interp, work, interp.it1);
+    make_nodal(id, interp, hier, work, interp.it1);
   interp.it1.resize(num_entries);
 }
 

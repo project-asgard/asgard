@@ -249,6 +249,7 @@ protected:
    * \brief computes the nodal values of the moment
    */
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
+                  hierarchy_manipulator<P> const &hier,
                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
   #ifdef ASGARD_USE_GPU

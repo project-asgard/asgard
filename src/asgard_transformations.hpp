@@ -5,6 +5,50 @@
 
 namespace asgard
 {
+
+/*!
+ * \internal
+ * \brief Returns a new vector padded with zeros
+ * 
+ * \p src is expected to come from a degree \p src_degree representation
+ * and the returned vector will be degree \p dest_degree where the higher degree coefficients
+ * are set to zero.
+ * 
+ * \p dest_degree must be greater than \p src_degree
+ *
+ * \endinternal
+ */
+template<typename P>
+std::vector<P> pad_degree(int src_degree, int dest_degree, std::vector<P> const &src);
+/*!
+ * \internal
+ * \brief Copies \p src into \p dest and pads with zeros
+ *
+ * \p src is expected to come from a degree \p src_degree representation
+ * and \p dest will be degree \p dest_degree where the higher degree coefficients
+ * are set to zero.
+ *
+ * \p dest_degree must be greater than \p src_degree
+ * 
+ * \endinternal
+ */
+template<typename P>
+void pad_degree(int src_degree, int dest_degree, std::vector<P> const &src, std::vector<P> &dest);
+/*!
+ * \internal
+ * \brief Pads \p vec with zeros in-place
+ *
+ * \p vec is expected to come from a degree \p old_degree representation
+ * and will be converted to a degree \p new_degree representation
+ * where the higher degree coefficients are set to zero.
+ *
+ * \p new_degree must be greater than \p old_degree
+ * 
+ * \endinternal
+ */
+template<typename P>
+void pad_degree_inplace(int old_degree, int new_degree, std::vector<P> &vec);
+
 /*!
  * \internal
  * \brief Shorthand for array of diagonal mass matrices
