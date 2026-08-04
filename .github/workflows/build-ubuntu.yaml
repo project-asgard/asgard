@@ -10,8 +10,8 @@ jobs:
     strategy:
       matrix:
         prec: [float, double]
-        compiler: [clang++-14, g++-11]
-    runs-on: ubuntu-22.04
+        compiler: [clang++, g++]
+    runs-on: ubuntu-26.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
         run: cat LastTest.log
 # maybe an overkill but there are some differences between MKL and OpenBlas
   asgard-mkl:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
