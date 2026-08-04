@@ -390,8 +390,8 @@ R"help(<< additional options for this file >>
 using namespace asgard;
 
 template<typename P>
-void dotest(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
+void dotest(double tol, std::string const &opts) {
+  current_test<P> test_(opts, 3);
 
   auto options = make_opts(opts);
 
@@ -410,11 +410,11 @@ void self_test() {
   all_tests testing_("elliptic steady state problem", " div.grad f = sources");
 
   #ifdef ASGARD_ENABLE_DOUBLE
-  dotest<double>(1.E-1, 1, "-d 2 -l 4");
-  dotest<double>(1.E-2, 1, "-d 2 -l 5");
+  dotest<double>(1.E-1, "-d 2 -l 4");
+  dotest<double>(1.E-2, "-d 2 -l 5");
 
-  dotest<double>(1.E-2, 1, "-d 3 -l 3");
-  dotest<double>(1.E-4, 1, "-d 3 -l 5");
+  dotest<double>(1.E-2, "-d 3 -l 3");
+  dotest<double>(1.E-4, "-d 3 -l 5");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
