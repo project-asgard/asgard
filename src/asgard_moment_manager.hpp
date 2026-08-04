@@ -131,12 +131,12 @@ public:
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                      interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
-    constexpr bool raw_on_cpu = false;
-    solve_poisson(grid, conn, hier, interp, work, raw_on_cpu);
+    constexpr bool result_to_cpu = false;
+    solve_poisson(grid, conn, hier, interp, work, result_to_cpu);
   }
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu) const;
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const;
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
@@ -190,14 +190,14 @@ public:
                        hierarchy_manipulator<P> const &hier, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu) const;
   //! solves the poisson equation and caches them as electric moments, on gpu
-  void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+  void solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
-    constexpr bool raw_on_cpu = false;
-    solve_poisson_gpu(conn, hier, interp, work, raw_on_cpu);
+    constexpr bool result_to_cpu = false;
+    solve_poisson_gpu(grid, conn, hier, interp, work, result_to_cpu);
   }
   //! solves the poisson equation and caches them as electric moments, on gpu
-  void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu) const;
+  void solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation
