@@ -152,10 +152,7 @@ void h5manager<P>::write(prog_opts const &options, pde_domain<P> const &domain,
       H5Easy::dump(file, auxstr.name,
                    std::string("__moment_") + moms.get_by_id(mid).to_string());
       if (moms.needs_poisson(mid)) {
-        if (domain.num_pos() == 1)
-          write_vector(auxstr.data, moms.get_cached_level(mid)); // only the level is computed for poisson_1d
-        else
-          write_vector(auxstr.data, moms.get_cached_raw(mid));
+        write_vector(auxstr.data, moms.get_cached_raw(mid, terms.hier));
       } else {
         std::vector<P> vals;
         moms.mcompute(grid, mid, state, vals);

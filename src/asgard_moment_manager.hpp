@@ -88,6 +88,14 @@ public:
   //! fill the vector to a full 1d level, only for position 1d
   void complete_level(hierarchy_manipulator<P> const &hier, std::vector<P> const &raw,
                       std::vector<P> &vals) const;
+  //! cache the raw moment from the level, only for position 1d and electric field moments
+  void cache_raw_from_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
+    assert(num_pos_ == 1 and needs_poisson(id)); // this should only be called for 1D electric field moments
+    int const level = pos_grid.current_level(0);
+    constexpr int level_degree = 0;
+    std::vector<P> padded_level = pad_degree(level_degree, pdof - 1, full_level[id]);
+    hier.transform(level, padded_level, raw_vals[id]);
+  }
   //! cache a number of ids listed as the first n entries of a container ids, where ids[i] is moment_id
   template<typename vec_type>
   void cache_levels(int num, hierarchy_manipulator<P> const &hier, vec_type const &ids) const {
@@ -109,7 +117,14 @@ public:
   sparse_grid const &get_position_grid() const { return pos_grid; }
   //! return the cached raw moment defined on the position grid with moment id mid
   std::vector<P> const &get_cached_raw(moment_id mid) const {
-    rassert(not (num_pos_ == 1 and needs_poisson(mid)), "The electric field moment is only computed for the full level in 1D");
+    rassert(not (num_pos_ == 1 and needs_poisson(mid)), 
+      "The electric field moment is only computed for the full level in 1D, use get_cached_raw(mid, hier) to convert from the level to the raw moment instead");
+    return raw_vals.get(mid);
+  }
+  //! return the cached raw moment defined on the position grid with moment id mid, overload for 1d electric moments
+  std::vector<P> const &get_cached_raw(moment_id mid, hierarchy_manipulator<P> const &hier) const {
+    if (num_pos_ == 1 and needs_poisson(mid))
+      cache_raw_from_level(mid, hier);
     return raw_vals.get(mid);
   }
 
