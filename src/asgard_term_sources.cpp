@@ -23,6 +23,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
   assert(not con1d.empty());
   assert(bnd.size() == static_cast<size_t>(subgrid.num_dof()));
 
+#pragma omp parallel for
   for (int64_t i = 0; i < grid.num_indexes(); i++)
   {
     int const *idx = grid[i];
