@@ -134,10 +134,10 @@ jobs:
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
-        run: make -j VERBOSE=1
+        run: source /opt/intel/oneapi/setvars.sh && make -j VERBOSE=1
       - name: Test
         working-directory: ${{runner.workspace}}/asgard/build
-        run: ctest -V --output-on-failure
+        run: source /opt/intel/oneapi/setvars.sh && ctest -V --output-on-failure
       - name: Show Log
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary
