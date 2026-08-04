@@ -10,8 +10,8 @@ jobs:
     strategy:
       matrix:
         prec: [float, double]
-        compiler: [clang++-14, g++-11]
-    runs-on: ubuntu-22.04
+        compiler: [clang++, g++]
+    runs-on: ubuntu-26.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -110,7 +110,7 @@ jobs:
         run: cat LastTest.log
 # maybe an overkill but there are some differences between MKL and OpenBlas
   asgard-mkl:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -126,17 +126,18 @@ jobs:
         run: cmake -E make_directory build
       - name: Configure
         working-directory: ${{runner.workspace}}/asgard/build
-        run: cmake -DCMAKE_BUILD_TYPE=Release
+        run: source /opt/intel/oneapi/setvars.sh &&
+             cmake -DCMAKE_BUILD_TYPE=Release
                    -DASGARD_FAST_FLAGS=ON
                    -DASGARD_PRECISIONS=double
                    -DASGARD_USE_OPENMP=ON
                    ../
       - name: Build
         working-directory: ${{runner.workspace}}/asgard/build
-        run: make -j VERBOSE=1
+        run: source /opt/intel/oneapi/setvars.sh && make -j VERBOSE=1
       - name: Test
         working-directory: ${{runner.workspace}}/asgard/build
-        run: ctest -V --output-on-failure
+        run: source /opt/intel/oneapi/setvars.sh && ctest -V --output-on-failure
       - name: Show Log
         if: failure()
         working-directory: ${{runner.workspace}}/asgard/build/Testing/Temporary

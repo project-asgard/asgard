@@ -62,7 +62,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
 
   asgard::pde_domain<P> domain({{0, 1}, {0, 1}, {0, 1}});
 
-  options.default_degree = 2;
+  options.default_degree = 3;
   options.default_start_levels = {4, };
 
   // previous examples were setting a default stepping method
@@ -77,8 +77,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
-  options.default_isolver_inner_iterations = 50;
-  options.default_isolver_iterations = 500;
+  options.default_isolver_inner_iterations = 100;
+  options.default_isolver_iterations = 100;
 
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
@@ -174,7 +174,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        f[i] = -eta(x, y, 0) * std::sin(x + y);
+        f[i] = -2 * eta(x, y, 0) * std::sin(x + y);
       }
     };
 
@@ -186,7 +186,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         P const x = nodes[i][0];
         P const y = nodes[i][1];
 
-        f[i] = -eta(x, y, 1) * std::sin(x + y + 2);
+        f[i] = -2 * eta(x, y, 1) * std::sin(x + y + 2);
       }
     };
 
@@ -204,8 +204,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> dzz = {divz, asgard::term_interp<P>{coeff}, gradz};
 
   pde += dxx;
-  // pde += dyy;
-  // pde += dzz;
+  pde += dyy;
+  pde += dzz;
 
   P const dx = pde.cell_size(asgard::dimension_id{0});
   P const dy = pde.cell_size(asgard::dimension_id{1});
@@ -216,8 +216,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   asgard::term_md<P> penz = { I, I, asgard::term_penalty<P>{P{1} / dz} };
 
   pde += penx;
-  // pde += peny;
-  // pde += penz;
+  pde += peny;
+  pde += penz;
 
   auto source = [=](P, asgard::vector2d<P> const &nodes, std::vector<P> &s) ->
     void {
@@ -238,12 +238,7 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
         std::ignore = f;
         std::ignore = dde;
 
-        // s[i] = -(6 * e * ddf + 4 * de * df); // using all 3 derivative components in x y z
-
-        // using only derivative in x
-        s[i] = -(e * ddf + de * df);
-
-        // s[i] = 0; // disable the source term, sources will come only from the boundary
+        s[i] = -(6 * e * ddf + 4 * de * df); // using all 3 derivative components in x y z
       }
     };
 
@@ -289,12 +284,15 @@ double get_error_max(asgard::discretization_manager<P> const &disc)
   std::vector<double> ref(mesh.num_strips());
   std::vector<double> con(mesh.num_strips());
 
+  // compute the reference solution over the dense grid
   #pragma omp parallel for
   for (int64_t i = 0; i < mesh.num_strips(); i++)
     ref[i] = std::cos(mesh[i][0] + mesh[i][1] + 2 * mesh[i][2]);
 
+  // here shot is reconstruct_solution
   auto shot = disc.get_snapshot_mpi();
 
+  // the reconstruction is always done in double-precision
   shot.reconstruct(mesh[0], mesh.num_strips(), con.data());
 
   double err = 0;
@@ -351,17 +349,17 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
+  #ifdef ASGARD_USE_GPU
+  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
+  return 0;
+  #endif
+
   options.throw_if_argv_not_in({"-test", }, {});
 
   if (options.has_cli_entry("-test")) {
     self_test();
     return 0;
   }
-
-  #ifdef ASGARD_USE_GPU
-  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
-  return 0;
-  #endif
 
   auto pde = make_elliptic_pde(options);
 
@@ -392,8 +390,8 @@ R"help(<< additional options for this file >>
 using namespace asgard;
 
 template<typename P>
-void dotest(double tol, int num_dims, std::string const &opts) {
-  current_test<P> test_(opts, num_dims);
+void dotest(double tol, std::string const &opts) {
+  current_test<P> test_(opts, 3);
 
   auto options = make_opts(opts);
 
@@ -411,16 +409,16 @@ void dotest(double tol, int num_dims, std::string const &opts) {
 void self_test() {
   all_tests testing_("elliptic steady state problem", " div.grad f = sources");
 
-  std::cerr << "  EXAMPLE INCOMPLETE, TESTS ARE NOT WORKING YET\n";
-
   #ifdef ASGARD_ENABLE_DOUBLE
-  // dotest<double>(5.E-3, 1, "-d 1 -l 3");
+  dotest<double>(1.E-1, "-d 2 -l 4");
+  dotest<double>(1.E-2, "-d 2 -l 5");
+
+  dotest<double>(1.E-2, "-d 3 -l 3");
+  dotest<double>(1.E-4, "-d 3 -l 5");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT
-  // dotest<float>(5.E-3, 1, "-d 1 -l 5");
-  // dotest<float>(5.E-3, 1, "-d 2 -l 3");
-  // dotest<float>(5.E-3, 1, "-d 2 -l 3 -bc 1");
+  // second order PDE is not happy with single precision
   #endif
 }
 
