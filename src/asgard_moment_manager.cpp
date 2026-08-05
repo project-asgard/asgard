@@ -1180,7 +1180,10 @@ void moment_manager<P>::compute_moments(
 
     moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
 
-    if (result_to_cpu) res.copy_to_host(interps[im]);
+    if (result_to_cpu) {
+      res.copy_to_host(interps[im]);
+      full_level.get(im).resize(0);
+    }
 
     // solve poisson equation while w1 holds density
     if (mom.is_zero() and has_electric)
