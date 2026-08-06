@@ -126,16 +126,18 @@ struct term_manager
   std::array<sparse_grid, max_num_dimensions> ibc_grid;
   //! map the entries of the subgrid to the main grid
   std::array<std::vector<int>, max_num_dimensions> ibc_map;
-  #ifdef ASGARD_USE_GPU
-  //! gpu-map the entries of the subgrid to the main grid
-  std::array<gpu::vector<int>, max_num_dimensions> ibc_gpu_map;
-  #endif
   //! permutations for interpolated boundary conditions
   kronmult::permutes ibc_perm_low, ibc_perm_up;
   //! nodes on each boundary wall
   std::array<vector2d<P>, max_num_dimensions> ibc_nodes;
   //! scaling weights for the interpolation
   std::array<P, max_num_dimensions> ibc_iwavscale;
+  #ifdef ASGARD_USE_GPU
+  //! gpu-map the entries of the subgrid to the main grid
+  std::array<gpu::vector<int>, max_num_dimensions> ibc_gpu_map;
+  //! gpu nodes on each boundary wall
+  std::array<gpu::vector<P>, max_num_dimensions> ibc_gpu_nodes;
+  #endif
 
   mutable kronmult::workspace<P> kwork;
   mutable std::vector<P> t1, t2; // used when doing chains

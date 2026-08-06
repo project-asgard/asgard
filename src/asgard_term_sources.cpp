@@ -28,13 +28,6 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
   for (int64_t i = 0; i < grid.num_indexes(); i++)
   {
     int const *idx = grid[i];
-
-    // std::array<int, max_num_dimensions> v;
-    // for (int d = 0; d < ib_dim; d++) v[d] = idx[d];
-    // for (int d = ib_dim + 1; d < num_dims; d++) v[d - 1] = idx[d];
-    //
-    // int64_t const isub = subgrid.iset().find(v.data());
-    // assert(isub != -1);
     int const isub = map[i];
 
     P *out = y + i * grid.block_size();
@@ -326,7 +319,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
-    auto const &trm = terms[bc.term_index];
+    // auto const &trm = terms[bc.term_index];
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
     if (not bc.is_separable()) {
@@ -334,7 +327,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       // the vector that has been computed ... should probably fix that
 
       // 1. check-update the grid
-      int const flux_dim = trm.flux_dim; // direction of the flux
+      int const flux_dim = terms[bc.term_index].flux_dim; // direction of the flux
       sparse_grid &subgrid = ibc_grid[flux_dim];
       if (subgrid.generation() != grid.generation()) {
         grid.subgrid(flux_dim, basis.pdof, subgrid, ibc_map[flux_dim]);
@@ -626,7 +619,94 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
     auto &bc = bcs[ib]; // non-const for the time-dependent case
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
-    if (not bc.is_separable()) continue;
+    if (not bc.is_separable()) {
+      // this works like the time-dependent case, the assumption is that we cannot reuse
+      // the vector that has been computed ... should probably fix that
+
+      // 1. check-update the grid
+      int const flux_dim = terms[bc.term_index].flux_dim; // direction of the flux
+      sparse_grid &subgrid = ibc_grid[flux_dim];
+      if (subgrid.generation() != grid.generation()) {
+        grid.subgrid(flux_dim, basis.pdof, subgrid, ibc_map[flux_dim]);
+        ibc_gpu_map[flux_dim] = ibc_map[flux_dim];
+        switch (flux_dim) {
+          case 0: interp.template nodes<0>(ibc_grid[0], ibc_nodes[0]); break;
+          case 1: interp.template nodes<1>(ibc_grid[1], ibc_nodes[1]); break;
+          case 2: interp.template nodes<2>(ibc_grid[2], ibc_nodes[2]); break;
+          case 3: interp.template nodes<3>(ibc_grid[3], ibc_nodes[3]); break;
+          case 4: interp.template nodes<4>(ibc_grid[4], ibc_nodes[4]); break;
+          case 5: interp.template nodes<5>(ibc_grid[5], ibc_nodes[5]); break;
+          default: // unreachable
+            break;
+        }
+        ibc_gpu_nodes[flux_dim] = ibc_nodes[flux_dim].data_vector();
+      }
+
+      // 2. set the interpolation work-spaces
+      size_t const nwork = interp.it1.size(); // needed to restore the size
+
+      interp.gpu_it1[gpu::device{0}()].resize(subgrid.num_dof());
+      interp.gpu_it2[gpu::device{0}()].resize(interp.it1.size());
+
+      P *p1 = interp.gpu_it1[gpu::device{0}()].data();
+      P *p2 = interp.gpu_it2[gpu::device{0}()].data();
+
+      // 3. call the interpolated function on the nodes
+      std::visit([&](auto const &func) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>) {
+            interp.it1.resize(subgrid.num_dof());
+            func(time, ibc_nodes[flux_dim], interp.it1);
+            interp.gpu_it1[gpu::device{0}()] = interp.it1;
+            interp.it1.resize(grid.num_dof());
+          } else if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_gpu_func<P>>) {
+            func(subgrid.num_dof(), time, ibc_gpu_nodes[flux_dim].data(), p1);
+          }
+        }, bc.flux.var_func());
+
+      // 4. construct hierarchical basis and project back on the interpolation nodes
+      block_gpu(gpu::device{0}, basis.pdof, subgrid, conn, ibc_perm_low,
+                interp.matrix_gpu_nodal2hier(gpu::device{0}), P{1}, p1, P{0}, p2, kwork,
+                interp.matrix_nodal2hier());
+
+      block_gpu(gpu::device{0}, basis.pdof, subgrid, conn, ibc_perm_up,
+                interp.matrix_gpu_hier2wav(gpu::device{0}),
+                ibc_iwavscale[flux_dim], p2, P{0}, p1, kwork,
+                interp.matrix_hier2wav());
+
+      if (terms[bc.term_index].is_chain_link())
+      {
+        // **** missing kernel
+        // merge_boundary_grids<P, data_mode::replace>
+        //     (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
+        //      p1, basis.pdof, 1, t1.data());
+
+        interp.gpu_it1[gpu::device{0}()].resize(nwork);
+        interp.gpu_it2[gpu::device{0}()].resize(nwork);
+
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          rechain(gpu::device{0}, bc, P{-1}, t1.data(), P{1}, y, t2.data());
+        else
+          rechain(gpu::device{0}, bc, -alpha, t1.data(), P{1}, y, t2.data());
+      }
+      else
+      {
+        constexpr data_mode effective_mode = [&]() -> data_mode {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            return data_mode::increment;
+          else
+            return data_mode::scal_inc;
+        }();
+
+        // merge_boundary_grids<P, effective_mode>
+        //     (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
+        //      interp.it1, basis.pdof, -alpha, y);
+
+        interp.gpu_it1[gpu::device{0}()].resize(nwork);
+        interp.gpu_it2[gpu::device{0}()].resize(nwork);
+      }
+
+      continue;
+    }
 
     switch (bc.flux.func().get_time_mode()) {
       case separable_func<P>::time_mode::constant:
