@@ -671,6 +671,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
+template<bool always_interp>
 void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                                           interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const
 {
@@ -684,53 +685,52 @@ void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_pa
   gpu::wrap_array<P> w2(work2[0].data(), num_entries);
   
   std::visit([&](auto &p) {
-      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
-        // Solve on CPU
-        moment_id const m0 = p.moment0();
-        moment_id const melectric = p.moment_electric();
-        w1.vec.copy_to_host(raw_vals[m0]);
-        p.solve_periodic(get_cached_level(m0, hier), full_level.get(melectric));
+    if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
+      // Solve on CPU
+      moment_id const m0 = p.moment0();
+      moment_id const melectric = p.moment_electric();
+      w1.vec.copy_to_host(raw_vals[m0]);
+      p.solve_periodic(get_cached_level(m0, hier), full_level.get(melectric));
 
-        // interpolate
-        // TODO: interpolation should only happen if set_adapt_weight() uses melectric
-        // but there is currently no way to determine this.
+      // interpolate
+      if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
-        w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data()); // Somehow this line messes up bgk test, I suspect w1 is being overwritten and then used somewhere else
+        w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data());
         interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[0][melectric];
         res.resize(full_block * grid.num_indexes());
         moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
         if (result_to_cpu) res.copy_to_host(interps[melectric]);
-      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
-        // Setup
-        update_position_grid_dsort();
-        auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
-        {
-          for (auto const &mom : this->gpu_moments[0]) {
-            if (mom.mid == mid)
-              return mom;
-          }
-          throw std::runtime_error("could not find the moment");
-        };
-        auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
-        {
-          mom_on_gpu const &mom = find_mom(mid);
-          if (result_to_cpu or mom.raw_on_cpu()) {
-            efield.copy_to_host(this->raw_vals[mid]);
-            this->full_level.get(mid).resize(0);
-          }
-          interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
-          gpu::vector<P> &res = this->gpu_interps[0][mid];
-          res.resize(this->full_block * grid.num_indexes());
-          moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
-          if (result_to_cpu or mom.interp_on_cpu())
-            res.copy_to_host(interps[mid]);
-        };
-        // Solve
-        p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
       }
-    },
-    poisson_solver);
+    } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+      // Setup
+      update_position_grid_dsort();
+      auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
+      {
+        for (auto const &mom : this->gpu_moments[0]) {
+          if (mom.mid == mid)
+            return mom;
+        }
+        throw std::runtime_error("could not find the moment");
+      };
+      auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
+      {
+        mom_on_gpu const &mom = find_mom(mid);
+        if (result_to_cpu or mom.raw_on_cpu()) {
+          efield.copy_to_host(this->raw_vals[mid]);
+          this->full_level.get(mid).resize(0);
+        }
+        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        gpu::vector<P> &res = this->gpu_interps[0][mid];
+        res.resize(this->full_block * grid.num_indexes());
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+        if (result_to_cpu or mom.interp_on_cpu())
+          res.copy_to_host(interps[mid]);
+      };
+      // Solve
+      p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
+    }
+  }, poisson_solver);
 }
 #endif // ASGARD_USE_GPU
 
@@ -1077,27 +1077,7 @@ void moment_manager<P>::compute_moments(
   // which will also allow to avoid the spread when doing term-apply
 
   prepare_pos_grid_gpu(group_id::all(), grid);
-
-  // This overload of compute_moments() is only called when there is an adaptive weight
-  // set on the pde. All set_adapt_weight() functions are md_functions so interpolation is
-  // always needed if this function is called. prepare_pos_grid_gpu will call
-  // update_position_grid_dsort() only if one of the moments on the pde is an interpolatory moment;
-  // however, this is not sufficient because it is possible for all moments to be separable and still
-  // have an adaptive weight which will require interpolation (see pde/two_stream.cpp).
-  // 
-  // Things are a bit messy in the current state because calling set_adapt_weight()
-  // with a moment function has no impact on gpu_mom.skip_interp() or has_interp
-  // even though it will require interpolation for the adapt weight moments. It would be possible
-  // to change set_adapt_weight() so it impacts gpu_mom.skip_interp() and has_interp; however,
-  // this is undesirable because interpolation is only needed during grid refinement and not
-  // during regular computation (it is not needed for the other overload of this function but
-  // is needed for this overload). For now the easy fix is to call update_position_grid_dsort()
-  // explicity in this overload of compute_moments() but we may want to consider how to fix
-  // has_interp in the future so that prepare_pos_grid_gpu() works properly without this explicit call.
-  // Maybe an additional flag should be added to the gpu_moms for whether or not they are adapt weight
-  // moments. This would allow solve_poisson_gpu to determine if it should perform interpolation for the
-  // poisson_1d case instead of always interpolating.
-  update_position_grid_dsort();
+  update_position_grid_dsort(); // interpolation is always done in this overload of compute_moments()
 
   int const pos_block = pos_grid.block_size();
 
@@ -1163,8 +1143,9 @@ void moment_manager<P>::compute_moments(
     }
 
     // solve poisson equation while w1 holds density
+    constexpr bool always_interp = true;
     if (mom.is_zero() and has_electric)
-      solve_poisson_gpu(grid, conn, hier, interp, kwork, result_to_cpu);
+      solve_poisson_gpu<always_interp>(grid, conn, hier, interp, kwork, result_to_cpu);
   }
 }
 #endif

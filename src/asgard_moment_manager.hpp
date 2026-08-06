@@ -184,12 +184,14 @@ public:
                        hierarchy_manipulator<P> const &hier, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu) const;
   //! solves the poisson equation and caches them as electric moments, on gpu
+  template<bool always_interp = false>
   void solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
     constexpr bool result_to_cpu = false;
-    solve_poisson_gpu(grid, conn, hier, interp, work, result_to_cpu);
+    solve_poisson_gpu<always_interp>(grid, conn, hier, interp, work, result_to_cpu);
   }
   //! solves the poisson equation and caches them as electric moments, on gpu
+  template<bool always_interp = false>
   void solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const;
   #endif
