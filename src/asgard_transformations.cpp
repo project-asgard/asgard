@@ -27,39 +27,6 @@ std::vector<P> pad_degree(int src_degree, int dest_degree, std::vector<P> const 
 }
 
 template<typename P>
-void pad_degree(int src_degree, int dest_degree, std::vector<P> const &src, std::vector<P> &dest)
-{
-  size_t const src_pdof = src_degree + 1;
-  size_t const dest_pdof = dest_degree + 1;
-  assert(src_pdof > 0);
-  assert(dest_pdof > src_pdof);
-  assert(not src.empty());
-  assert(src.size() % src_pdof == 0);
-  size_t const nelems = src.size() / src_pdof;
-  size_t const dest_size = nelems * dest_pdof;
-  dest.resize(dest_size);
-  std::fill(dest.begin(), dest.end(), P{0});
-  for (size_t i = 0; i < nelems; i++)
-    std::copy_n(src.data() + i * src_pdof, src_pdof, dest.data() + i * dest_pdof);
-}
-
-template<typename P>
-void pad_degree_inplace(int old_degree, int new_degree, std::vector<P> &vec)
-{
-  size_t const old_pdof = old_degree + 1;
-  size_t const new_pdof = new_degree + 1;
-  assert(old_pdof > 0);
-  assert(new_pdof > old_pdof);
-  assert(not vec.empty());
-  assert(vec.size() % old_pdof == 0);
-  size_t const nelems = vec.size() / old_pdof;
-  size_t const new_size = nelems * new_pdof;
-  vec.resize(new_size, P{0});
-  for (size_t i = nelems - 1; i > 0; i--)
-    std::copy_n(vec.data() + i * old_pdof, old_pdof, vec.data() + i * new_pdof);
-}
-
-template<typename P>
 legendre_basis<P>::legendre_basis(int degree) : pdof(degree + 1) {
 
   auto const quad_vals = legendre_weights(degree, -1.0, 1.0);
@@ -1454,8 +1421,6 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
 
 #ifdef ASGARD_ENABLE_DOUBLE
 template std::vector<double> pad_degree(int src_degree, int dest_degree, std::vector<double> const &src);
-template void pad_degree(int src_degree, int dest_degree, std::vector<double> const &src, std::vector<double> &dest);
-template void pad_degree_inplace(int old_degree, int new_degree, std::vector<double> &vec);
 
 template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
@@ -1484,8 +1449,6 @@ instantiate_multi(double, -1);
 
 #ifdef ASGARD_ENABLE_FLOAT
 template std::vector<float> pad_degree(int src_degree, int dest_degree, std::vector<float> const &src);
-template void pad_degree(int src_degree, int dest_degree, std::vector<float> const &src, std::vector<float> &dest);
-template void pad_degree_inplace(int old_degree, int new_degree, std::vector<float> &vec);
 
 template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;

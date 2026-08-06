@@ -644,45 +644,45 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
                                       kronmult::workspace<P> &work) const
 {
   std::visit([&](auto &p) {
-      if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
-        p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
-      } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
-        #ifdef ASGARD_USE_GPU
-        compute->set_device(gpu::device{0});
+    if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
+      p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
+    } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+      #ifdef ASGARD_USE_GPU
+      compute->set_device(gpu::device{0});
 
-        // transfer density to GPU
-        int const num_entries = pos_grid.num_dof();
-        std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
-        assert(work1[0].size() >= num_entries);
-        work1[0].copy_from_host(num_entries, raw_vals.get(p.moment0()).data());
+      // transfer density to GPU
+      int const num_entries = pos_grid.num_dof();
+      std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+      assert(work1[0].size() >= num_entries);
+      work1[0].copy_from_host(num_entries, raw_vals.get(p.moment0()).data());
 
-        // solve
-        constexpr bool result_to_cpu = true;
-        solve_poisson_gpu(grid, conn, hier, interp, work, result_to_cpu);
-        #else
-        std::ignore = interp;
-        std::ignore = grid;
-        update_position_grid_dsort();
-        p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
-        #endif
-      }
-    }, poisson_solver);
+      // solve
+      constexpr bool result_to_cpu = true;
+      solve_poisson_gpu(gpu::device{0}, grid, conn, hier, interp, work, result_to_cpu);
+      #else
+      std::ignore = interp;
+      std::ignore = grid;
+      update_position_grid_dsort();
+      p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
+      #endif
+    }
+  }, poisson_solver);
 }
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
 template<bool always_interp>
-void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                                           interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const
 {
   // Setup
   int64_t const num_entries = pos_grid.num_dof();
   std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
   std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
-  assert(work1[0].size() >= num_entries);
-  assert(work2[0].size() >= num_entries);
-  gpu::wrap_array<P> w1(work1[0].data(), num_entries);
-  gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+  assert(work1[dev.id].size() >= num_entries);
+  assert(work2[dev.id].size() >= num_entries);
+  gpu::wrap_array<P> w1(work1[dev.id].data(), num_entries);
+  gpu::wrap_array<P> w2(work2[dev.id].data(), num_entries);
   
   std::visit([&](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
@@ -696,10 +696,10 @@ void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_pa
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
         w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data());
-        interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
-        gpu::vector<P> &res = gpu_interps[0][melectric];
+        interp.pos2nodal(dev, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
+        gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
-        moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+        moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
         if (result_to_cpu) res.copy_to_host(interps[melectric]);
       }
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
@@ -720,10 +720,10 @@ void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_pa
           efield.copy_to_host(this->raw_vals[mid]);
           this->full_level.get(mid).resize(0);
         }
-        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
-        gpu::vector<P> &res = this->gpu_interps[0][mid];
+        interp.pos2nodal(dev, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
         res.resize(this->full_block * grid.num_indexes());
-        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
         if (result_to_cpu or mom.interp_on_cpu())
           res.copy_to_host(interps[mid]);
       };
@@ -1042,10 +1042,8 @@ void moment_manager<P>::compute_moments(
       }
 
       // solve poisson equation while w1 holds density
-      if (mom.is_zero()) {
-        assert(g == 0); // poisson uses gpu 0 for solve
-        solve_poisson_gpu(grid, conn, hier, interp, kwork);
-      }
+      if (mom.is_zero())
+        solve_poisson_gpu(gpu::device{g}, grid, conn, hier, interp, kwork);
 
       if (im->skip_interp()) continue;
 
@@ -1145,7 +1143,7 @@ void moment_manager<P>::compute_moments(
     // solve poisson equation while w1 holds density
     constexpr bool always_interp = true;
     if (mom.is_zero() and has_electric)
-      solve_poisson_gpu<always_interp>(grid, conn, hier, interp, kwork, result_to_cpu);
+      solve_poisson_gpu<always_interp>(gpu::device{0}, grid, conn, hier, interp, kwork, result_to_cpu);
   }
 }
 #endif
