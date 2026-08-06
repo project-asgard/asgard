@@ -13,6 +13,7 @@ namespace asgard
 // ib_dim is the interpolated boundary dimension
 template<typename P, data_mode dmode, int ib_dim>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
+                          std::vector<int> const &map,
                           std::vector<P> const &con1d, std::vector<P> const &bnd,
                           int pdof, P alpha, P y[])
 {
@@ -28,18 +29,20 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
   {
     int const *idx = grid[i];
 
-    std::array<int, max_num_dimensions> v;
-    for (int d = 0; d < ib_dim; d++) v[d] = idx[d];
-    for (int d = ib_dim + 1; d < num_dims; d++) v[d - 1] = idx[d];
-
-    int64_t const isub = subgrid.iset().find(v.data());
-    assert(isub != -1);
+    // std::array<int, max_num_dimensions> v;
+    // for (int d = 0; d < ib_dim; d++) v[d] = idx[d];
+    // for (int d = ib_dim + 1; d < num_dims; d++) v[d - 1] = idx[d];
+    //
+    // int64_t const isub = subgrid.iset().find(v.data());
+    // assert(isub != -1);
+    int const isub = map[i];
 
     P *out = y + i * grid.block_size();
 
     P const *block1d  = con1d.data() + pdof * idx[ib_dim];
     P const *subblock = bnd.data() + subgrid.block_size() * isub;
 
+    std::array<int, max_num_dimensions> v;
     std::fill_n(v.begin(), num_dims, 0);
 
     int const ib_init = (ib_dim == 0) ? 1 : 0;
@@ -90,27 +93,28 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
 
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          std::vector<int> const &map,
                           std::vector<P> const &con1d, std::vector<P> const &bnd,
                           int pdof, P alpha, P y[])
 {
   switch(flux_dim) {
       case 0: merge_boundary_grids<P, dmode, 0>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 1: merge_boundary_grids<P, dmode, 1>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 2: merge_boundary_grids<P, dmode, 2>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 3: merge_boundary_grids<P, dmode, 3>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 4: merge_boundary_grids<P, dmode, 4>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 5: merge_boundary_grids<P, dmode, 5>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       default:
         break;
@@ -333,7 +337,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       int const flux_dim = trm.flux_dim; // direction of the flux
       sparse_grid &subgrid = ibc_grid[flux_dim];
       if (subgrid.generation() != grid.generation()) {
-        subgrid = grid.subgrid(flux_dim, basis.pdof);
+        grid.subgrid(flux_dim, basis.pdof, subgrid, ibc_map[flux_dim]);
         switch (flux_dim) {
           case 0: interp.template nodes<0>(ibc_grid[flux_dim], ibc_nodes[0]); break;
           case 1: interp.template nodes<1>(ibc_grid[flux_dim], ibc_nodes[1]); break;
@@ -369,7 +373,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       if (terms[bc.term_index].is_chain_link())
       {
         merge_boundary_grids<P, data_mode::replace>
-            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
         interp.it1.resize(nwork);
@@ -390,7 +394,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         }();
 
         merge_boundary_grids<P, effective_mode>
-            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
              interp.it1, basis.pdof, -alpha, y);
 
         interp.it1.resize(nwork);

@@ -598,7 +598,7 @@ public:
   /*!
    * \brief Extracts a sub-grid by removing the indicated dimension
    */
-  sparse_grid subgrid(int dim, int pdof) const;
+  void subgrid(int dim, int pdof, sparse_grid &sgrid, std::vector<int> &map) const;
 
   //! remaps the vector entries from an old grid to the new one, pads with zero
   template<typename P>

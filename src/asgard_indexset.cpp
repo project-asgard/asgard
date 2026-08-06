@@ -630,7 +630,24 @@ void sparse_grid::remap(int block_size, std::vector<P> &state) const
   state = std::move(snew);
 }
 
-sparse_grid sparse_grid::subgrid(int dim, int pdof) const
+template<int idim>
+void subgrid_remap_indexes(indexset const &iset, indexset const &sub, std::vector<int> &map) {
+  int const num_dims = iset.num_dimensions();
+  map.resize(iset.num_indexes());
+  #pragma omp parallel for
+  for (int64_t i = 0; i < iset.num_indexes(); i++)
+  {
+    int const *idx = iset[i];
+
+    std::array<int, max_num_dimensions> v;
+    for (int d = 0; d < idim; d++) v[d] = idx[d];
+    for (int d = idim + 1; d < num_dims; d++) v[d - 1] = idx[d];
+
+    map[i] = sub.find(v.data());
+  }
+}
+
+void sparse_grid::subgrid(int dim, int pdof, sparse_grid &sgrid, std::vector<int> &map) const
 {
   int const numd = num_dims();
 
@@ -658,26 +675,34 @@ sparse_grid sparse_grid::subgrid(int dim, int pdof) const
     }
   }
 
-  sparse_grid result;
+  sgrid.iset_  = indexset(numd - 1, std::move(indexes));
+  sgrid.dsort_ = dimension_sort(sgrid.iset_);
 
-  result.iset_  = indexset(numd - 1, std::move(indexes));
-  result.dsort_ = dimension_sort(result.iset_);
-
-  result.generation_ = generation_;
-  result.block_size_ = fm::ipow(pdof, numd - 1);
+  sgrid.generation_ = generation_;
+  sgrid.block_size_ = fm::ipow(pdof, numd - 1);
 
   for (int d = 0; d < dim; d++) {
-    result.level_[d]     = level_[d];
-    result.max_index_[d] = max_index_[d];
+    sgrid.level_[d]     = level_[d];
+    sgrid.max_index_[d] = max_index_[d];
   }
   for (int d = dim + 1; d < numd; d++) {
-    result.level_[d - 1]     = level_[d];
-    result.max_index_[d - 1] = max_index_[d];
+    sgrid.level_[d - 1]     = level_[d];
+    sgrid.max_index_[d - 1] = max_index_[d];
   }
 
-  result.gpu_sync();
+  sgrid.gpu_sync();
 
-  return result;
+  switch (dim)
+  {
+    case 0: subgrid_remap_indexes<0>(iset_, sgrid.iset_, map); break;
+    case 1: subgrid_remap_indexes<1>(iset_, sgrid.iset_, map); break;
+    case 2: subgrid_remap_indexes<2>(iset_, sgrid.iset_, map); break;
+    case 3: subgrid_remap_indexes<3>(iset_, sgrid.iset_, map); break;
+    case 4: subgrid_remap_indexes<4>(iset_, sgrid.iset_, map); break;
+    case 5: subgrid_remap_indexes<5>(iset_, sgrid.iset_, map); break;
+    default:
+      break;
+  }
 }
 
 #ifdef ASGARD_USE_GPU
