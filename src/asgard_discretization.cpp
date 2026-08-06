@@ -414,7 +414,7 @@ std::vector<precision> discretization_manager<precision>::get_moment(moment_id i
       else
         throw std::runtime_error("an electric moment was requested but no poisson solver is set");
     }, get_poisson());
-    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork, true);
+    terms.moms.solve_poisson(terms.grid, terms.conn, terms.hier, terms.interp, terms.kwork);
     return terms.moms.get_cached_raw(id);
   }
   std::vector<precision> result;

@@ -641,7 +641,7 @@ void moment_manager<P>::complete_level(hierarchy_manipulator<P> const &hier,
 template<typename P>
 void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patterns const &conn,
                                       hierarchy_manipulator<P> const &hier, interpolation_manager<P> const &interp,
-                                      kronmult::workspace<P> &work, bool result_to_cpu) const
+                                      kronmult::workspace<P> &work) const
 {
   std::visit([&](auto &p) {
       if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
@@ -649,35 +649,19 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
         #ifdef ASGARD_USE_GPU
         compute->set_device(gpu::device{0});
+
+        // transfer density to GPU
         int const num_entries = pos_grid.num_dof();
         std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
         assert(work1[0].size() >= num_entries);
         work1[0].copy_from_host(num_entries, raw_vals.get(p.moment0()).data());
-        for (moment_id const &mid : p.moments_electric()) {
-          if (mid == moment_id::unset()) continue;
-          gpu::vector<P> &res = gpu_interps[0][mid];
-          res.resize(full_block * grid.num_indexes());
-        }
+
+        // solve
+        constexpr bool result_to_cpu = true;
         solve_poisson_gpu(grid, conn, hier, interp, work, result_to_cpu);
-        auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
-        {
-          for (auto const &mom : this->gpu_moments[0]) {
-            if (mom.mid == mid)
-              return mom;
-          }
-          throw std::runtime_error("could not find the moment");
-        };
-        for (moment_id const &mid : p.moments_electric()) {
-          if (mid == moment_id::unset()) continue;
-          mom_on_gpu const &mom = find_mom(mid);
-          if (mom.interp_on_cpu()) continue; // solve_poisson_gpu will already copy if interp_on_cpu() is true
-          gpu::vector<P> &res = gpu_interps[0][mid];
-          res.copy_to_host(interps.get(mid));
-        }
         #else
         std::ignore = interp;
         std::ignore = grid;
-        std::ignore = result_to_cpu;
         update_position_grid_dsort();
         p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
         #endif
@@ -690,17 +674,17 @@ template<typename P>
 void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                                           interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const
 {
+  // Setup
+  int64_t const num_entries = pos_grid.num_dof();
+  std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
+  std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
+  assert(work1[0].size() >= num_entries);
+  assert(work2[0].size() >= num_entries);
+  gpu::wrap_array<P> w1(work1[0].data(), num_entries);
+  gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+  
   std::visit([&](auto &p) {
       if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
-        // Setup
-        int64_t const num_entries = pos_grid.num_dof();
-        std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
-        std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
-        assert(work1[0].size() >= num_entries);
-        assert(work2[0].size() >= num_entries);
-        gpu::wrap_array<P> w1(work1[0].data(), num_entries);
-        gpu::wrap_array<P> w2(work2[0].data(), num_entries);
-
         // Solve on CPU
         moment_id const m0 = p.moment0();
         moment_id const melectric = p.moment_electric();
@@ -720,13 +704,6 @@ void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_pa
       } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
         // Setup
         update_position_grid_dsort();
-        int64_t const num_entries = pos_grid.num_dof();
-        std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
-        std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
-        assert(work1[0].size() >= num_entries);
-        assert(work2[0].size() >= num_entries);
-        gpu::wrap_array<P> w1(work1[0].data(), num_entries);
-        gpu::wrap_array<P> w2(work2[0].data(), num_entries);
         auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
         {
           for (auto const &mom : this->gpu_moments[0]) {

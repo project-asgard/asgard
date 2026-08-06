@@ -130,13 +130,7 @@ public:
 
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
-    constexpr bool result_to_cpu = false;
-    solve_poisson(grid, conn, hier, interp, work, result_to_cpu);
-  }
-  //! solves the poisson equation and caches them as electric moments
-  void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const;
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
