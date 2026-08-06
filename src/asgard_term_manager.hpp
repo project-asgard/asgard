@@ -124,6 +124,12 @@ struct term_manager
   // additional data for interpolatory boundary conditions
   //! grids where one dimension has been removed
   std::array<sparse_grid, max_num_dimensions> ibc_grid;
+  //! map the entries of the subgrid to the main grid
+  std::array<std::vector<int>, max_num_dimensions> ibc_map;
+  #ifdef ASGARD_USE_GPU
+  //! gpu-map the entries of the subgrid to the main grid
+  std::array<gpu::vector<int>, max_num_dimensions> ibc_gpu_map;
+  #endif
   //! permutations for interpolated boundary conditions
   kronmult::permutes ibc_perm_low, ibc_perm_up;
   //! nodes on each boundary wall
