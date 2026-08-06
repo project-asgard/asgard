@@ -711,7 +711,7 @@ void moment_manager<P>::solve_poisson_gpu(sparse_grid const &grid, connection_pa
         // TODO: interpolation should only happen if set_adapt_weight() uses melectric
         // but there is currently no way to determine this.
         cache_raw_from_level(melectric, hier);
-        w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data());
+        w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data()); // Somehow this line messes up bgk test, I suspect w1 is being overwritten and then used somewhere else
         interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[0][melectric];
         res.resize(full_block * grid.num_indexes());
