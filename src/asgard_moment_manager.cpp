@@ -649,22 +649,32 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
       p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+      update_position_grid_dsort();
+
       #ifdef ASGARD_USE_GPU
       compute->set_device(gpu::device{0});
 
       // transfer density to GPU
       int const num_entries = pos_grid.num_dof();
-      std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
-      assert(work1[0].size() >= num_entries);
-      work1[0].copy_from_host(num_entries, raw_vals.get(p.moment0()).data());
+      interp.gpu_it1[0] = raw_vals[p.moment0(0)];
+
+      // setup interpolation function
+      auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
+      {
+        efield.copy_to_host(this->raw_vals[mid]);
+        this->full_level.get(mid).resize(0);
+        interp.pos2nodal(dev, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
+        res.resize(this->full_block * grid.num_indexes());
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
+        res.copy_to_host(interps[mid]);
+      };
 
       // solve
-      constexpr bool result_to_cpu = true;
-      solve_poisson_gpu(gpu::device{0}, grid, conn, hier, interp, work, result_to_cpu);
+      p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
       #else
       std::ignore = interp;
       std::ignore = grid;
-      update_position_grid_dsort();
       p.solve_periodic(raw_vals.get(p.moment0()), raw_vals, pos_grid, conn, work);
       #endif
     }
@@ -688,10 +698,12 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
   
   std::visit([&](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
-      // Solve on CPU
+      // transfer density to CPU
       moment_id const m0 = p.moment0();
       moment_id const melectric = p.moment_electric();
       w1.vec.copy_to_host(raw_vals[m0]);
+
+      // solve
       p.solve_periodic(get_cached_level(m0, hier), full_level.get(melectric));
 
       // interpolate
@@ -705,7 +717,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
         if (result_to_cpu) res.copy_to_host(interps[melectric]);
       }
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
-      // Setup
+      // setup
       update_position_grid_dsort();
       auto find_mom = [this](moment_id mid) -> const mom_on_gpu &
       {
@@ -729,7 +741,8 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
         if (result_to_cpu or mom.interp_on_cpu())
           res.copy_to_host(interps[mid]);
       };
-      // Solve
+
+      // solve
       p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
     }
   }, poisson_solver);

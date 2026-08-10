@@ -8,18 +8,18 @@ namespace asgard
 
 /*!
  * \internal
- * \brief Returns a new vector of \p dest_degree degree padded with zeros
+ * \brief Returns a new vector with \p dest_pdof DG DOFs padded with zeros
  * 
- * \p src is expected to come from a degree \p src_degree representation
- * and the returned vector will be degree \p dest_degree where the higher degree coefficients
+ * \p src is expected to come from a \p src_pdof DOF representation
+ * and the returned vector will have \p dest_pdof DG DOFs where the higher DOF coefficients
  * are set to zero.
  * 
- * \p dest_degree must be greater than \p src_degree
+ * \p dest_pdof must be greater than \p src_pdof
  *
  * \endinternal
  */
 template<typename P>
-std::vector<P> pad_degree(int src_degree, int dest_degree, std::vector<P> const &src);
+std::vector<P> pad_pdof(size_t num_cells, int src_pdof, int dest_pdof, std::vector<P> const &src);
 
 /*!
  * \internal

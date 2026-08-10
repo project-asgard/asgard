@@ -138,8 +138,8 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
         y[i] = std::min(P{0}, x[i]);
     };
 
-  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
 
   auto md_positive_x = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
                     asgard::momentset<P> const &moments, std::vector<P> const &field,
@@ -457,8 +457,8 @@ void test_damping(std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_landau(options);
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   int64_t const nt = disc.remaining_steps();

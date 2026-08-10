@@ -152,7 +152,7 @@ asgard::pde_scheme<P> make_two_stream(asgard::prog_opts options) {
 
   pde.add_initial(asgard::separable_func<P>({ic_x, ic_v}));
 
-  asgard::moment_id melectric = pde.register_electric_moment(asgard::dimension_id(0), 1);
+  asgard::moment_id melectric = pde.register_electric_moment(asgard::dimension_id(0));
   auto weight = [=](P /* time */, asgard::vector2d<P> const& /* nodes */,
                  asgard::momentset<P> const &moments, std::vector<P> const &field,
                  std::vector<P> &vals)
@@ -258,7 +258,7 @@ void test_energy(std::string const &opt_str) {
   moment_id const m0 = pde.register_moment({0});
   moment_id const m1 = pde.register_moment({1}); // needed for verification, but not running
   moment_id const m2 = pde.register_moment({2});
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 1);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   P E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration

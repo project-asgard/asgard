@@ -390,7 +390,7 @@ void test_energy(int const vdims, std::string const &opt_str) {
   // we are using the other moments to check energy conservation properties
   auto pde = make_vplb<P>(vdims, options);
   moment_id const m2 = pde.register_moment({2});
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 1);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
   double E0 = 0; // initial total energy (potential + kinetic), will initialize on first iteration

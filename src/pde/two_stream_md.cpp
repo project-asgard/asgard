@@ -179,11 +179,11 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   asgard::pde_scheme<P> pde(options, domain);
 
   // set up moments
-  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0), pos_dims);
-  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1), pos_dims);
+  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
   asgard::moment_id melectric_z;
   if (pos_dims == 3)
-    melectric_z = pde.register_electric_moment(asgard::dimension_id(2), pos_dims);
+    melectric_z = pde.register_electric_moment(asgard::dimension_id(2));
   std::vector<asgard::moment_id> mids{melectric_x, melectric_y, melectric_z};
   std::vector<asgard::term_1d<P>> vterms(2 * pos_dims, asgard::term_identity{});
 
@@ -500,8 +500,8 @@ void test_energy(std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_two_stream(2, options);
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
 
   // needed for verification but not for running
   moment_id const rho = pde.register_moment({0, 0});

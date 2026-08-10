@@ -10,18 +10,17 @@ namespace asgard
 {
 
 template<typename P>
-std::vector<P> pad_degree(int src_degree, int dest_degree, std::vector<P> const &src)
+std::vector<P> pad_pdof(size_t num_cells, int src_pdof, int dest_pdof, std::vector<P> const &src)
 {
-  size_t const src_pdof = src_degree + 1;
-  size_t const dest_pdof = dest_degree + 1;
+  if (src_pdof == dest_pdof) return src;
+
   assert(src_pdof > 0);
   assert(dest_pdof > src_pdof);
-  assert(not src.empty());
-  assert(src.size() % src_pdof == 0);
-  size_t const nelems = src.size() / src_pdof;
-  size_t const dest_size = nelems * dest_pdof;
+  assert(src.size() == num_cells * src_pdof);
+
+  size_t const dest_size = num_cells * dest_pdof;
   std::vector<P> dest(dest_size, P{0});
-  for (size_t i = 0; i < nelems; i++)
+  for (size_t i = 0; i < num_cells; i++)
     std::copy_n(src.data() + i * src_pdof, src_pdof, dest.data() + i * dest_pdof);
   return dest;
 }
@@ -1420,7 +1419,7 @@ void hierarchy_manipulator<P>::setup_projection_matrices()
       prec const *trans, int level, prec src[], prec dest[]) const; \
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template std::vector<double> pad_degree(int src_degree, int dest_degree, std::vector<double> const &src);
+template std::vector<double> pad_pdof(size_t num_cells, int src_pdof, int dest_pdof, std::vector<double> const &src);
 
 template struct legendre_basis<double>;
 template class hierarchy_manipulator<double>;
@@ -1448,7 +1447,7 @@ instantiate_multi(double, -1);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template std::vector<float> pad_degree(int src_degree, int dest_degree, std::vector<float> const &src);
+template std::vector<float> pad_pdof(size_t num_cells, int src_pdof, int dest_pdof, std::vector<float> const &src);
 
 template struct legendre_basis<float>;
 template class hierarchy_manipulator<float>;

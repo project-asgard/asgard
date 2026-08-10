@@ -92,8 +92,9 @@ public:
   void cache_raw_from_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     assert(num_pos_ == 1 and needs_poisson(id)); // this should only be called for 1D electric field moments
     int const level = pos_grid.current_level(0);
-    constexpr int level_degree = 0;
-    std::vector<P> padded_level = pad_degree(level_degree, pdof - 1, full_level[id]);
+    size_t const num_cells = pos_grid.num_indexes();
+    constexpr int full_level_pdof = 1;
+    std::vector<P> padded_level = pad_pdof(num_cells, full_level_pdof, pdof, full_level[id]);
     hier.transform(level, padded_level, raw_vals[id]);
   }
   //! cache a number of ids listed as the first n entries of a container ids, where ids[i] is moment_id
@@ -119,13 +120,13 @@ public:
   std::vector<P> const &get_cached_raw(moment_id mid) const {
     rassert(not (num_pos_ == 1 and needs_poisson(mid)), 
       "The electric field moment is only computed for the full level in 1D, use get_cached_raw(mid, hier) to convert from the level to the raw moment instead");
-    return raw_vals.get(mid);
+    return raw_vals[mid];
   }
   //! return the cached raw moment defined on the position grid with moment id mid, overload for 1d electric moments
   std::vector<P> const &get_cached_raw(moment_id mid, hierarchy_manipulator<P> const &hier) const {
     if (num_pos_ == 1 and needs_poisson(mid))
       cache_raw_from_level(mid, hier);
-    return raw_vals.get(mid);
+    return raw_vals[mid];
   }
 
   //! solves the poisson equation and caches them as electric moments
