@@ -559,17 +559,19 @@ void moment_manager<P>::cache_moments(
     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const
 {
   // Compute moments on hierarchical grid
+  bool has_poisson = false;
   if (group == group_id::all()) { // do all moments
     tools::time_event performance_("cache all moments");
     for (auto mid : raw_moments_) {
-      if (mid == moment_id::unset() or needs_poisson(mid)) continue;
-      mcompute(grid, mid, state, raw_vals.get(mid));
+      if (mid == moment_id::unset()) continue;
+      if (needs_poisson(mid))
+        has_poisson = true;
+      else
+        mcompute(grid, mid, state, raw_vals.get(mid));
       full_level.get(mid).resize(0);
     }
-    solve_poisson(grid, conn, hier, interp, work);
   } else {
     tools::time_event performance_("cache moments (" + std::to_string(group()) + ")");
-    bool has_poisson = false;
     for (auto mid = first_in(group, raw_moments_);
          *mid != moment_id::unset(); mid++) {
       if (needs_poisson(*mid))
@@ -578,8 +580,8 @@ void moment_manager<P>::cache_moments(
         mcompute(grid, *mid, state, raw_vals.get(*mid));
       full_level.get(*mid).resize(0);
     }
-    if (has_poisson) solve_poisson(grid, conn, hier, interp, work);
   }
+  if (has_poisson) solve_poisson(grid, conn, hier, interp, work);
 
   // Poisson moments are already interpolated if they were computed on GPU
   auto skip_poisson = [&](moment_id mid) -> bool {
