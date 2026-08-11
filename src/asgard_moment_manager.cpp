@@ -654,21 +654,27 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       #ifdef ASGARD_USE_GPU
       compute->set_device(gpu::device{0});
 
-      // transfer density to GPU
-      int const num_entries = pos_grid.num_dof();
-      interp.gpu_it1[0] = raw_vals[p.moment0(0)];
-
-      // setup interpolation function
+      // setup
+      int64_t const num_entries = pos_grid.num_dof();
+      gpu::vector<P> &work1 = interp.gpu_it1[0];
+      gpu::vector<P> &work2 = interp.gpu_it2[0];
+      assert(work1.size() >= num_entries);
+      assert(work2.size() >= num_entries);
+      gpu::wrap_array<P> w1(work1.data(), num_entries);
+      gpu::wrap_array<P> w2(work2.data(), num_entries);
       auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
       {
         efield.copy_to_host(this->raw_vals[mid]);
         this->full_level.get(mid).resize(0);
-        interp.pos2nodal(dev, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
-        gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
+        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        gpu::vector<P> &res = this->gpu_interps[0][mid];
         res.resize(this->full_block * grid.num_indexes());
-        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
         res.copy_to_host(interps[mid]);
       };
+
+      // transfer density to GPU
+      w1.vec = raw_vals[p.moment0()];
 
       // solve
       p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
@@ -687,7 +693,7 @@ template<bool always_interp>
 void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                                           interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const
 {
-  // Setup
+  // setup
   int64_t const num_entries = pos_grid.num_dof();
   std::array<gpu::vector<P>, max_num_gpus> &work1 = interp.gpu_it1;
   std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
@@ -709,7 +715,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       // interpolate
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
-        w1.vec.copy_from_host(raw_vals[melectric].size(), raw_vals[melectric].data());
+        w1.vec = raw_vals[melectric];
         interp.pos2nodal(dev, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
