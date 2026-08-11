@@ -217,14 +217,11 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
   tools::time_event psolve_("poisson_md GPU");
   
   rassert(operator bool(), "poisson_md must be initialized before solve");
-  size_t const n = position_grid.num_dof();
-  size_t const np = work.gpu_w1[0].size();
-  work.gpu_w1[0].resize(n);
 
   solve_potential_(density, position_grid, conn, work, bc);
 
   // get the electric field from the potential
-  gpu_efield.resize(n);
+  gpu_efield.resize(density.size());
   for (int const d : iindexof(num_dims))
   {
     moment_id const mid = moms_electric[d];
@@ -236,7 +233,6 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
     // interpolate electric field moment
     interpolate(gpu_efield, mid);
   }
-  work.gpu_w1[0].resize(np);
 }
 
 template<typename P>
