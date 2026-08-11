@@ -5,6 +5,22 @@
 
 namespace asgard
 {
+
+/*!
+ * \internal
+ * \brief Returns a new vector with \p dest_pdof DG DOFs padded with zeros
+ * 
+ * \p src is expected to come from a \p src_pdof DOF representation
+ * and the returned vector will have \p dest_pdof DG DOFs where the higher DOF coefficients
+ * are set to zero.
+ * 
+ * \p dest_pdof must be greater than \p src_pdof
+ *
+ * \endinternal
+ */
+template<typename P>
+std::vector<P> pad_pdof(size_t num_cells, int src_pdof, int dest_pdof, std::vector<P> const &src);
+
 /*!
  * \internal
  * \brief Shorthand for array of diagonal mass matrices

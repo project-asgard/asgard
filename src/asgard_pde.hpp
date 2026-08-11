@@ -1821,8 +1821,9 @@ public:
   }
   //! register an electric field moment in the specified dimension and obtain the moment id
   //! i.e. register_electric_moment(dimension_id(0)) corresponds to E_x
-  moment_id register_electric_moment(dimension_id dim, int num_pos_dims) { // this function is not really needed as it just calls the other register function
-    moment mom = moment::electric(dim, num_pos_dims);
+  moment_id register_electric_moment(dimension_id dim) {
+    assert(domain_.num_pos() > 0);
+    moment mom = moment::electric(dim, domain_.num_pos());
     return this->register_moment(mom);
   }
   //! return true if the pde contains an electric field moment

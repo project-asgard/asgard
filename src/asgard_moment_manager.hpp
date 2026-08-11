@@ -88,6 +88,15 @@ public:
   //! fill the vector to a full 1d level, only for position 1d
   void complete_level(hierarchy_manipulator<P> const &hier, std::vector<P> const &raw,
                       std::vector<P> &vals) const;
+  //! cache the raw moment from the level, only for position 1d and electric field moments
+  void cache_raw_from_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
+    assert(num_pos_ == 1 and needs_poisson(id)); // this should only be called for 1D electric field moments
+    int const level = pos_grid.current_level(0);
+    size_t const num_cells = pos_grid.num_indexes();
+    constexpr int full_level_pdof = 1;
+    std::vector<P> padded_level = pad_pdof(num_cells, full_level_pdof, pdof, full_level[id]);
+    hier.transform(level, padded_level, raw_vals[id]);
+  }
   //! cache a number of ids listed as the first n entries of a container ids, where ids[i] is moment_id
   template<typename vec_type>
   void cache_levels(int num, hierarchy_manipulator<P> const &hier, vec_type const &ids) const {
@@ -109,19 +118,20 @@ public:
   sparse_grid const &get_position_grid() const { return pos_grid; }
   //! return the cached raw moment defined on the position grid with moment id mid
   std::vector<P> const &get_cached_raw(moment_id mid) const {
-    rassert(not (num_pos_ == 1 and needs_poisson(mid)), "The electric field moment is only computed for the full level in 1D");
-    return raw_vals.get(mid);
+    rassert(not (num_pos_ == 1 and needs_poisson(mid)), 
+      "The electric field moment is only computed for the full level in 1D, use get_cached_raw(mid, hier) to convert from the level to the raw moment instead");
+    return raw_vals[mid];
+  }
+  //! return the cached raw moment defined on the position grid with moment id mid, overload for 1d electric moments
+  std::vector<P> const &get_cached_raw(moment_id mid, hierarchy_manipulator<P> const &hier) const {
+    if (num_pos_ == 1 and needs_poisson(mid))
+      cache_raw_from_level(mid, hier);
+    return raw_vals[mid];
   }
 
   //! solves the poisson equation and caches them as electric moments
   void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
-    constexpr bool raw_on_cpu = false;
-    solve_poisson(grid, conn, hier, interp, work, raw_on_cpu);
-  }
-  //! solves the poisson equation and caches them as electric moments
-  void solve_poisson(sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu) const;
+                     interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const;
   //! compute the specified interpolated moments
   void compute_interps(std::vector<moment_id> const &ids, sparse_grid const &grid,
                        std::vector<P> const &state, interpolation_manager<P> const &interp,
@@ -175,14 +185,16 @@ public:
                        hierarchy_manipulator<P> const &hier, kronmult::workspace<P> &kwork,
                        gpu::vector<P> const &state, bool result_to_cpu) const;
   //! solves the poisson equation and caches them as electric moments, on gpu
-  void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+  template<bool always_interp = false>
+  void solve_poisson_gpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                          interpolation_manager<P> const &interp, kronmult::workspace<P> &work) const {
-    constexpr bool raw_on_cpu = false;
-    solve_poisson_gpu(conn, hier, interp, work, raw_on_cpu);
+    constexpr bool result_to_cpu = false;
+    solve_poisson_gpu<always_interp>(dev, grid, conn, hier, interp, work, result_to_cpu);
   }
   //! solves the poisson equation and caches them as electric moments, on gpu
-  void solve_poisson_gpu(connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool raw_on_cpu) const;
+  template<bool always_interp = false>
+  void solve_poisson_gpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                         interpolation_manager<P> const &interp, kronmult::workspace<P> &work, bool result_to_cpu) const;
   #endif
   /*!
    * \brief Defines moments that should be used as raw or interpolation
@@ -249,6 +261,7 @@ protected:
    * \brief computes the nodal values of the moment
    */
   void make_nodal(moment_id id, interpolation_manager<P> const &interp,
+                  hierarchy_manipulator<P> const &hier,
                   kronmult::workspace<P> &work, std::vector<P> &workspace) const;
 
   #ifdef ASGARD_USE_GPU

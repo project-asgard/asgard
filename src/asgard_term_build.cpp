@@ -486,7 +486,9 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         if (not resources.owns(tentry.rec)) continue;
 
         term_md<P> const &tmd = tentry.tmd;
-        has_poisson = has_poisson or tmd.is_electric(moms.moments());
+        has_poisson |= tmd.is_electric(moms.moments());
+        for (moment_id const mid : pde.ref_moments_)
+          has_poisson |= (resources.is_leader() and moms.get_by_id(mid).is_electric());
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
             auto const &mids = tmd.dim(d).mids_;

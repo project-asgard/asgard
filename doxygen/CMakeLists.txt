@@ -70,6 +70,7 @@ doxygen_add_docs(asgard_doxygen
                  src/pde/spherical_diffusion.cpp
                  src/pde/sinwav.cpp
                  src/pde/two_stream.cpp
+                 src/pde/two_stream_md.cpp
                  src/pde/vplb.cpp
                  src/pde/sod_shock.cpp
                  src/pde/burgers.cpp

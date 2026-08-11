@@ -473,7 +473,7 @@ __global__ void kernel_moment_expand(int pos_block, int vel_block,
     } else
       for (int c = 0; c < num_cycles; c++) {
         P const src = pos_data[i * pos_block + (threadIdx.x + c * cycle_size) / vel_block];
-        vals[j * pos_block * vel_block + threadIdx.x + (threadIdx.x + c * cycle_size)] = src;
+        vals[j * pos_block * vel_block + (threadIdx.x + c * cycle_size)] = src;
       }
 
     blk += gridDim.x * blockDim.y;

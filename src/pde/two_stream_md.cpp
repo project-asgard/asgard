@@ -4,39 +4,38 @@
 
 /*!
  * \internal
- * \file two_stream.cpp
- * \brief Two stream instability example
+ * \file two_stream_md.cpp
+ * \brief Two stream instability in 2X2V or 3X3V example
  * \author The ASGarD Team
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_two_stream_md
  *
  * \endinternal
  */
 
 /*!
  * \ingroup asgard_examples
- * \addtogroup asgard_examples_two_stream Example: Two stream instability
+ * \addtogroup asgard_examples_two_stream_md Example: Two stream instability in 2X2V or 3X3V
  *
- * \par Two stream instability
+ * \par Two stream instability (Multi-D)
  * Solves the Vlasov-Poisson equation in a common example
  * often called the two stream instability problem
- * \f[ \frac{\partial}{\partial t} f(x, v) + v \cdot \nabla_x f(x, v, t) + E(x, t) \nabla_v \cdot f(x, v, t) = 0 \f]
+ * \f[ \frac{\partial}{\partial t} f(x, v,t ) + v \cdot \nabla_x f(x, v, t) + E(x, t) \cdot \nabla_v f(x, v, t) = 0 \f]
  * where the electric field term depends on the Poisson equation
- * \f[ E(x,t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
+ * \f[ E(x, t) = -\nabla_x \Phi(x, t), \qquad - \nabla_x \cdot \nabla_x \Phi(x, t) = \int_v f(x, v, t) dv \f]
  * The equation represents the evolution of a charged particle field under the effects
  * of self-induced electric field.
  * The right-hand integral represents the density of the particles and creates
  * non-linear coupling between the fields.
  *
  * \par
- * The focus of this example is the coupling with the electric field and Poisson
- * solver.
+ * The focus of this example is to show how to set up a Poisson
+ * solver for multiple dimensions. Internally the Poisson solver in multiple
+ * dimensions (2X or 3X) works differently from the Poisson solver in the 1X1V case.
  *
- * \par
- * <i>This is still work-in-progress, the documentation needs more work.</i>
  */
 
 /*!
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_two_stream_md
  * \brief The ratio of circumference to diameter of a circle
  */
 double constexpr PI = asgard::PI;
@@ -47,16 +46,33 @@ void self_test();
 #endif
 
 #ifdef ASGARD_USE_GPU
+/*!
+ * \ingroup asgard_examples_two_stream_md
+ * \brief The GPU kernel for taking the positive component of the elctric field
+ * 
+ * This kernel computes \f[ E(x, t) \cdot \nabla_v f(x, v, t) \f] for the x
+ * locations where E(x, t) is positive.
+ *
+ * \snippet two_stream_md.cpp two_stream_md make
+ */
 template<typename P>
 __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
-    // Avoiding std::max to prevent __device__ compilation header conflicts
     out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0); 
     i += blockDim.x * gridDim.x;
   }
 }
 
+/*!
+ * \ingroup asgard_examples_two_stream_md
+ * \brief The GPU kernel for taking the negative component of the elctric field
+ * 
+ * This kernel computes \f[ E(x, t) \cdot \nabla_v f(x, v, t) \f] for the x
+ * locations where E(x, t) is negative.
+ *
+ * \snippet two_stream_md.cpp two_stream_md make
+ */
 template<typename P>
 __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -66,6 +82,14 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
   }
 }
 
+/*!
+ * \ingroup asgard_examples_two_stream_md
+ * \brief The GPU kernel for computing the weight used for adapting the grid
+ * 
+ * This kernel computes \f[ ||E(x, t)||^2 f(x, v, t) \f] where \f[ x \in R^2 \f]
+ *
+ * \snippet two_stream_md.cpp two_stream_md make
+ */
 template<typename P>
 __global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P const *ey, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -75,6 +99,14 @@ __global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P con
   }
 }
 
+/*!
+ * \ingroup asgard_examples_two_stream_md
+ * \brief The GPU kernel for computing the weight used for adapting the grid
+ * 
+ * This kernel computes \f[ ||E(x, t)||^2 f(x, v, t) \f] where \f[ x \in R^3 \f]
+ *
+ * \snippet two_stream_md.cpp two_stream_md make
+ */
 template<typename P>
 __global__ void weight_kernel_3d(int64_t num, P const *field, P const *ex, P const *ey, P const *ez, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -86,25 +118,27 @@ __global__ void weight_kernel_3d(int64_t num, P const *field, P const *ex, P con
 #endif
 
 /*!
- * \ingroup asgard_examples_two_stream
+ * \ingroup asgard_examples_two_stream_md
  * \brief Make single two-stream PDE
  *
- * Constructs the pde description for the given umber of dimensions
+ * Constructs the pde description for the given number of dimensions
  * and options.
  *
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
+ * \param pos_dims is the number of position dimensions (can be 2 or 3)
+ * 
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme definition
  *
- * \snippet two_stream.cpp two_stream make
+ * \snippet two_stream_md.cpp two_stream_md make
  */
 template<typename P = asgard::default_precision>
 asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts options) {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream make]
+//! [two_stream_md make]
 #endif
 
   options.title = std::to_string(pos_dims) + "X" + std::to_string(pos_dims) + "V Two Stream Instability";
@@ -145,12 +179,11 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   asgard::pde_scheme<P> pde(options, domain);
 
   // set up moments
-  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0), pos_dims);
-  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1), pos_dims);
+  asgard::moment_id melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  asgard::moment_id melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
   asgard::moment_id melectric_z;
   if (pos_dims == 3)
-    melectric_z = pde.register_electric_moment(asgard::dimension_id(2), pos_dims);
-
+    melectric_z = pde.register_electric_moment(asgard::dimension_id(2));
   std::vector<asgard::moment_id> mids{melectric_x, melectric_y, melectric_z};
   std::vector<asgard::term_1d<P>> vterms(2 * pos_dims, asgard::term_identity{});
 
@@ -172,7 +205,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
         y[i] = std::min(P{0}, x[i]);
     };
 
-  // v * df/dx
+  // v * grad_x(f)
   for (int d : asgard::iindexof(pos_dims)) {
     vterms[d] = asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic);
     vterms[pos_dims + d] = asgard::term_volume<P>(positive);
@@ -184,6 +217,8 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
     vterms[pos_dims + d] = asgard::term_identity{};
   }
 
+  // set up the function used for determining when to adapt the grid
+  // computes ||E(x, t)||^2 * f(x, v, t)
 #ifdef ASGARD_USE_GPU
   std::function<void(int64_t, P, P const[], asgard::momentset_gpu<P> const&, P const[], P[])> weight;
   if (pos_dims == 2) {
@@ -237,6 +272,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   }
 #endif
 
+  // E * grad_v(f)
   for (int d : asgard::iindexof(pos_dims)) {
     asgard::moment_id mid = mids[d];
 
@@ -300,63 +336,72 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
 #endif
   }
 
-  // initial conditions in x and v
+  // initial conditions
+  // the initial condition which creates a uniform density with a cosine perturbation
   auto ic_perturbed_pos = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
       for (size_t i = 0; i < x.size(); i++)
         fx[i] = 1.0 - 0.5 * std::cos(0.5 * x[i]);
     };
-
-  auto ic_uniform_pos = [](std::vector<P> const &y, P /* time */, std::vector<P> &fy) ->
+  // the initial condition which creates a uniform density
+  auto ic_uniform_pos = [](std::vector<P> const &x, P /* time */, std::vector<P> &fx) ->
     void {
-      for (size_t i = 0; i < y.size(); i++)
-        fy[i] = 1.0;
+      for (size_t i = 0; i < x.size(); i++)
+        fx[i] = 1.0;
     };
-
-  auto ic_twostream_vel = [](std::vector<P> const &vx, P /* time */, std::vector<P> &fv) ->
+  // the initial condition which creates counterstreaming beams of particles
+  auto ic_twostream_vel = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
     void {
       P const c = P{2} / std::sqrt(PI);
 
-      for (size_t i = 0; i < vx.size(); i++)
-        fv[i] = c * vx[i] * vx[i] * std::exp(-vx[i] * vx[i]);
+      for (size_t i = 0; i < v.size(); i++)
+        fv[i] = c * v[i] * v[i] * std::exp(-v[i] * v[i]);
     };
-
-  auto ic_maxwellian_vel = [](std::vector<P> const &vy, P /* time */, std::vector<P> &fv) ->
+  // the Maxwellian initial condition
+  auto ic_maxwellian_vel = [](std::vector<P> const &v, P /* time */, std::vector<P> &fv) ->
     void {
       P const c = P{1} / std::sqrt(PI);
 
-      for (size_t i = 0; i < vy.size(); i++)
-        fv[i] = c * std::exp(-vy[i] * vy[i]);
+      for (size_t i = 0; i < v.size(); i++)
+        fv[i] = c * std::exp(-v[i] * v[i]);
     };
 
   if (pos_dims == 2) {
+    // the perturbation is applied in x with a uniform distribution in y
+    // there are two counter streaming beams for vx and a maxwellian is used for vy
     pde.add_initial(asgard::separable_func<P>({ic_perturbed_pos, ic_uniform_pos, ic_twostream_vel, ic_maxwellian_vel}));
+
+    // use the adaptive weight function defined earlier
     pde.set_adapt_weight(weight, {melectric_x, melectric_y});
-  } else {
+  } else { // pos_dims = 3
+    // the perturbation is applied in x with a uniform distribution in y and z
+    // there are two counter streaming beams for vx and a maxwellian is used for vy and vz
     pde.add_initial(asgard::separable_func<P>({ic_perturbed_pos, ic_uniform_pos, ic_uniform_pos,
                                                ic_twostream_vel, ic_maxwellian_vel, ic_maxwellian_vel}));
+
+    // use the adaptive weight function defined earlier
     pde.set_adapt_weight(weight, {melectric_x, melectric_y, melectric_z});
   }
 
   return pde;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream make]
+//! [two_stream_md make]
 #endif
 }
 
 /*!
- * \ingroup asgard_examples_two_stream
- * \brief main() for the diffusion example
+ * \ingroup asgard_examples_two_stream_md
+ * \brief main() for the two-stream example
  *
  * The main() processes the command line arguments and calls make_two_stream().
  *
- * \snippet two_stream.cpp two_stream main
+ * \snippet two_stream_md.cpp two_stream_md main
  */
 int main(int argc, char** argv)
 {
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream main]
+//! [two_stream_md main]
 #endif
 
   // if MPI is enabled, call MPI_Init(), otherwise do nothing
@@ -430,7 +475,7 @@ R"help(<< additional options for this file >>
   return 0;
 
 #ifndef __ASGARD_DOXYGEN_SKIP
-//! [two_stream main]
+//! [two_stream_md main]
 #endif
 };
 
@@ -455,8 +500,8 @@ void test_energy(std::string const &opt_str) {
   // the pde needs only the zeroth moment and computes that internally
   // we are using the other moments to check energy conservation properties
   auto pde = make_two_stream(2, options);
-  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0), 2);
-  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1), 2);
+  moment_id const melectric_x = pde.register_electric_moment(asgard::dimension_id(0));
+  moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
 
   // needed for verification but not for running
   moment_id const rho = pde.register_moment({0, 0});
@@ -480,17 +525,26 @@ void test_energy(std::string const &opt_str) {
     if (not disc.has_poisson()) // in MPI context, do error checking only on Poisson-ranks
       continue;
 
+    // the area of a cell is needed to rescale the kinetic energy moments
     P area = disc.domain().length(0) * disc.domain().length(1);
 
+    // get the electric field vectors in x and y
     auto efieldx = disc.get_moment(melectric_x);
     auto efieldy = disc.get_moment(melectric_y);
 
+    // compute the electric field energy
     P Ep = 0;
     for (auto ex : efieldx) Ep += ex * ex;
     for (auto ey : efieldy) Ep += ey * ey;
 
+    // get the kinetic energy moments
     std::vector<P> momke0 = disc.get_moment(ke0);
     std::vector<P> momke1 = disc.get_moment(ke1);
+
+    // the total kinetic energy is just the first coefficient
+    // because this is the average accross the domain.
+    // we need to rescale by the area because the wavelet basis
+    // is scaled from (-1, 1)
     P Ek = (momke0[0] + momke1[0]) * std::sqrt(area);
 
     if (disc.current_step() == 1) // first time-step
@@ -499,15 +553,19 @@ void test_energy(std::string const &opt_str) {
     // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
     tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 7.E-6);
 
+    // get the density and velocity moments
     std::vector<P> mom0 = disc.get_moment(rho);
     std::vector<P> momp0 = disc.get_moment(p0);
     std::vector<P> momp1 = disc.get_moment(p1);
 
-    // integral of moment 0 by moment 1, by delta_ij orthogonality of the basis
+    // integral of moment (0, 0) by moment (1, 0), by delta_ij orthogonality of the basis
     // just sum up the product of the coefficients
     P mv0 = 0;
     for (size_t j = 0; j < mom0.size(); j++)
       mv0 += mom0[j] * momp0[j];
+
+    // integral of moment (0, 0) by moment (0, 1), by delta_ij orthogonality of the basis
+    // just sum up the product of the coefficients
     P mv1 = 0;
     for (size_t j = 0; j < mom0.size(); j++)
       mv1 += mom0[j] * momp1[j];
