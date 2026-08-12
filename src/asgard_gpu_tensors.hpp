@@ -176,4 +176,12 @@ void update_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
 template<typename P>
 void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &state);
 
+/*!
+* \brief Document here!
+*/
+template<typename P, data_mode dmode>
+void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          gpu::vector<int> const &map, gpu::vector<P> const &con1d,
+                          gpu::vector<P> const &bnd, int pdof, P alpha, P y[]);
+
 }

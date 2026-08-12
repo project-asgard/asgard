@@ -349,10 +349,10 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
-  #ifdef ASGARD_USE_GPU
-  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
-  return 0;
-  #endif
+  // #ifdef ASGARD_USE_GPU
+  // std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
+  // return 0;
+  // #endif
 
   options.throw_if_argv_not_in({"-test", }, {});
 
