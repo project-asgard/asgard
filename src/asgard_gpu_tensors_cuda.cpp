@@ -792,7 +792,8 @@ __global__ void kernel_merge_boundary_grids_6d_4(int num_indexes, int const inde
     P const *subblock = bnd + subgrid_block_size * isub;
 
     // Each thread handles four coefficients.
-    for (int c = 0; c < pdof; c++)
+    int constexpr num_cycles = 4;
+    for (int c = 0; c < num_cycles; c++)
     {
       int const j = threadIdx.x + c * max_threads;
 

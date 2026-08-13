@@ -601,7 +601,7 @@ public:
   #ifdef ASGARD_USE_GPU
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
   void compute_moments_gpu(group_id gid = group_id::all()) const {
-    gpu::vector<precision> gpu_state(state);
+    gpu::vector<precision> gpu_state{state};
     compute_moments_gpu(gid, gpu_state.data());
   }
   //! recomputes the moments given the state of interest and this term group
