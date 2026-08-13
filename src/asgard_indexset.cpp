@@ -711,7 +711,7 @@ void sparse_grid::remap(int block_size, gpu::vector<P> &state) const
 {
   // on-the-fly copy map_ to the GPU and discard the result
   // does not keep the gpu-map due to the need for another generation index
-  gpu::remap_state(block_size, map_, state);
+  gpu::remap_state(block_size, gpu::vector<int>(map_), state);
 }
 #endif
 

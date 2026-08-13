@@ -749,7 +749,9 @@ __global__ void kernel_merge_boundary_grids(int num_dims, int num_indexes, int c
     int const vib = (j / ib_stride) % pdof;
 
     // Remove the flux-dimension coordinate from the flattened index.
-    int const ib = (j / (pdof * ib_stride)) * ib_stride + j % ib_stride;
+    int const block = j / (pdof * ib_stride);
+    int const offset = j % ib_stride;
+    int const ib = block * ib_stride + offset;
 
     P const b1 = block1d[vib];
     P const b2 = subblock[ib];
@@ -798,7 +800,9 @@ __global__ void kernel_merge_boundary_grids_6d_4(int num_indexes, int const inde
       int const vib = (j / ib_stride) % pdof;
 
       // Remove the flux-dimension coordinate from the flattened index.
-      int const ib = (j / (pdof * ib_stride)) * ib_stride + j % ib_stride;
+      int const block = j / (pdof * ib_stride);
+      int const offset = j % ib_stride;
+      int const ib = block * ib_stride + offset;
 
       P const b1 = block1d[vib];
       P const b2 = subblock[ib];
@@ -822,19 +826,6 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
                           gpu::vector<int> const &map, gpu::vector<P> const &con1d,
                           gpu::vector<P> const &bnd, int pdof, P alpha, P y[])
 {
-  if constexpr (dmode == data_mode::replace)
-    std::cout << "replace - flux_dim: " << flux_dim << std::endl;
-  else if constexpr (dmode == data_mode::scal_rep)
-    std::cout << "scal_rep - flux_dim: " << flux_dim << std::endl;
-  else if constexpr (dmode == data_mode::increment)
-    std::cout << "increment - flux_dim: " << flux_dim << std::endl;
-  else if constexpr (dmode == data_mode::scal_inc)
-    std::cout << "scal_inc - flux_dim: " << flux_dim << std::endl;
-  gpu::wrap_array<P> yv(y, grid.num_dof());
-  std::vector<P> y_cpu;
-  yv.vec.copy_to_host(y_cpu);
-  tools::dump(y_cpu, "before");
-
   int const num_dims = grid.num_dims();
   int const num_indexes = grid.num_indexes();
 
@@ -947,9 +938,6 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
         break; // unreachable
     }
   }
-
-  yv.vec.copy_to_host(y_cpu);
-  tools::dump(y_cpu, "after");
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

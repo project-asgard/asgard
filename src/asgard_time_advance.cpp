@@ -108,7 +108,7 @@ void steady_state<P>::next_step(discretization_manager<P> const &disc,
 
     endstep.resize(current.size());
 
-    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, endstep.data());
+    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, 1, endstep.data());
 
     if (disc.is_leader())
       solver.solve_inplace(endstep.data());
@@ -120,7 +120,7 @@ void steady_state<P>::next_step(discretization_manager<P> const &disc,
     endstep = current;
 
     gwork.resize(num_entries);
-    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, gwork.data()); // right-hand-side
+    disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, 1, gwork.data()); // right-hand-side
 
     if (not disc.is_leader()) {
       // enter worker mode for iterative solver
