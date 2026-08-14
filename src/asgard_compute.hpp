@@ -36,7 +36,7 @@ public:
       gpu::memfree(data_);
   }
   //! \brief Construct a vector with given size.
-  vector(int64_t size)
+  explicit vector(int64_t size)
   {
     this->resize(size);
   }
@@ -66,7 +66,7 @@ public:
     return *this;
   }
   //! \brief Constructor that copies from an existing std::vector
-  vector(std::vector<T> const &other) : vector()
+  explicit vector(std::vector<T> const &other) : vector()
   {
     *this = other;
   }
@@ -234,7 +234,7 @@ public:
   template<typename P>
   void getrs(int M, gpu::vector<P> const &A, gpu::vector<gpu::direct_int> const &ipiv,
              std::vector<P> &b) const {
-    gpu::vector<P> gpu_b = b;
+    gpu::vector<P> gpu_b{b};
     getrs(M, A, ipiv, gpu_b);
     gpu_b.copy_to_host(b);
   }

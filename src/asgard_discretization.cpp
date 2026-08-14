@@ -357,7 +357,7 @@ void discretization_manager<precision>::set_initial_condition()
 
       int const gid = grid.generation();
       #ifdef ASGARD_USE_GPU
-      gpu::vector<precision> gstate = state;
+      gpu::vector<precision> gstate(state);
       refine(mode, gstate);
       #else
       refine(mode, state);

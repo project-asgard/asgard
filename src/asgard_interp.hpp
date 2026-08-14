@@ -82,6 +82,15 @@ struct interpolation_plan
 template<typename P>
 class interpolation_manager {
 public:
+  #ifdef ASGARD_USE_GPU
+  #ifdef ASGARD_GPU_MEMGREEDY
+  //! the type of the GPU matrix, either a single matrix or pointers to levels
+  using mat_type = gpu::vector<P>;
+  #else
+  using mat_type = gpu::vector<P*>;
+  #endif
+  #endif
+
   //! default empty constructor, must reinitialize to use the class
   interpolation_manager() = default;
   //! initialize the manager
@@ -522,6 +531,9 @@ public:
   mutable gpu::vector<P> gpu_ifield;
   mutable std::array<std::vector<P>, max_num_gpus> cpu_it1, cpu_it2;
   mutable std::array<gpu::vector<P>, max_num_gpus> gpu_it1, gpu_it2;
+
+  mat_type const &matrix_gpu_nodal2hier(gpu::device gpu) const { return gpu_nodal2hier_[gpu()]; }
+  mat_type const &matrix_gpu_hier2wav(gpu::device gpu) const { return gpu_hier2wav_[gpu()]; }
   #endif
 
   //! computes approximate memory usage by the object
@@ -569,11 +581,7 @@ private:
   connection_patterns conn_reduced;
 
   #ifdef ASGARD_USE_GPU
-  #ifdef ASGARD_GPU_MEMGREEDY
-  //! the type of the matrix, either a single matrix or pointers to levels
-  using mat_type = gpu::vector<P>;
-  #else
-  using mat_type = gpu::vector<P*>;
+  #ifndef ASGARD_GPU_MEMGREEDY
   //! gpu coefficient matrices for different levels wavelet to nodal
   std::array<std::vector<gpu::vector<P>>, max_num_gpus> gpu_lwav2nodal_;
   //! gpu coefficient matrices for different levels nodal to hierarchical

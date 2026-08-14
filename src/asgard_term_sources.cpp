@@ -13,6 +13,7 @@ namespace asgard
 // ib_dim is the interpolated boundary dimension
 template<typename P, data_mode dmode, int ib_dim>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
+                          std::vector<int> const &map,
                           std::vector<P> const &con1d, std::vector<P> const &bnd,
                           int pdof, P alpha, P y[])
 {
@@ -27,19 +28,14 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
   for (int64_t i = 0; i < grid.num_indexes(); i++)
   {
     int const *idx = grid[i];
-
-    std::array<int, max_num_dimensions> v;
-    for (int d = 0; d < ib_dim; d++) v[d] = idx[d];
-    for (int d = ib_dim + 1; d < num_dims; d++) v[d - 1] = idx[d];
-
-    int64_t const isub = subgrid.iset().find(v.data());
-    assert(isub != -1);
+    int const isub = map[i];
 
     P *out = y + i * grid.block_size();
 
     P const *block1d  = con1d.data() + pdof * idx[ib_dim];
     P const *subblock = bnd.data() + subgrid.block_size() * isub;
 
+    std::array<int, max_num_dimensions> v;
     std::fill_n(v.begin(), num_dims, 0);
 
     int const ib_init = (ib_dim == 0) ? 1 : 0;
@@ -90,27 +86,28 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid,
 
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          std::vector<int> const &map,
                           std::vector<P> const &con1d, std::vector<P> const &bnd,
                           int pdof, P alpha, P y[])
 {
   switch(flux_dim) {
       case 0: merge_boundary_grids<P, dmode, 0>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 1: merge_boundary_grids<P, dmode, 1>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 2: merge_boundary_grids<P, dmode, 2>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 3: merge_boundary_grids<P, dmode, 3>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 4: merge_boundary_grids<P, dmode, 4>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       case 5: merge_boundary_grids<P, dmode, 5>
-              (grid, subgrid, con1d, bnd, pdof, alpha, y);
+              (grid, subgrid, map, con1d, bnd, pdof, alpha, y);
               break;
       default:
         break;
@@ -322,7 +319,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 
   for (int ib : ibrng) {
     auto &bc = bcs[ib]; // non-const for the time-dependent case
-    auto const &trm = terms[bc.term_index];
+    // auto const &trm = terms[bc.term_index];
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
     if (not bc.is_separable()) {
@@ -330,10 +327,10 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       // the vector that has been computed ... should probably fix that
 
       // 1. check-update the grid
-      int const flux_dim = trm.flux_dim; // direction of the flux
+      int const flux_dim = terms[bc.term_index].flux_dim; // direction of the flux
       sparse_grid &subgrid = ibc_grid[flux_dim];
       if (subgrid.generation() != grid.generation()) {
-        subgrid = grid.subgrid(flux_dim, basis.pdof);
+        grid.subgrid(flux_dim, basis.pdof, subgrid, ibc_map[flux_dim]);
         switch (flux_dim) {
           case 0: interp.template nodes<0>(ibc_grid[flux_dim], ibc_nodes[0]); break;
           case 1: interp.template nodes<1>(ibc_grid[flux_dim], ibc_nodes[1]); break;
@@ -369,7 +366,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
       if (terms[bc.term_index].is_chain_link())
       {
         merge_boundary_grids<P, data_mode::replace>
-            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
              interp.it1, basis.pdof, 1, t1.data());
 
         interp.it1.resize(nwork);
@@ -390,7 +387,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
         }();
 
         merge_boundary_grids<P, effective_mode>
-            (grid, ibc_grid[flux_dim], flux_dim, bc.consts[flux_dim],
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_map[flux_dim], bc.consts[flux_dim],
              interp.it1, basis.pdof, -alpha, y);
 
         interp.it1.resize(nwork);
@@ -474,25 +471,26 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
   tools::time_event perf_("sources gpu-apply");
 
-  compute->set_device(gpu::device{0}); // rework for multi-GPU
+  gpu::device const dev{0};
+  compute->set_device(dev); // rework for multi-GPU
 
   int64_t const num_entries = grid.num_dof();
 
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   // see the CPU case
-  auto rechain = [&, this](gpu::device dev, boundary_entry<P> &bc,
+  auto rechain = [&, this](gpu::device g, boundary_entry<P> &bc,
                            P al, P x[], P beta, P out[], P w[]) -> void
     {
       int tid = bc.term_index - 1;
       while (terms[tid].is_chain_link()) {
         // TODO: move this to the GPU with the rest of the sources/bc terms
-        kron_term(dev, terms[tid], 1, x, 0, w);
+        kron_term(g, terms[tid], 1, x, 0, w);
         std::swap(x, w);
 
         --tid;
       }
       // apply the top chain and put the result in the final place
-      kron_term(dev, terms[tid], al, x, beta, out);
+      kron_term(g, terms[tid], al, x, beta, out);
     };
 
   // update the const-components of the sources, if the grid has updated
@@ -546,9 +544,9 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
       if (terms[bc.term_index].is_chain_link()) { // if chain (not top link)
         // tensor into a temp, rechain and put the final result into swork
-        tensor_consts(bc, gpu_t1[0].data());
-        rechain(gpu::device{0}, bc, P{1}, gpu_t1[0].data(),
-                P{0}, gpu_swork.data() + bc.ilump * num_entries, gpu_t2[0].data());
+        tensor_consts(bc, gpu_t1[dev()].data());
+        rechain(dev, bc, P{1}, gpu_t1[dev()].data(),
+                P{0}, gpu_swork.data() + bc.ilump * num_entries, gpu_t2[dev()].data());
       } else
         tensor_consts(bc);
     }
@@ -622,7 +620,89 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
     auto &bc = bcs[ib]; // non-const for the time-dependent case
     if (not resources.owns(terms[bc.term_index].rec)) continue;
 
-    if (not bc.is_separable()) continue;
+    if (not bc.is_separable()) {
+      // this works like the time-dependent case, the assumption is that we cannot reuse
+      // the vector that has been computed ... should probably fix that
+
+      // 1. check-update the grid
+      int const flux_dim = terms[bc.term_index].flux_dim; // direction of the flux
+      sparse_grid &subgrid = ibc_grid[flux_dim];
+      if (subgrid.generation() != grid.generation()) {
+        grid.subgrid(flux_dim, basis.pdof, subgrid, ibc_map[flux_dim]);
+        ibc_gpu_map[flux_dim] = ibc_map[flux_dim];
+        switch (flux_dim) {
+          case 0: interp.template nodes<0>(ibc_grid[0], ibc_nodes[0]); break;
+          case 1: interp.template nodes<1>(ibc_grid[1], ibc_nodes[1]); break;
+          case 2: interp.template nodes<2>(ibc_grid[2], ibc_nodes[2]); break;
+          case 3: interp.template nodes<3>(ibc_grid[3], ibc_nodes[3]); break;
+          case 4: interp.template nodes<4>(ibc_grid[4], ibc_nodes[4]); break;
+          case 5: interp.template nodes<5>(ibc_grid[5], ibc_nodes[5]); break;
+          default: // unreachable
+            break;
+        }
+        ibc_gpu_nodes[flux_dim] = ibc_nodes[flux_dim].data_vector();
+      }
+
+      gpu::vector<P> &work1 = interp.gpu_it1[dev()];
+      gpu::vector<P> &work2 = interp.gpu_it2[dev()];
+      int64_t const ndof = subgrid.num_dof();
+      assert(work1.size() >= ndof);
+      assert(work2.size() >= ndof);
+      gpu::wrap_array<P> w1(work1.data(), ndof);
+      gpu::wrap_array<P> w2(work2.data(), ndof);
+
+      P *p1 = w1.vec.data();
+      P *p2 = w2.vec.data();
+
+      // 3. call the interpolated function on the nodes
+      std::visit([&](auto const &func) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>) {
+            interp.it1.resize(subgrid.num_dof());
+            func(time, ibc_nodes[flux_dim], interp.it1);
+            w1.vec = interp.it1;
+            interp.it1.resize(grid.num_dof());
+          } else if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_gpu_func<P>>) {
+            func(subgrid.num_dof(), time, ibc_gpu_nodes[flux_dim].data(), p1);
+          }
+        }, bc.flux.var_func());
+
+      // 4. construct hierarchical basis and project back on the interpolation nodes
+      block_gpu(dev, basis.pdof, subgrid, conn, ibc_perm_low,
+                interp.matrix_gpu_nodal2hier(dev), P{1}, p1, P{0}, p2, kwork,
+                interp.matrix_nodal2hier());
+
+      block_gpu(dev, basis.pdof, subgrid, conn, ibc_perm_up,
+                interp.matrix_gpu_hier2wav(dev),
+                ibc_iwavscale[flux_dim], p2, P{0}, p1, kwork,
+                interp.matrix_hier2wav());
+
+      if (terms[bc.term_index].is_chain_link())
+      {
+        gpu::merge_boundary_grids<P, data_mode::replace>
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim],
+             w1.vec, basis.pdof, 1, gpu_t1[dev()].data());
+
+        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+          rechain(dev, bc, P{-1}, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+        else
+          rechain(dev, bc, -alpha, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+      }
+      else
+      {
+        constexpr data_mode effective_mode = [&]() -> data_mode {
+          if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
+            return data_mode::increment;
+          else
+            return data_mode::scal_inc;
+        }();
+
+        gpu::merge_boundary_grids<P, effective_mode>
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim],
+             w1.vec, basis.pdof, -alpha, y);
+      }
+
+      continue;
+    }
 
     switch (bc.flux.func().get_time_mode()) {
       case separable_func<P>::time_mode::constant:
@@ -643,11 +723,11 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
         if (terms[bc.term_index].is_chain_link()) {
           hier.template project_separable<data_mode::replace>
               (bc.flux.func(), grid, lmass, time, 1, t2.data());
-          gpu_t1[0] = t2;
+          gpu_t1[dev()] = t2;
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            rechain(gpu::device{0}, bc, P{-1}, gpu_t1[0].data(), P{1}, y, gpu_t2[0].data());
+            rechain(dev, bc, P{-1}, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
           else
-            rechain(gpu::device{0}, bc, -alpha, gpu_t1[0].data(), P{1}, y, gpu_t2[0].data());
+            rechain(dev, bc, -alpha, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
         } else {
           using_cpu_s1();
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -679,17 +759,17 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
         -> void {
       if (src.is_gpu()) {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(gpu::device{0}, grid, conn, moms.get_cached_interps(gpu::device{0}), time,
+          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
                  1, src, 1, y, kwork);
         else
-          interp(gpu::device{0}, grid, conn, moms.get_cached_interps(gpu::device{0}), time,
+          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
                  alpha, src, 1, y, kwork);
       } else {
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(gpu::device{0}, grid, conn, moms.get_cached_interps(), time,
+          interp(dev, grid, conn, moms.get_cached_interps(), time,
                  1, src, 1, y, kwork);
         else
-          interp(gpu::device{0}, grid, conn, moms.get_cached_interps(), time,
+          interp(dev, grid, conn, moms.get_cached_interps(), time,
                  alpha, src, 1, y, kwork);
       }
     };
@@ -709,8 +789,8 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
   }
 
   if (s1_initialized) {
-    gpu_t1[0] = cpu_s1;
-    compute->axpy(num_entries, 1, gpu_t1[0].data(), y);
+    gpu_t1[dev()] = cpu_s1;
+    compute->axpy(num_entries, 1, gpu_t1[dev()].data(), y);
   }
 }
 #endif

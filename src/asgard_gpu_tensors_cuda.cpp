@@ -727,6 +727,220 @@ void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &st
   state = std::move(new_state);
 }
 
+template<typename P, data_mode dmode, int ib_dim>
+__global__ void kernel_merge_boundary_grids(int num_dims, int num_indexes, int const indexes[],
+                                            int const map[], P const con1d[], P const bnd[],
+                                            int pdof, P alpha, int subgrid_block_size,
+                                            int block_size, int ib_stride, P y[])
+{
+  int i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  while (i < num_indexes)
+  {
+    int const *idx = indexes + i * num_dims;
+    int const isub = map[i];
+
+    P const *block1d = con1d + pdof * idx[ib_dim];
+    P const *subblock = bnd + subgrid_block_size * isub;
+
+    int const j = threadIdx.x;
+
+    // Coordinate in the flux dimension.
+    int const vib = (j / ib_stride) % pdof;
+
+    // Remove the flux-dimension coordinate from the flattened index.
+    int const block = j / (pdof * ib_stride);
+    int const offset = j % ib_stride;
+    int const ib = block * ib_stride + offset;
+
+    P const b1 = block1d[vib];
+    P const b2 = subblock[ib];
+
+    if constexpr (dmode == data_mode::replace)
+      y[i * block_size + j] = b1 * b2;
+    else if constexpr (dmode == data_mode::scal_rep)
+      y[i * block_size + j] = alpha * b1 * b2;
+    else if constexpr (dmode == data_mode::increment)
+      y[i * block_size + j] += b1 * b2;
+    else if constexpr (dmode == data_mode::scal_inc)
+      y[i * block_size + j] += alpha * b1 * b2;
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename P, data_mode dmode, int ib_dim, int ib_stride>
+__global__ void kernel_merge_boundary_grids_6d_4(int num_indexes, int const indexes[], int const map[],
+                                                 P const con1d[], P const bnd[], P alpha,
+                                                 int subgrid_block_size, P y[])
+{
+  static_assert(ib_dim < 6);
+
+  constexpr int max_threads = 1024;
+  constexpr int block_size = 4096;
+  constexpr int pdof = 4;
+  constexpr int num_dims = 6;
+
+  int i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  while (i < num_indexes)
+  {
+    int const *idx = indexes + i * num_dims;
+    int const isub = map[i];
+
+    P const *block1d = con1d + pdof * idx[ib_dim];
+    P const *subblock = bnd + subgrid_block_size * isub;
+
+    // Each thread handles four coefficients.
+    int constexpr num_cycles = 4;
+    for (int c = 0; c < num_cycles; c++)
+    {
+      int const j = threadIdx.x + c * max_threads;
+
+      // Coordinate in the flux dimension.
+      int const vib = (j / ib_stride) % pdof;
+
+      // Remove the flux-dimension coordinate from the flattened index.
+      int const block = j / (pdof * ib_stride);
+      int const offset = j % ib_stride;
+      int const ib = block * ib_stride + offset;
+
+      P const b1 = block1d[vib];
+      P const b2 = subblock[ib];
+
+      if constexpr (dmode == data_mode::replace)
+        y[i * block_size + j] = b1 * b2;
+      else if constexpr (dmode == data_mode::scal_rep)
+        y[i * block_size + j] = alpha * b1 * b2;
+      else if constexpr (dmode == data_mode::increment)
+        y[i * block_size + j] += b1 * b2;
+      else if constexpr (dmode == data_mode::scal_inc)
+        y[i * block_size + j] += alpha * b1 * b2;
+    }
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename P, data_mode dmode>
+void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          gpu::vector<int> const &map, gpu::vector<P> const &con1d,
+                          gpu::vector<P> const &bnd, int pdof, P alpha, P y[])
+{
+  int const num_dims = grid.num_dims();
+  int const num_indexes = grid.num_indexes();
+
+  int const block_size = fm::ipow(pdof, num_dims);
+  int const subgrid_block_size = subgrid.block_size();
+
+  constexpr int max_threads = 1024;
+  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+
+  assert(0 <= flux_dim and flux_dim < num_dims);
+
+  if (num_dims == 6 and pdof == 4) {
+    constexpr int team_size = 1024;
+    dim3 const launch_grid(team_size, 1);
+
+    switch (flux_dim) {
+      case 0:
+      {
+        constexpr int ib_stride = 1024;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 0, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      case 1:
+      {
+        constexpr int ib_stride = 256;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 1, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      case 2:
+      {
+        constexpr int ib_stride = 64;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 2, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      case 3:
+      {
+        constexpr int ib_stride = 16;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 3, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      case 4:
+      {
+        constexpr int ib_stride = 4;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 4, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      case 5:
+      {
+        constexpr int ib_stride = 1;
+        kernel_merge_boundary_grids_6d_4<P, dmode, 5, ib_stride><<<launch_blocks, launch_grid>>>(
+            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            alpha, subgrid_block_size, y);
+        break;
+      }
+      default:
+        break; // unreachable
+    }
+  } else {
+    assert(block_size <= max_threads);
+
+    int const num_teams = max_threads / block_size;
+    dim3 const launch_grid(block_size, num_teams);
+    int ib_stride = 1;
+    for (int i = flux_dim; i < num_dims - 1; i++)
+      ib_stride *= pdof;
+
+    switch (flux_dim)
+    {
+      case 0:
+        kernel_merge_boundary_grids<P, dmode, 0><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      case 1:
+        kernel_merge_boundary_grids<P, dmode, 1><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      case 2:
+        kernel_merge_boundary_grids<P, dmode, 2><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      case 3:
+        kernel_merge_boundary_grids<P, dmode, 3><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      case 4:
+        kernel_merge_boundary_grids<P, dmode, 4><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      case 5:
+        kernel_merge_boundary_grids<P, dmode, 5><<<launch_blocks, launch_grid>>>(
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
+            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+        break;
+      default:
+        break; // unreachable
+    }
+  }
+}
+
 #ifdef ASGARD_ENABLE_DOUBLE
 template void tensor_by_index(int, int, int, int const[], double const[], double const[], double const[],
                               double const[], double const[], double const[], double[]);
@@ -748,6 +962,23 @@ template void compute_max_weights(int, int, gpu::vector<double> const &, gpu::ve
 
 template void set_istatus(int, double, gpu::vector<double> const &, gpu::vector<sparse_grid::istatus> &);
 template void update_istatus(int, double, gpu::vector<double> const &, gpu::vector<sparse_grid::istatus> &);
+
+template void merge_boundary_grids<double, data_mode::replace>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
+    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+template void merge_boundary_grids<double, data_mode::scal_rep>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
+    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+template void merge_boundary_grids<double, data_mode::increment>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
+    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+template void merge_boundary_grids<double, data_mode::scal_inc>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
+    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -771,6 +1002,23 @@ template void compute_max_weights(int, int, gpu::vector<float> const &, gpu::vec
 
 template void set_istatus(int, float, gpu::vector<float> const &, gpu::vector<sparse_grid::istatus> &);
 template void update_istatus(int, float, gpu::vector<float> const &, gpu::vector<sparse_grid::istatus> &);
+
+template void merge_boundary_grids<float, data_mode::replace>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
+    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+template void merge_boundary_grids<float, data_mode::scal_rep>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
+    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+template void merge_boundary_grids<float, data_mode::increment>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
+    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+template void merge_boundary_grids<float, data_mode::scal_inc>(
+    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
+    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
 #endif
 
 // compiling both cases, doesn't take long and no need to #ifdef guard in the indexset

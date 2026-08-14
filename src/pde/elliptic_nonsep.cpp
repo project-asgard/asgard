@@ -349,11 +349,6 @@ R"help(<< additional options for this file >>
     return 0;
   }
 
-  #ifdef ASGARD_USE_GPU
-  std::cerr << "Interpolated boundary conditions not available for the GPU ... yet.\n";
-  return 0;
-  #endif
-
   options.throw_if_argv_not_in({"-test", }, {});
 
   if (options.has_cli_entry("-test")) {
@@ -414,7 +409,7 @@ void self_test() {
   dotest<double>(1.E-2, "-d 2 -l 5");
 
   dotest<double>(1.E-2, "-d 3 -l 3");
-  dotest<double>(1.E-4, "-d 3 -l 5");
+  dotest<double>(1.E-4, "-d 3 -l 5 -a 1.E-6");
   #endif
 
   #ifdef ASGARD_ENABLE_FLOAT

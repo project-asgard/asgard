@@ -170,10 +170,34 @@ void update_istatus(int num_indexes, P tolerance, gpu::vector<P> const &weights,
  * \tparam P is float or double
  *
  * \param block_size is the number of indexes in the tensor block
- * \param map contains the indexed of the old tensor that need to be copied, -1 means fill with zeros
+ * \param map contains the indices of the old tensor that need to be copied, -1 means fill with zeros
  * \param state will be overwritten
  */
 template<typename P>
 void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &state);
+
+/*!
+ * \brief Forms the tensor product of \p subgrid with the flux dimension
+ * \p flux_dim and updates the corresponding boundaries of \p grid according
+ * to \tparam dmode
+ *
+ * \tparam P is float or double
+ * \tparam dmode specifies how the result is written to \p y:
+ *           replace, scaled replace, increment, or scaled increment
+ *
+ * \param grid is the sparse grid being updated
+ * \param subgrid is the lower-dimensional sparse grid containing the boundary blocks
+ * \param flux_dim is the dimension in which the 1D boundary coefficients are applied
+ * \param map maps each index in \p grid to the corresponding block in \p subgrid
+ * \param con1d contains the 1D boundary coefficients indexed by the grid coordinate in \p flux_dim
+ * \param bnd contains the boundary data on the lower-dimensional subgrid
+ * \param pdof is the number of polynomial degrees of freedom per dimension
+ * \param alpha is the scalar multiplier used for scaled operations
+ * \param y is the output tensor data
+ */
+template<typename P, data_mode dmode>
+void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
+                          gpu::vector<int> const &map, gpu::vector<P> const &con1d,
+                          gpu::vector<P> const &bnd, int pdof, P alpha, P y[]);
 
 }

@@ -234,6 +234,10 @@ public:
     ode_rhs_sources_gpu<data_mode::replace>(gid, time, 1, src);
   }
   //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
+  void set_ode_rhs_sources_group_gpu(group_id gid, precision time, precision alpha, precision src[]) const {
+    ode_rhs_sources_gpu<data_mode::scal_rep>(gid, time, alpha, src);
+  }
+  //! same as the CPU version, arrays have size num_dof() and sit on GPU-device 0
   void add_ode_rhs_sources_group_gpu(group_id gid, precision time, precision src[]) const {
     ode_rhs_sources_gpu<data_mode::increment>(gid, time, 1, src);
   }
@@ -597,7 +601,7 @@ public:
   #ifdef ASGARD_USE_GPU
   //! recomputes the moments with the current state, if groupid is negative all groups will be computed
   void compute_moments_gpu(group_id gid = group_id::all()) const {
-    gpu::vector<precision> gpu_state = state;
+    gpu::vector<precision> gpu_state{state};
     compute_moments_gpu(gid, gpu_state.data());
   }
   //! recomputes the moments given the state of interest and this term group
