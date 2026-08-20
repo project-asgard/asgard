@@ -49,7 +49,7 @@ void self_test();
 /*!
  * \ingroup asgard_examples_two_stream_md
  * \brief The GPU kernel for taking the positive component of the elctric field
- * 
+ *
  * This kernel computes \f[ E(x, t) \cdot \nabla_v f(x, v, t) \f] for the x
  * locations where E(x, t) is positive.
  *
@@ -59,7 +59,7 @@ template<typename P>
 __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom, P* out) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
-    out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0); 
+    out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0);
     i += blockDim.x * gridDim.x;
   }
 }
@@ -67,7 +67,7 @@ __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom
 /*!
  * \ingroup asgard_examples_two_stream_md
  * \brief The GPU kernel for taking the negative component of the elctric field
- * 
+ *
  * This kernel computes \f[ E(x, t) \cdot \nabla_v f(x, v, t) \f] for the x
  * locations where E(x, t) is negative.
  *
@@ -85,7 +85,7 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
 /*!
  * \ingroup asgard_examples_two_stream_md
  * \brief The GPU kernel for computing the weight used for adapting the grid
- * 
+ *
  * This kernel computes \f[ ||E(x, t)||^2 f(x, v, t) \f] where \f[ x \in R^2 \f]
  *
  * \snippet two_stream_md.cpp two_stream_md make
@@ -102,7 +102,7 @@ __global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P con
 /*!
  * \ingroup asgard_examples_two_stream_md
  * \brief The GPU kernel for computing the weight used for adapting the grid
- * 
+ *
  * This kernel computes \f[ ||E(x, t)||^2 f(x, v, t) \f] where \f[ x \in R^3 \f]
  *
  * \snippet two_stream_md.cpp two_stream_md make
@@ -128,7 +128,7 @@ __global__ void weight_kernel_3d(int64_t num, P const *field, P const *ex, P con
  *           first double, if unavailable, will go for float
  *
  * \param pos_dims is the number of position dimensions (can be 2 or 3)
- * 
+ *
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme definition
@@ -243,7 +243,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
       weight_kernel_3d<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), e_z.data(), fx);
     };
   }
-#else 
+#else
   std::function<void(P, asgard::vector2d<P> const&, asgard::momentset<P> const&,
                      std::vector<P> const&, std::vector<P>&)> weight;
   if (pos_dims == 2) {

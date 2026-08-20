@@ -597,7 +597,7 @@ void moment_manager<P>::cache_moments(
   size_t const num_entries = interp.it1.size();
   if (group == group_id::all()) {
     for (auto mid : interp_moments_) {
-      if (skip_poisson(mid) or mid == moment_id::unset()) continue;
+      if (mid == moment_id::unset() or skip_poisson(mid)) continue;
       make_nodal(mid, interp, hier, work, interp.it1);
     }
   } else {
@@ -701,7 +701,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
   assert(work2[dev.id].size() >= num_entries);
   gpu::wrap_array<P> w1(work1[dev.id].data(), num_entries);
   gpu::wrap_array<P> w2(work2[dev.id].data(), num_entries);
-  
+
   std::visit([&](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
       // transfer density to CPU
@@ -776,7 +776,7 @@ void moment_manager<P>::make_nodal(
 
   if (num_pos_ == 1 and needs_poisson(id))
     cache_raw_from_level(id, hier);
-    
+
   interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
 
   interps[id].resize(pntr.back() * full_block);

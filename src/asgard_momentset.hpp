@@ -111,8 +111,8 @@ struct moment
   std::array<int, max_mom_dims> pows;
 
   private:
-    static int const unset_flag = -1;
-    static int const electric_flag = -0xef; // ef for electric field, this has a decimal value of -239
+    static constexpr int unset_flag = -1;
+    static constexpr int electric_flag = -0xef; // ef for electric field, this has a decimal value of -239
 };
 
 /*!

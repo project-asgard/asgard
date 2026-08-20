@@ -68,7 +68,7 @@ public:
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
   void solve(std::vector<P> &density, momentset<P> &moms,
-             sparse_grid const &position_grid, connection_patterns const &conn, 
+             sparse_grid const &position_grid, connection_patterns const &conn,
              kronmult::workspace<P> &work, poisson_bc const bc);
   //! poisson solve using periodic boundary conditions
   void solve_periodic(std::vector<P> &density, momentset<P> &moms,
@@ -146,7 +146,7 @@ private:
   gpu::vector<P> gpu_derivative_mat;
   #else
    //! gpu derivative matrices for different levels
-  std::vector<gpu::vector<P>> dl_derivative_mat;
+  std::vector<gpu::vector<P>> gpul_derivative_mat;
   //! pointers to gpu matrices
   gpu::vector<P*> gpu_derivative_mat;
   #endif
