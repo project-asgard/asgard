@@ -418,6 +418,12 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
   jac_n2h.clear();
   jac_n2w.clear();
 
+  auto sanitize = [](std::vector<P> &x)
+    -> void {
+      for (auto &v : x)
+        if (std::abs(v) < 1.E-13) v = 1;
+    };
+
   int icurrent   = (gid() == -1) ? 0                              : term_groups[gid()].begin();
   int const iend = (gid() == -1) ? static_cast<int>(terms.size()) : term_groups[gid()].end();
   while (icurrent < iend)
@@ -440,9 +446,11 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
       std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
 
       kron_diag<data_mode::increment>(*(it + num_chain - 1), block_size, kwork.w1);
+      sanitize(kwork.w1);
 
       for (int i = num_chain - 2; i >= 0; --i) {
         kron_diag<data_mode::multiply>(*(it + i), block_size, kwork.w1);
+        sanitize(kwork.w1);
       }
 ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++)
@@ -450,9 +458,11 @@ ASGARD_OMP_PARFOR_SIMD
 
       icurrent += num_chain;
     }
+
+    // tools::dump(y, "jacobi  " + std::to_string(icurrent));
   }
 
-  tools::dump(y, "jacobi");
+  // tools::dump(y, "jacobi");
 }
 
 template<typename P>
@@ -586,12 +596,12 @@ void term_manager<P>::kron_diag(
         if constexpr (mode == data_mode::increment) {
           //y[i] += jac_w2n[i] * interp.it2[i] * jac_n2h[i];
           y[i] += val;
-          std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
+          //std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
         } else if constexpr (mode == data_mode::multiply) {
           //y[i] *= jac_w2n[i] * interp.it2[i] * jac_n2h[i];
           y[i] *= val;
-          std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
-          std::cout << "       " << jac_w2n[i] << "  " << interp.it2[i] << "  " << jac_n2h[i] << '\n';
+          //std::cout << " mul = " << val << '\n';
+          //std::cout << "       " << jac_w2n[i] << "  " << interp.it2[i] << "  " << jac_n2h[i] << "  val = " << val << '\n';
         }
       }
 
@@ -610,12 +620,15 @@ void term_manager<P>::kron_diag(
 
       // ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++) {
+        P val = jac_w2n[i] * interp.it2[i] * jac_n2w[i];
+        if (std::abs(val) < 1.E-13) val = 1;
+
         if constexpr (mode == data_mode::increment) {
-          y[i] += jac_w2n[i] * interp.it2[i] * jac_n2w[i];
-          std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
+          y[i] += val;
+          //std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
         } else if constexpr (mode == data_mode::multiply) {
-          y[i] *= jac_w2n[i] * interp.it2[i] * jac_n2w[i];
-          std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
+          y[i] *= val;
+          //std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
         }
       }
     }
