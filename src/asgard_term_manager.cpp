@@ -414,6 +414,10 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
 
   kwork.w1.resize(num_entries);
 
+  jac_w2n.clear();
+  jac_n2h.clear();
+  jac_n2w.clear();
+
   int icurrent   = (gid() == -1) ? 0                              : term_groups[gid()].begin();
   int const iend = (gid() == -1) ? static_cast<int>(terms.size()) : term_groups[gid()].end();
   while (icurrent < iend)
@@ -447,6 +451,8 @@ ASGARD_OMP_PARFOR_SIMD
       icurrent += num_chain;
     }
   }
+
+  tools::dump(y, "jacobi");
 }
 
 template<typename P>
@@ -456,35 +462,161 @@ void term_manager<P>::kron_diag(
 {
   static_assert(mode == data_mode::increment or mode == data_mode::multiply);
 
+  // type tags
+  struct default_mode{};
+  struct inc_mode{};
+  struct mult_mode{};
+
   int const num_dims = grid.num_dims();
 
-#pragma omp parallel
-  {
-    std::array<P const *, max_num_dimensions> amats;
+  auto form_diag = [&](auto const &coeffs, std::vector<P> &result, auto tag = default_mode{})
+    -> void {
+      bool constexpr def_tag = std::is_same_v<std::decay_t<decltype(tag)>, default_mode>;
+      bool constexpr inc_tag = std::is_same_v<std::decay_t<decltype(tag)>, inc_mode>;
+      bool constexpr mul_tag = std::is_same_v<std::decay_t<decltype(tag)>, mult_mode>;
 
-#pragma omp for
-    for (int i = 0; i < grid.num_indexes(); i++) {
-      for (int d : iindexof(num_dims))
-        if (tme.coeffs[d].empty())
-          amats[d] = nullptr;
-        else
-          amats[d] = tme.coeffs[d][conn[tme.coeffs[d]].row_diag(grid[i][d])];
+      #pragma omp parallel
+      {
+        std::array<P const *, max_num_dimensions> amats;
 
-      for (int t : iindexof(block_size)) {
-        P a = 1;
-        int tt = t;
-        for (int d = num_dims - 1; d >= 0; --d)
-        {
-          if (amats[d] != nullptr) {
-            int const rc = tt % basis.pdof;
-            a *= amats[d][rc * basis.pdof + rc];
+        #pragma omp for
+        for (int i = 0; i < grid.num_indexes(); i++) {
+          if constexpr (std::is_same_v<std::decay_t<decltype(coeffs)>,
+                                       std::array<block_sparse_matrix<P>, max_num_dimensions>>)
+          { // multiple matrices case
+            for (int d : iindexof(num_dims))
+              if (coeffs[d].empty())
+                amats[d] = nullptr;
+              else
+                amats[d] = coeffs[d][conn[coeffs[d]].row_diag(grid[i][d])];
+
+          } else { // single matrix case
+            for (int d : iindexof(num_dims))
+              amats[d] = coeffs[conn[coeffs].row_diag(grid[i][d])];
           }
-          tt /= basis.pdof;
+
+          for (int t : iindexof(block_size)) {
+            P a = 1;
+            int tt = t;
+            for (int d = num_dims - 1; d >= 0; --d)
+            {
+              if (amats[d] != nullptr) {
+                int const rc = tt % basis.pdof;
+                a *= amats[d][rc * basis.pdof + rc];
+              }
+              tt /= basis.pdof;
+            }
+            if constexpr (inc_tag or (def_tag and mode == data_mode::increment))
+              result[i * block_size + t] += a;
+            else if constexpr (mul_tag or (def_tag and mode == data_mode::multiply))
+              result[i * block_size + t] *= a;
+          }
         }
-        if constexpr (mode == data_mode::increment)
-          y[i * block_size + t] += a;
-        else if constexpr (mode == data_mode::multiply)
-          y[i * block_size + t] *= a;
+      }
+    };
+
+
+  if (tme.is_separable()) {
+    std::cout << " kron_diag sep \n";
+
+    form_diag(tme.coeffs, y, default_mode{});
+
+    // #pragma omp parallel
+    // {
+    //   std::array<P const *, max_num_dimensions> amats;
+    //
+    //   #pragma omp for
+    //   for (int i = 0; i < grid.num_indexes(); i++) {
+    //     for (int d : iindexof(num_dims))
+    //       if (tme.coeffs[d].empty())
+    //         amats[d] = nullptr;
+    //       else
+    //         amats[d] = tme.coeffs[d][conn[tme.coeffs[d]].row_diag(grid[i][d])];
+    //
+    //     for (int t : iindexof(block_size)) {
+    //       P a = 1;
+    //       int tt = t;
+    //       for (int d = num_dims - 1; d >= 0; --d)
+    //       {
+    //         if (amats[d] != nullptr) {
+    //           int const rc = tt % basis.pdof;
+    //           a *= amats[d][rc * basis.pdof + rc];
+    //         }
+    //         tt /= basis.pdof;
+    //       }
+    //       if constexpr (mode == data_mode::increment)
+    //         y[i * block_size + t] += a;
+    //       else if constexpr (mode == data_mode::multiply)
+    //         y[i * block_size + t] *= a;
+    //     }
+    //   }
+    // }
+
+  } else {
+    // non-separable case
+    std::cout << " kron_diag non-sep \n";
+
+    int64_t const num_entries = grid.num_dof();
+
+    assert(interp.it1.size() == static_cast<size_t>(num_entries));
+    std::fill(interp.it1.begin(), interp.it1.end(), P{1});
+
+    if (tme.interplan.uses_moments()) {
+      tme.tmd.interp(0, interp.nodes(grid), moms.get_cached_interps(), interp.it1, interp.it2);
+    } else {
+      tme.tmd.interp(0, interp.nodes(grid), interp.it1, interp.it2);
+    }
+
+    if (jac_w2n.empty()) { // cache the wav2nodal operation
+      jac_w2n.resize(num_entries, P{0});
+      form_diag(interp.matrix_wav2nodal(), jac_w2n, inc_mode{});
+    }
+
+    if (tme.interplan.uses_hier()) { // stops at hier
+      if (jac_n2h.empty()) {
+        jac_n2h.resize(num_entries, P{0});
+        form_diag(interp.matrix_nodal2hier(), jac_n2h, inc_mode{});
+      }
+
+      //ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_entries; i++) {
+        P val = jac_w2n[i] * interp.it2[i] * jac_n2h[i];
+        if (std::abs(val) < 1.E-13) val = 1;
+
+        if constexpr (mode == data_mode::increment) {
+          //y[i] += jac_w2n[i] * interp.it2[i] * jac_n2h[i];
+          y[i] += val;
+          std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
+        } else if constexpr (mode == data_mode::multiply) {
+          //y[i] *= jac_w2n[i] * interp.it2[i] * jac_n2h[i];
+          y[i] *= val;
+          std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
+          std::cout << "       " << jac_w2n[i] << "  " << interp.it2[i] << "  " << jac_n2h[i] << '\n';
+        }
+      }
+
+    } else {
+
+      if (jac_n2w.empty()) { // convert back to wav
+        // if jac_n2h is set, we can reuse that, otherwise we have to compute
+        if (jac_n2h.empty()) {
+          jac_n2w.resize(num_entries, P{0});
+          form_diag(interp.matrix_nodal2hier(), jac_n2w, inc_mode{});
+        } else {
+          jac_n2w = jac_n2h; // reuse the first stage of the transition
+        }
+        form_diag(interp.matrix_hier2wav(), jac_n2w, mult_mode{});
+      }
+
+      // ASGARD_OMP_PARFOR_SIMD
+      for (int64_t i = 0; i < num_entries; i++) {
+        if constexpr (mode == data_mode::increment) {
+          y[i] += jac_w2n[i] * interp.it2[i] * jac_n2w[i];
+          std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
+        } else if constexpr (mode == data_mode::multiply) {
+          y[i] *= jac_w2n[i] * interp.it2[i] * jac_n2w[i];
+          std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
+        }
       }
     }
   }

@@ -334,8 +334,11 @@ void solver_manager<P>::update_grid(
     #endif
 
     if (alpha == 0) { // steady state solver
+      if (std::abs(jacobi[0]) > 1.E-15)
+        jacobi[0] = P{1} / jacobi[0];
+
       ASGARD_OMP_PARFOR_SIMD
-      for (size_t i = 0; i < jacobi.size(); i++)
+      for (size_t i = 1; i < jacobi.size(); i++)
         jacobi[i] = P{1} / jacobi[i];
     } else {
       ASGARD_OMP_PARFOR_SIMD

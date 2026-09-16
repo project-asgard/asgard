@@ -548,6 +548,8 @@ public:
   mutable std::vector<P> it1;
   //! temporary workspace vector
   mutable std::vector<P> it2;
+  //! provides access to the wav2nodal matrix
+  block_sparse_matrix<P> const &matrix_wav2nodal() const { return wav2nodal_; }
   //! provides access to the nodal2hier matrix
   block_sparse_matrix<P> const &matrix_nodal2hier() const { return nodal2hier_; }
   //! provides access to the hier2wav matrix
