@@ -446,23 +446,20 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
       std::fill(kwork.w1.begin(), kwork.w1.end(), P{0});
 
       kron_diag<data_mode::increment>(*(it + num_chain - 1), block_size, kwork.w1);
-      sanitize(kwork.w1);
 
       for (int i = num_chain - 2; i >= 0; --i) {
         kron_diag<data_mode::multiply>(*(it + i), block_size, kwork.w1);
-        sanitize(kwork.w1);
       }
+
+      sanitize(kwork.w1);
+
 ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++)
         y[i] += kwork.w1[i];
 
       icurrent += num_chain;
     }
-
-    // tools::dump(y, "jacobi  " + std::to_string(icurrent));
   }
-
-  // tools::dump(y, "jacobi");
 }
 
 template<typename P>
@@ -526,9 +523,8 @@ void term_manager<P>::kron_diag(
     };
 
 
-  if (tme.is_separable()) {
-    std::cout << " kron_diag sep \n";
-
+  if (tme.is_separable())
+  {
     form_diag(tme.coeffs, y, default_mode{});
 
     // #pragma omp parallel
@@ -564,8 +560,6 @@ void term_manager<P>::kron_diag(
 
   } else {
     // non-separable case
-    std::cout << " kron_diag non-sep \n";
-
     int64_t const num_entries = grid.num_dof();
 
     assert(interp.it1.size() == static_cast<size_t>(num_entries));
