@@ -95,6 +95,8 @@ asgard::pde_scheme<P> make_spherical(asgard::prog_opts options) {
   options.default_isolver_iterations = 1000;
   options.default_isolver_inner_iterations = 50;
 
+  options.default_precon = asgard::precon_method::jacobi;
+
   // create a pde from the given options and domain
   // we can read the variables using pde.options() and pde.domain() (both return const-refs)
   // the option entries may have been populated or updated with default values

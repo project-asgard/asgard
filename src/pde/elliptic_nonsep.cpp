@@ -80,6 +80,8 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   options.default_isolver_inner_iterations = 100;
   options.default_isolver_iterations = 100;
 
+  options.default_precon = asgard::precon_method::jacobi; // preconditioner
+
   asgard::pde_scheme<P> pde(options, std::move(domain));
 
   asgard::term_1d<P> I = asgard::term_identity{};

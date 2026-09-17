@@ -96,7 +96,7 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
   options.default_isolver_tolerance  = 1.E-8;
   options.default_isolver_iterations = 1000;
 
-  // default preconditioner
+  // default preconditioner, applies to iterative solvers
   options.default_precon = asgard::precon_method::jacobi;
 
   asgard::pde_scheme<P> pde(options, std::move(domain));

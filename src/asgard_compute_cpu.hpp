@@ -181,6 +181,15 @@ P nrm_inf(int n, P const x[]) {
   return r;
 }
 
+//! \brief Resizes the vector and fills with the given value
+template<typename P>
+void fill_resize(std::vector<P> &x, int64_t num_entries, P val = 0) {
+  int64_t const old_size = static_cast<int64_t>(x.size());
+  x.resize(num_entries, val);
+  if (old_size > 0)
+    std::fill_n(x.begin(), std::min(old_size, num_entries), val);
+}
+
 /*!
  * \brief Computes the root-mean-square-error between two vectors
  *

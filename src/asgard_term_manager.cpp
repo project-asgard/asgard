@@ -405,12 +405,7 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
   int const block_size      = fm::ipow(basis.pdof, grid.num_dims());
   int64_t const num_entries = block_size * grid.num_indexes();
 
-  if (y.size() == 0)
-    y.resize(num_entries);
-  else {
-    y.resize(num_entries);
-    std::fill(y.begin(), y.end(), P{0});
-  }
+  fm::fill_resize(y, num_entries, P{0});
 
   kwork.w1.resize(num_entries);
 
@@ -421,7 +416,7 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
   auto sanitize = [](std::vector<P> &x)
     -> void {
       for (auto &v : x)
-        if (std::abs(v) < 1.E-13) v = 1;
+        if (std::abs(v) < 1.E-10) v = 1; // this is ad-hoc heuristic
     };
 
   int icurrent   = (gid() == -1) ? 0                              : term_groups[gid()].begin();
@@ -523,40 +518,9 @@ void term_manager<P>::kron_diag(
     };
 
 
-  if (tme.is_separable())
-  {
-    form_diag(tme.coeffs, y, default_mode{});
+  if (tme.is_separable()) {
 
-    // #pragma omp parallel
-    // {
-    //   std::array<P const *, max_num_dimensions> amats;
-    //
-    //   #pragma omp for
-    //   for (int i = 0; i < grid.num_indexes(); i++) {
-    //     for (int d : iindexof(num_dims))
-    //       if (tme.coeffs[d].empty())
-    //         amats[d] = nullptr;
-    //       else
-    //         amats[d] = tme.coeffs[d][conn[tme.coeffs[d]].row_diag(grid[i][d])];
-    //
-    //     for (int t : iindexof(block_size)) {
-    //       P a = 1;
-    //       int tt = t;
-    //       for (int d = num_dims - 1; d >= 0; --d)
-    //       {
-    //         if (amats[d] != nullptr) {
-    //           int const rc = tt % basis.pdof;
-    //           a *= amats[d][rc * basis.pdof + rc];
-    //         }
-    //         tt /= basis.pdof;
-    //       }
-    //       if constexpr (mode == data_mode::increment)
-    //         y[i * block_size + t] += a;
-    //       else if constexpr (mode == data_mode::multiply)
-    //         y[i * block_size + t] *= a;
-    //     }
-    //   }
-    // }
+    form_diag(tme.coeffs, y, default_mode{});
 
   } else {
     // non-separable case
@@ -565,11 +529,31 @@ void term_manager<P>::kron_diag(
     assert(interp.it1.size() == static_cast<size_t>(num_entries));
     std::fill(interp.it1.begin(), interp.it1.end(), P{1});
 
-    if (tme.interplan.uses_moments()) {
-      tme.tmd.interp(0, interp.nodes(grid), moms.get_cached_interps(), interp.it1, interp.it2);
+    #ifdef ASGARD_USE_GPU
+    if (tme.interplan.uses_gpu_func()) {
+
+      interp.gpu_it1[0] = interp.it1;
+
+      if (tme.interplan.uses_moments()) {
+        tme.tmd.interp(interp.gpu_it1[0].size(), 0, interp.gpu_nodes(gpu::device{0}, grid),
+                       moms.get_cached_interps(gpu::device{0}),
+                       interp.gpu_it1[0].data(), interp.gpu_it2[0].data());
+      } else {
+        tme.tmd.interp(interp.gpu_it1[0].size(), 0, interp.gpu_nodes(gpu::device{0}, grid),
+                       interp.gpu_it1[0].data(), interp.gpu_it2[0].data());
+      }
     } else {
-      tme.tmd.interp(0, interp.nodes(grid), interp.it1, interp.it2);
+    #endif
+
+      if (tme.interplan.uses_moments()) {
+        tme.tmd.interp(0, interp.nodes(grid), moms.get_cached_interps(), interp.it1, interp.it2);
+      } else {
+        tme.tmd.interp(0, interp.nodes(grid), interp.it1, interp.it2);
+      }
+
+    #ifdef ASGARD_USE_GPU
     }
+    #endif
 
     if (jac_w2n.empty()) { // cache the wav2nodal operation
       jac_w2n.resize(num_entries, P{0});
@@ -582,20 +566,13 @@ void term_manager<P>::kron_diag(
         form_diag(interp.matrix_nodal2hier(), jac_n2h, inc_mode{});
       }
 
-      //ASGARD_OMP_PARFOR_SIMD
+      ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++) {
-        P val = jac_w2n[i] * interp.it2[i] * jac_n2h[i];
-        if (std::abs(val) < 1.E-13) val = 1;
-
+        P const val = jac_w2n[i] * interp.it2[i] * jac_n2h[i];
         if constexpr (mode == data_mode::increment) {
-          //y[i] += jac_w2n[i] * interp.it2[i] * jac_n2h[i];
           y[i] += val;
-          //std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2h[i] << '\n';
         } else if constexpr (mode == data_mode::multiply) {
-          //y[i] *= jac_w2n[i] * interp.it2[i] * jac_n2h[i];
           y[i] *= val;
-          //std::cout << " mul = " << val << '\n';
-          //std::cout << "       " << jac_w2n[i] << "  " << interp.it2[i] << "  " << jac_n2h[i] << "  val = " << val << '\n';
         }
       }
 
@@ -612,17 +589,13 @@ void term_manager<P>::kron_diag(
         form_diag(interp.matrix_hier2wav(), jac_n2w, mult_mode{});
       }
 
-      // ASGARD_OMP_PARFOR_SIMD
+      ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++) {
-        P val = jac_w2n[i] * interp.it2[i] * jac_n2w[i];
-        if (std::abs(val) < 1.E-13) val = 1;
-
+        P const val = jac_w2n[i] * interp.it2[i] * jac_n2w[i];
         if constexpr (mode == data_mode::increment) {
           y[i] += val;
-          //std::cout << " inc = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
         } else if constexpr (mode == data_mode::multiply) {
           y[i] *= val;
-          //std::cout << " mul = " << jac_w2n[i] * interp.it2[i] * jac_n2w[i] << '\n';
         }
       }
     }
