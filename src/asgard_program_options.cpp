@@ -147,8 +147,9 @@ Options          Short   Value      Description
 -outfile         -of     filename   File to write the last step of the simulation.
 
 <<< solvers and linear algebra options >>>
--solver          -sv     string     accepts: direct/gmres/bicgstab/scal (implicit/imex methods only)
+-solver          -sv     string     accepts: direct/cg/gmres/bicgstab/scal (only for implicit/imex)
                                     Direct: use LAPACK, expensive but stable.
+                                    CG: works best for symmetric positive definite operators
                                     GMRES: general but sensitive to restart selection.
                                     bicgstab: cheaper (per-iteration) alternative to GMRES
                                     scal: special case, the matrix is scaled identity
@@ -161,15 +162,13 @@ Options          Short   Value      Description
                                     for GMRES this is the number of outer iterations.
 -isolve-inner    -isn    int        (GMRES only) The maximum number of inner GMRES iterations,
                                     this is ignored by BiCGSTAB.
--poisson-precon  -ppc    string     accepts: none/jacobi
-                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
+-poisson-precon  -ppc    string     accepts: none/jacobi (only for 2 and 3 spatial dimensions)
                                     specifies the preconditioner for the Poisson solver
                                     none - is not advisable as it takes too long
                                     jacobi - preconditioner that applies basic rescaling
--poisson-tol     -ptol   double     Poisson solver tolerance,
-                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
--poisson-iter    -piter  int        Poisson solver maximum number of iterations,
-                                    applies to domains with 2 or 3 spatial dimensions and an electric field moment
+-poisson-tol     -ptol   double     Poisson solver tolerance (only for 2 and 3 spatial dimensions)
+-poisson-iter    -psi    int        Poisson solver maximum number of iterations,
+                                    (only for 2 and 3 spatial dimensions)
 
 )help";
 }
@@ -209,7 +208,7 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
       {"-isn", optentry::isol_inner_iterations},
       {"-poisson-precon", optentry::poisson_precond}, {"-ppc", optentry::poisson_precond},
       {"-poisson-tol", optentry::poisson_tolerance}, {"-ptol", optentry::poisson_tolerance},
-      {"-poisson-iter", optentry::poisson_iterations}, {"-piter", optentry::poisson_iterations},
+      {"-poisson-iter", optentry::poisson_iterations}, {"-psi", optentry::poisson_iterations},
       {"-restart", optentry::restart_file},
   };
 
@@ -456,6 +455,8 @@ void prog_opts::process_inputs(std::vector<std::string_view> const &argv, handle
         throw std::runtime_error(report_no_value());
       if (*selected == "direct")
         solver = solver_method::direct;
+      else if (*selected == "cg")
+        solver = solver_method::cg;
       else if (*selected == "gmres")
         solver = solver_method::gmres;
       else if (*selected == "bicgstab")

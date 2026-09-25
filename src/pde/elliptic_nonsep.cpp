@@ -72,7 +72,6 @@ asgard::pde_scheme<P> make_elliptic_pde(asgard::prog_opts options) {
   // (this should probably be an error instead of a warning)
   options.force_step_method(asgard::time_method::steady);
 
-  // OK for small problems, larger one should switch to gmres or bicgstab
   options.default_solver = asgard::solver_method::gmres;
 
   // defaults for iterative solvers, not necessarily optimal

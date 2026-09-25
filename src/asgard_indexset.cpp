@@ -266,6 +266,57 @@ indexset compute_ancestry_completion(indexset const &iset,
   return pad_indexes;
 }
 
+template<typename P>
+void remap_data(int const block_size, indexset const& iset_old, indexset const &iset_new,
+                std::vector<P> &x)
+{
+  assert(iset_old.num_dimensions() == iset_new.num_dimensions());
+  int const num_dims = iset_old.num_dimensions();
+
+  int64_t const num_old = iset_old.num_indexes();
+  int64_t const num_new = iset_new.num_indexes();
+
+  // Initialize exactly to 0 to automatically handle newly refined points
+  std::vector<P> x_new(num_new * block_size, P{0});
+
+  int64_t iold = 0;
+  int64_t inew = 0;
+
+  enum class index_relation
+  {
+    asameb,
+    abeforeb,
+    bbeforea
+  };
+
+  auto compare_indexes = [&](int const a[], int const b[]) -> index_relation
+    {
+      for(int const d : iindexof(num_dims)) {
+        if (a[d] < b[d]) return index_relation::abeforeb;
+        if (a[d] > b[d]) return index_relation::bbeforea;
+      }
+      return index_relation::asameb;
+    };
+
+  while (inew < num_new && iold < num_old) {
+    index_relation relation = compare_indexes(iset_new[inew], iset_old[iold]);
+
+    if (relation == index_relation::asameb) {
+      // Point survived adaptation: Transfer data
+      std::copy_n(x.data() + iold * block_size, block_size, x_new.data() + inew * block_size);
+      inew++;
+      iold++;
+    } else if (relation == index_relation::abeforeb) {
+      // New point added (Refinement): Already 0, just advance
+      inew++;
+    } else {
+      // Old point removed (Coarsening): Discard data
+      iold++;
+    }
+  }
+  std::swap(x, x_new);
+}
+
 sparse_grid::sparse_grid(prog_opts const &options)
   : mgroup(options.mgrid_group.value_or(-1))
 {
@@ -794,6 +845,11 @@ void sparse_grid::gpu_load() {
   }
 }
 #endif
+
+template void remap_data<double>(int const, indexset const &, indexset const &,
+                                 std::vector<double> &x);
+template void remap_data<float>(int const, indexset const &, indexset const &,
+                                std::vector<float> &x);
 
 template indexset sparse_grid::make_level_set<grid_type::dense>(std::vector<int> const &);
 template indexset sparse_grid::make_level_set<grid_type::sparse>(std::vector<int> const &);

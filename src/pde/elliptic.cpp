@@ -89,8 +89,9 @@ asgard::pde_scheme<P> make_elliptic_pde(int num_dims, asgard::prog_opts options)
   // (this should probably be an error instead of a warning)
   options.force_step_method(asgard::time_method::steady);
 
-  // OK for small problems, larger one should switch to gmres or bicgstab
-  options.default_solver = asgard::solver_method::direct;
+  // for small problems asgard::solver_method::direct works OK, may even be faster
+  // use CG when operators are symmetric positive definite and the problem is large (level > 5)
+  options.default_solver = asgard::solver_method::cg;
 
   // defaults for iterative solvers, not necessarily optimal
   options.default_isolver_tolerance  = 1.E-8;
@@ -466,15 +467,15 @@ void self_test() {
 
   dotest<double>(1.E-7, 1, "-d 2 -l 3");
   dotest<double>(5.E-7, 2, "-d 2 -l 3");
-  dotest<double>(5.E-7, 3, "-d 2 -l 3");
+  dotest<double>(5.E-7, 3, "-d 2 -l 3 -sv gmres -isn 100");
 
   dotest<double>(1.E-3, 1, "-d 1 -l 4");
   dotest<double>(1.E-3, 2, "-d 1 -l 5");
   dotest<double>(1.E-3, 3, "-d 1 -l 6  -sv bicgstab");
 
-  dotest<double>(1.E-7, 1, "-d 2 -l 3 -bc 1");
+  dotest<double>(1.E-7, 1, "-d 2 -l 3 -bc 1 -sv direct");
   dotest<double>(5.E-7, 2, "-d 2 -l 3 -bc 1");
-  dotest<double>(5.E-7, 3, "-d 2 -l 3 -bc 1");
+  dotest<double>(5.E-7, 3, "-d 2 -l 3 -bc 1 -sv direct");
 
   dotest<double>(1.E-3, 1, "-d 1 -l 4 -bc 1");
   dotest<double>(1.E-3, 2, "-d 1 -l 5 -bc 1");

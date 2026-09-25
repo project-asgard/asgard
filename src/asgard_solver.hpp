@@ -218,6 +218,14 @@ struct solver_manager
       case solver_method::direct:
         var = solvers::direct<P>(); // will be initialized later
         break;
+      case solver_method::cg:
+        rassert(options.isolver_tolerance,
+                "missing tolerance for the iterative solver cg");
+        rassert(options.isolver_iterations,
+                "missing number of iterations for the iterative solver cg");
+        var = solvers::cg<P>(options.isolver_tolerance.value(),
+                             options.isolver_iterations.value());
+        break;
       case solver_method::bicgstab:
         rassert(options.isolver_tolerance,
                 "missing tolerance for the iterative solver bicgstab");
@@ -301,39 +309,38 @@ struct solver_manager
                      solvers::operation_apply_lhs<P> apply_lhs,
                      std::vector<P> const &rhs, std::vector<P> &x) const
   {
-    if (method() == solver_method::bicgstab) {
-      if (prec) {
-        solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
+    assert(not uses_inplace_solve());
+    std::visit([&](auto const &svr) {
+        using ftype = std::decay_t<decltype(svr)>;
+        if constexpr (std::is_same_v<ftype, solvers::bicgstab<P>>) {
+          // the bicgstab preconditioner is a special case
+          if (prec) {
+            svr.prec_y.resize(rhs.size());
 
-        bicg.prec_y.resize(rhs.size());
+            svr.prec_rhs = rhs;
+            prec(svr.prec_rhs.data());
 
-        bicg.prec_rhs = rhs;
-        prec(bicg.prec_rhs.data());
-
-        num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
-            -> void {
-              if (beta == 0) {
-                apply_lhs(alpha, xx, 0, y);
-                prec(y);
-              } else {
-                apply_lhs(alpha, xx, 0, bicg.prec_y.data());
-                prec(bicg.prec_y.data());
-                xpby(bicg.prec_y, beta, y);
-              }
-            }, bicg.prec_rhs, x);
-      } else {
-        num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
-      }
-    } else { // if (opt == solve_opts::gmres)
-      if (prec) {
-        solvers::gmres<P> const &gmres = std::get<solvers::gmres<P>>(var);
-
-        num_apply += gmres.solve(prec, apply_lhs, rhs, x);
-      } else {
-        num_apply += std::get<solvers::gmres<P>>(var).solve(
-          [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
-      }
-    }
+            num_apply += svr.solve([&](P alpha, P const xx[], P beta, P y[])
+                -> void {
+                  if (beta == 0) {
+                    apply_lhs(alpha, xx, 0, y);
+                    prec(y);
+                  } else {
+                    apply_lhs(alpha, xx, 0, svr.prec_y.data());
+                    prec(svr.prec_y.data());
+                    xpby(svr.prec_y, beta, y);
+                  }
+                }, svr.prec_rhs, x);
+          } else {
+            num_apply += svr.solve(apply_lhs, rhs, x);
+          }
+        } else if constexpr (std::is_same_v<ftype, solvers::cg<P>>
+                             or std::is_same_v<ftype, solvers::gmres<P>>)
+        {
+          if (not prec) prec = [](P *)->void{}; // no-op preconditioner
+          num_apply += svr.solve(prec, apply_lhs, rhs, x);
+        } // nothing to do about direct solvers
+      }, var);
   }
 
   #ifdef ASGARD_USE_GPU
@@ -382,6 +389,7 @@ struct solver_manager
   mutable int64_t num_apply = 0;
   //! holds the actual solver instance
   std::variant<solvers::direct<P>,
+               solvers::cg<P>,
                solvers::bicgstab<P>,
                solvers::gmres<P>,
                solvers::scaled_identity<P>> var;

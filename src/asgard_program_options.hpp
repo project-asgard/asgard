@@ -53,6 +53,8 @@ enum class solver_method
 {
   //! direct solve using LAPACK, slow but stable, do not use for large problems
   direct,
+  //! conjugate gradient method, requires that the operator is symmetric positive definite
+  cg,
   //! alternative to gmres, cheaper when taking many steps between restarts
   bicgstab,
   //! popular iterative solver, can be sensitive to the tolerance and restart frequency

@@ -26,9 +26,9 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
 
   // set up moms_electric
   for (int const d : iindexof(num_dims))
-    moms_electric[d] = mlist.get_check_id(moment::electric(dimension_id(d), num_pos));
+    moms_electric[d] = mlist.get_check_id(moment::electric(dimension_id{d}, num_pos));
 
-  // set up the terms for the laplician: laplacian(f) = div(grad(f))
+  // set up the terms for the laplacian: laplacian(f) = div(grad(f))
   term_1d<P> div = term_div<P>(-1, flux_type::upwind, boundary_type::periodic);
   term_1d<P> grad = term_grad<P>(1, flux_type::upwind, boundary_type::periodic);
 
@@ -37,11 +37,11 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   laplacian_terms.resize(num_dims);
   for (int const d : iindexof(num_dims))
   {
-    term_1d<P> laplacian({div, grad});
-    laplacian.set_penalty(derivative_scale[d]);
-    ops[d] = laplacian; // using operator in the d-direction
-    term_md<P> laplacian_md(ops);
-    laplacian_terms[d] = term_entry<P>(std::move(laplacian_md));
+    ops[d] = term_1d<P>({div, grad});
+    ops[d].set_penalty(derivative_scale[d]);
+
+    laplacian_terms[d] = term_entry<P>(term_md<P>(ops));
+
     ops[d] = term_identity{}; // reset back to identity
   }
 
@@ -90,7 +90,7 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
   tools::time_event psolve_("poisson_md");
-  
+
   rassert(operator bool(), "poisson_md must be initialized before solve");
   size_t const n = density.size();
 
@@ -109,60 +109,16 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
 }
 
 template<typename P>
-void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const
-{
-  int64_t const num_old = iset_old.num_indexes();
-  int64_t const num_new = iset_new.num_indexes();
-  int const block_size = fm::ipow(pdof, num_dims);
-
-  // Initialize exactly to 0 to automatically handle newly refined points
-  std::vector<P> x_new(num_new * block_size, P{0});
-
-  int64_t iold = 0;
-  int64_t inew = 0;
-
-  enum class index_relation
-  {
-    asameb,
-    abeforeb,
-    bbeforea
-  };
-
-  auto compare_indexes = [&](int const a[], int const b[]) -> index_relation
-    {
-      for(int const d : iindexof(num_dims)) {
-        if (a[d] < b[d]) return index_relation::abeforeb;
-        if (a[d] > b[d]) return index_relation::bbeforea;
-      }
-      return index_relation::asameb;
-    };
-
-  while (inew < num_new && iold < num_old) {
-    index_relation relation = compare_indexes(iset_new[inew], iset_old[iold]);
-
-    if (relation == index_relation::asameb) {
-      // Point survived adaptation: Transfer data
-      std::copy_n(x.data() + iold * block_size, block_size, x_new.data() + inew * block_size);
-      inew++;
-      iold++;
-    } else if (relation == index_relation::abeforeb) {
-      // New point added (Refinement): Already 0, just advance
-      inew++;
-    } else {
-      // Old point removed (Coarsening): Discard data
-      iold++;
-    }
-  }
-  std::swap(x, x_new);
-}
-
-template<typename P>
 void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const &position_grid,
-                                     connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
+                                     connection_patterns const &conn, kronmult::workspace<P> &work,
+                                     poisson_bc const bc)
 {
   // Remap the previous potential to the new grid if needed to use as a warm start
   if (generation != position_grid.generation()) {
-    remap_(iset_, position_grid.iset(), potential);
+    if (iset_.empty())
+      potential.resize(position_grid.num_dof(), P{0});
+    else
+      remap_data(position_grid.block_size(), iset_, position_grid.iset(), potential);
     iset_ = position_grid.iset();
     generation = position_grid.generation();
   }
@@ -215,7 +171,7 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
   tools::time_event psolve_("poisson_md GPU");
-  
+
   rassert(operator bool(), "poisson_md must be initialized before solve");
 
   solve_potential_(density, position_grid, conn, work, bc);
@@ -308,7 +264,7 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
     gpu::memcopy_dev2dev(1, density.data(), gpu_density0.data());
     gpu::fill_zeros(1, density.data());
   }
-  
+
   // Define the Matrix-Vector Product (The LHS)
   auto apply_lhs = [&](P alpha, P const x[], P beta, P y[]) -> void
   {
@@ -345,8 +301,9 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
 #endif
 
 template<typename P>
-void poisson_md<P>::kron_diag_(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
-                              int const block_size, std::vector<P> &y) const
+void poisson_md<P>::kron_diag_(term_entry<P> const &tme, sparse_grid const &grid,
+                               connection_patterns const &conn,
+                               int const block_size, std::vector<P> &y) const
 {
 #pragma omp parallel
   {

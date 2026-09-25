@@ -287,22 +287,17 @@ void solver_manager<P>::update_grid(
   bool const needs_update = terms.has_sep_moments(group);
 
   // first, update the solver itself
-  switch (method()) {
-    case solver_method::direct: {
-      solvers::direct<P> &solver = std::get<solvers::direct<P>>(var);
-      if (needs_update or solver.grid_gen(group, stage) != grid.generation())
-        solver.update(group, stage, grid, conn, terms, alpha);
-    }
-    break;
-    case solver_method::scaled_identity: {
-      solvers::scaled_identity<P> &solver = std::get<solvers::scaled_identity<P>>(var);
-      if (needs_update or solver.grid_gen(group, stage) != grid.generation())
-        solver.update(group, stage, grid, terms, alpha);
-    }
-    break;
-    default: // iterative solvers don't need updating
-      break;
-  };
+  std::visit([&](auto &svr) {
+      using ftype = std::decay_t<decltype(svr)>;
+      if constexpr (std::is_same_v<ftype, solvers::direct<P>>)
+      {
+        if (needs_update or svr.grid_gen(group, stage) != grid.generation())
+          svr.update(group, stage, grid, conn, terms, alpha);
+      } else if constexpr (std::is_same_v<ftype, solvers::scaled_identity<P>>) {
+        if (needs_update or svr.grid_gen(group, stage) != grid.generation())
+          svr.update(group, stage, grid, terms, alpha);
+      } // no need to update the iterative solvers
+    }, var);
 
   // second, update the preconditioner
   // return if nothing more to do
@@ -311,9 +306,7 @@ void solver_manager<P>::update_grid(
 
   precon.grid_gen = grid.generation(); // update the grid gen
 
-  precon_method const method = precon; // get the precon method
-
-  if (method == precon_method::jacobi) {
+  if (precon == precon_method::jacobi) {
     std::vector<P> &jacobi = precon.jacobi();
 
     #ifdef ASGARD_USE_MPI
@@ -368,37 +361,38 @@ void solver_manager<P>::iterate_solve(
     solvers::operation_apply_precon<P> prec, solvers::operation_apply_lhs<P> apply_lhs,
     gpu::vector<P> const &rhs, gpu::vector<P> &x) const
 {
-  if (method() == solver_method::bicgstab) {
-    if (prec) {
-      solvers::bicgstab<P> const &bicg = std::get<solvers::bicgstab<P>>(var);
+  assert(not uses_inplace_solve());
+  std::visit([&](auto const &svr) {
+      using ftype = std::decay_t<decltype(svr)>;
+      if constexpr (std::is_same_v<ftype, solvers::bicgstab<P>>) {
+        // the bicgstab preconditioner is a special case
+        if (prec) {
+          svr.prec_y_gpu.resize(rhs.size());
 
-      bicg.prec_y_gpu.resize(rhs.size());
+          svr.prec_rhs_gpu = rhs;
+          prec(svr.prec_rhs_gpu.data());
 
-      bicg.prec_rhs_gpu = rhs;
-      prec(bicg.prec_rhs_gpu.data());
-
-      num_apply += bicg.solve([&](P alpha, P const xx[], P beta, P y[])
-          -> void {
-            if (beta == 0) {
-              apply_lhs(alpha, xx, 0, y);
-              prec(y);
-            } else {
-              apply_lhs(alpha, xx, 0, bicg.prec_y_gpu.data());
-              prec(bicg.prec_y_gpu.data());
-              gpu::xpby(bicg.prec_y_gpu, beta, y);
-            }
-          }, bicg.prec_rhs_gpu, x);
-    } else {
-      num_apply += std::get<solvers::bicgstab<P>>(var).solve(apply_lhs, rhs, x);
-    }
-  } else { // if (opt == solve_opts::gmres)
-    if (prec) {
-      num_apply += std::get<solvers::gmres<P>>(var).solve(prec, apply_lhs, rhs, x);
-    } else {
-      num_apply += std::get<solvers::gmres<P>>(var).solve(
-        [](P *)->void{ /* no preconditioner */ }, apply_lhs, rhs, x);
-    }
-  }
+          num_apply += svr.solve([&](P alpha, P const xx[], P beta, P y[])
+              -> void {
+                if (beta == 0) {
+                  apply_lhs(alpha, xx, 0, y);
+                  prec(y);
+                } else {
+                  apply_lhs(alpha, xx, 0, svr.prec_y_gpu.data());
+                  prec(svr.prec_y_gpu.data());
+                  gpu::xpby(svr.prec_y_gpu, beta, y);
+                }
+              }, svr.prec_rhs_gpu, x);
+        } else {
+          num_apply += svr.solve(apply_lhs, rhs, x);
+        }
+      } else if constexpr (std::is_same_v<ftype, solvers::cg<P>>
+                            or std::is_same_v<ftype, solvers::gmres<P>>)
+      {
+        if (not prec) prec = [](P *)->void{}; // no-op preconditioner
+        num_apply += svr.solve(prec, apply_lhs, rhs, x);
+      } // nothing to do about direct solvers
+    }, var);
 }
 #endif
 
@@ -406,27 +400,29 @@ template<typename P>
 void solver_manager<P>::print_opts(std::ostream &os) const
 {
   os << "solver:\n";
-  switch (method()) {
-    case solver_method::direct:
-      os << "  direct\n";
-      break;
-    case solver_method::bicgstab:
-      os << "  bicgstab\n";
-      os << "  tolerance:      " << std::get<solvers::bicgstab<P>>(var).tolerance() << '\n';
-      os << "  max iterations: " << std::get<solvers::bicgstab<P>>(var).max_iter() << '\n';
-      break;
-    case solver_method::gmres:
-      os << "  gmres\n";
-      os << "  tolerance: " << std::get<solvers::gmres<P>>(var).tolerance() << '\n';
-      os << "  max inner: " << std::get<solvers::gmres<P>>(var).max_inner() << '\n';
-      os << "  max outer: " << std::get<solvers::gmres<P>>(var).max_outer() << '\n';
-      break;
-    case solver_method::scaled_identity:
-      os << "  scaled-identity\n";
-      break;
-    default:
-      break;
-  }
+  std::visit([&](auto const &svr) {
+      using ftype = std::decay_t<decltype(svr)>;
+      if constexpr (std::is_same_v<ftype, solvers::direct<P>>) {
+        os << "  direct\n";
+      } else if constexpr (std::is_same_v<ftype, solvers::scaled_identity<P>>) {
+        os << "  scaled-identity\n";
+      } else if constexpr (std::is_same_v<ftype, solvers::cg<P>>) {
+        os << "  conjugate-gradient\n";
+        os << "  tolerance:      " << svr.tolerance() << '\n';
+        os << "  max iterations: " << svr.max_iter() << '\n';
+      } else if constexpr (std::is_same_v<ftype, solvers::bicgstab<P>>) {
+        os << "  bicgstab\n";
+        os << "  tolerance:      " << svr.tolerance() << '\n';
+        os << "  max iterations: " << svr.max_iter() << '\n';
+      } else if constexpr (std::is_same_v<ftype, solvers::gmres<P>>) {
+        os << "  gmres\n";
+        os << "  tolerance: " << svr.tolerance() << '\n';
+        os << "  max inner: " << svr.max_inner() << '\n';
+        os << "  max outer: " << svr.max_outer() << '\n';
+      } else {
+        os << "  UNKNOWN\n";
+      }
+    }, var);
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE

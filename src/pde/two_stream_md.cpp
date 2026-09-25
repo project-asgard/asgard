@@ -157,6 +157,10 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   // defaults are used only the corresponding values are missing from the command line
   int const default_degree = 2;
 
+  if (not options.adapt_threshold and not options.adapt_relative and not options.set_no_adapt) {
+    options.adapt_threshold = 1.E-4;
+  }
+
   options.default_degree = default_degree;
   options.default_poisson_tolerance = 1e-8;
   options.default_poisson_iterations = 1000;
@@ -166,11 +170,13 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
 
   // the CFL is more complicated, it depends both on the polynomial degree
   // and on the maximum number of cells (TODO: add more here)
-  int const k = options.degree.value_or(default_degree);
-  int const n = (1 << options.max_level());
-  options.default_dt = 3.0 / (2 * (2 * k + 1) * n);
+  {
+    int const p = options.degree.value_or(default_degree);
+    int const n = (1 << options.max_level()); // this is n^max_level
+    options.default_dt = 3.0 / (2 * (2 * p + 1) * n);
+  }
 
-  options.default_stop_time = 2.0;
+  options.default_stop_time = 1.0;
 
   // using explicit RK2
   options.default_step_method = asgard::time_method::rk2;
@@ -551,7 +557,8 @@ void test_energy(std::string const &opt_str) {
       E0 = 0.5 * (Ep + Ek);
 
     // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
-    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 7.E-6);
+    // at compiler optimization -O2 the tolerance can be 7.E-6, but at -O3 must use -O2
+    tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 9.E-6);
 
     // get the density and velocity moments
     std::vector<P> mom0 = disc.get_moment(rho);

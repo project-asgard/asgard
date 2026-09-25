@@ -104,7 +104,7 @@ asgard::pde_scheme<P> make_diffusion_pde(int num_dims, asgard::prog_opts options
     // when the problem size becomes significant, forming and factorizing the dense
     // operator matrix becomes prohibitively expensive in flops and memory usage
     // iterative solvers are needed and it is good to specify default parameters
-    options.default_solver = asgard::solver_method::gmres;
+    options.default_solver = asgard::solver_method::cg;
   }
 
   // only the iterative solvers will use these values

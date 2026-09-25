@@ -18,9 +18,10 @@ void solver_manager_tests()
   current_test<P> name_("solver manager");
 
   match_solver<0, solver_method::direct, P, solvers::direct<P>>();
-  match_solver<1, solver_method::bicgstab, P, solvers::bicgstab<P>>();
-  match_solver<2, solver_method::gmres, P, solvers::gmres<P>>();
-  match_solver<3, solver_method::scaled_identity, P, solvers::scaled_identity<P>>();
+  match_solver<1, solver_method::cg, P, solvers::cg<P>>();
+  match_solver<2, solver_method::bicgstab, P, solvers::bicgstab<P>>();
+  match_solver<3, solver_method::gmres, P, solvers::gmres<P>>();
+  match_solver<4, solver_method::scaled_identity, P, solvers::scaled_identity<P>>();
 }
 
 int main(int argc, char **argv) {

@@ -110,22 +110,22 @@ public:
   #endif
 
 private:
-  #ifndef ASGARD_USE_GPU
-  //! remaps a vector from the old grid to the new grid, used for warm starting the potential
-  void remap_(indexset const& iset_old, indexset const &iset_new, std::vector<P> &x) const;
-  //! solves for just the electric potential, used as a substep inside the solver
-  void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
-                        connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
-  #endif
   //! build the diagonal preconditioner
   void kron_diag_(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
-                 int const block_size, std::vector<P> &y) const;
+                  int const block_size, std::vector<P> &y) const;
+
   #ifdef ASGARD_USE_GPU
   //! remaps a vector from the old grid to the new grid, used for warm starting the potential
   void remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const;
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,
-                        connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc);
+                        connection_patterns const &conn, kronmult::workspace<P> &work,
+                        poisson_bc const bc);
+  #else
+  //! solves for just the electric potential, used as a substep inside the solver
+  void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
+                        connection_patterns const &conn, kronmult::workspace<P> &work,
+                        poisson_bc const bc);
   #endif
 
   int num_dims = -1;
@@ -169,7 +169,8 @@ public:
   poisson_1d() = default;
   //! initialize Poisson solver over the domain with given min/max, level and degree of input basis
   poisson_1d(int pdegree, P domain_min, P domain_max, int level, moment_id m0, moment_id melectric)
-    : pdof(pdegree + 1), xmin(domain_min), xmax(domain_max), current_level(level), mom0(m0), mom_electric(melectric)
+    : pdof(pdegree + 1), xmin(domain_min), xmax(domain_max), current_level(level),
+      mom0(m0), mom_electric(melectric)
   {
     if (current_level == 0) return; // nothing to solve
 

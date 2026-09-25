@@ -477,6 +477,10 @@ struct dimension_sort
 indexset compute_ancestry_completion(indexset const &iset,
                                      connect_1d const &hierarchy);
 
+template<typename P>
+void remap_data(int const block_size, indexset const& iset_old, indexset const &iset_new,
+                std::vector<P> &x);
+
 #ifdef ASGARD_USE_GPU
 struct gpu_grid_data {
   //! number of 1d strips in each dimension

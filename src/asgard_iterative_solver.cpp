@@ -30,7 +30,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
 
   P rho = dot(r, r);
 
-  if (precon != nullptr) {
+  if (precon) {
     z = r;
     precon(z.data());
     p = z;
@@ -55,24 +55,23 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
     P rho_new = dot(r, r);
 
     // Exact check based on the new residual
-    if (rho_new < tolerance_) {
+    if (rho_new < tolerance_)
       return num_apply;
-    }
 
-    if (precon != nullptr) {
+    if (precon) {
       z = r;
       precon(z.data());
       rho_new = dot(r, z);
-    }
 
-    P const beta = rho_new / rho;
+      P const beta = rho_new / rho;
 
-    if (precon != nullptr) {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t k = 0; k < n; k++) {
           p[k] = z[k] + beta * p[k];
       }
     } else {
+      P const beta = rho_new / rho;
+
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t k = 0; k < n; k++) {
           p[k] = r[k] + beta * p[k];
@@ -101,7 +100,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
   apply_lhs(-1.0, x.data(), 1.0, gr.data());
   compute->dot1_device(n, gr.data(), grho.data());
 
-  if (precon != nullptr) {
+  if (precon) {
     gz = gr;
     precon(gz.data());
     gp = gz;
@@ -127,13 +126,11 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
       }
     }
 
-    if (precon != nullptr) {
+    if (precon) {
       gz = gr;
       precon(gz.data());
       compute->dot_device(n, gr.data(), gz.data(), grho_new.data());
-    }
 
-    if (precon != nullptr) {
       gpu::cg_update_p(n, grho_new.data(), grho.data(), gz.data(), gp.data());
     } else {
       gpu::cg_update_p(n, grho_new.data(), grho.data(), gr.data(), gp.data());

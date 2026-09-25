@@ -188,6 +188,7 @@ void new_prog_opts() {
     prog_opts prog(vecstrview({"", "-solver", "direct"}));
     tassert(prog.solver);
     tassert(prog.solver.value() == solver_method::direct);
+    tassert(prog_opts(vecstrview({"exe", "-sv", "cg"})).solver.value() == solver_method::cg);
     tassert(prog_opts(vecstrview({"exe", "-sv", "gmres"})).solver.value() == solver_method::gmres);
     tassert(prog_opts(vecstrview({"exe", "-solver", "bicgstab"})).solver.value() == solver_method::bicgstab);
     terror_message(prog_opts(vecstrview({"exe", "-solver"})),
