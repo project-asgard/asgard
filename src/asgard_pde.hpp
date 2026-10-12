@@ -1062,41 +1062,35 @@ struct source {
             "invalid separable function for source entry");
   }
   //! make an interpolation source
-  source(md_func<P> s, bool hybrid_interp = false)
-      : func_(std::move(s)), hybrid_interp_(hybrid_interp)
+  source(md_func<P> s) : func_(std::move(s))
   {}
   //! make an interpolation source using a GPU device data
-  source(md_gpu_func<P> s, bool hybrid_interp = false)
-      : func_(std::move(s)), hybrid_interp_(hybrid_interp)
+  source(md_gpu_func<P> s) : func_(std::move(s))
   {
     static_assert(has_gpu_enabled<source<P>>,
                   "cannot set a GPU source function without CUDA or ROCM enabled");
   }
   //! make an interpolation moment source
-  source(md_mom_func<P> s, std::vector<moment_id> mids, bool hybrid_interp = false)
-    : func_(std::move(s)), mids_(std::move(mids)), hybrid_interp_(hybrid_interp)
+  source(md_mom_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids))
   {}
   //! make an interpolation moment source with indicies
-  source(md_mom_and_idx_func<P> s, std::vector<moment_id> mids,
-         bool hybrid_interp = false)
-    : func_(std::move(s)), mids_(std::move(mids)), hybrid_interp_(hybrid_interp)
+  source(md_mom_idx_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids))
   {}
   //! make an interpolation moment source using a GPU device data
-  source(md_gpu_mom_func<P> s, std::vector<moment_id> mids,
-         bool hybrid_interp = false)
-    : func_(std::move(s)), mids_(std::move(mids)), hybrid_interp_(hybrid_interp)
+  source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids))
   {
     static_assert(has_gpu_enabled<source<P>>,
                   "cannot set a GPU moment source function without CUDA or ROCM enabled");
   }
 
   //! variant holding all permissible function types
-  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>, md_mom_and_idx_func<P>,
+  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>, md_mom_idx_func<P>,
                md_gpu_func<P>, md_gpu_mom_func<P>> func_;
   //! holds the moment ids for moment sources
   std::vector<moment_id> mids_;
-  //! indicates whether to use hybrid source interpolation
-  bool hybrid_interp_ = false;
 };
 
 /*!
@@ -1767,7 +1761,7 @@ public:
     sources_hybrid_[idx] = hybrid_interp;
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
-  void set_source(md_mom_and_idx_func<P> fmd, std::vector<moment_id> mids,
+  void set_source(md_mom_idx_func<P> fmd, std::vector<moment_id> mids,
                   bool hybrid_interp = false) {
     rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
@@ -1815,12 +1809,12 @@ public:
           using current_type = std::decay_t<decltype(s)>;
           if constexpr (uses_moments<current_type>) {
             if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
-              this->set_source(std::move(s), std::move(src.mids_), src.hybrid_interp_);
+              this->set_source(std::move(s), std::move(src.mids_));
           } else if constexpr (std::is_same_v<current_type, separable_func<P>>) {
             this->add_source(std::move(s));
           } else {
             if constexpr (not uses_gpu<current_type> or has_gpu_enabled<pde_scheme<P>>)
-              this->set_source(std::move(s), src.hybrid_interp_);
+              this->set_source(std::move(s));
           }
         }, std::move(src.func_));
     return *this;

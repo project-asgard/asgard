@@ -438,7 +438,7 @@ void hybrid_maxwellian_collision()
   moment_id const im2 = pde.register_moment(moment{2});
   std::vector<moment_id> const mids = {im0, im1, im2};
 
-  md_mom_and_idx_func<P> hybrid_maxwellian =
+  md_mom_idx_func<P> hybrid_maxwellian =
       [=](P, vector2d<P> const &nodes, momentset<P> const &moments,
           std::vector<int> const &indexes, std::vector<P> &vals) -> void {
     static_cast<void>(nodes);

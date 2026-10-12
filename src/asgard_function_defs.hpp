@@ -139,15 +139,16 @@ using md_mom_func = std::function<void(P t, vector2d<P> const &x, momentset<P> c
  * \ingroup asgard_funcdef
  * \brief Signature for a non-separable function with moment and index dependence
  *
- * The signature is the same as asgard::md_func but has an additional moment dependence and includes the current active elements.
- *
- * Moments are created by asgard::pde_scheme::register_moment which returns an asgard::moment_id,
- * using the id the vector with values for the moments can be accessed with moment[id].
+ * The signature is the same as asgard::md_mom_func but has an additional dependence on
+ * the current active sparse grid cells.
+ * Do not use this, unless you understand how the indexing of the cells works in practice.
+ * Currently, this is primarily used in for the BGK hybrid interpolation.
  *
  * See \ref asgard_examples_bgk "BGK example" for details.
  */
 template<typename P>
-using md_mom_and_idx_func = std::function<void(P t, vector2d<P> const &x, momentset<P> const &moments, std::vector<int> const &indexes, std::vector<P> &fx)>;
+using md_mom_idx_func = std::function<void(P t, vector2d<P> const &x, momentset<P> const &moments,
+                                           std::vector<int> const &indexes, std::vector<P> &fx)>;
 
 /*!
  * \ingroup asgard_funcdef
@@ -208,7 +209,7 @@ using md_gpu_mom_func_f = std::function<void(int64_t const num, P t, P const x[]
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! variant holding any of the possible multidimensional source functions
 template<typename P>
-using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_mom_and_idx_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>>;
+using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_mom_idx_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>>;
 //! variant holding any of the possible multidimensional field functions
 template<typename P>
 using md_field_func = std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>>;
@@ -217,7 +218,7 @@ using md_field_func = std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P
 template<typename F> struct uses_mom_trait : std::false_type {};
 //! specializations
 template<typename P> struct uses_mom_trait<md_mom_func<P>> : std::true_type {};
-template<typename P> struct uses_mom_trait<md_mom_and_idx_func<P>> : std::true_type {};
+template<typename P> struct uses_mom_trait<md_mom_idx_func<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_mom_func_f<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_gpu_mom_func<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_gpu_mom_func_f<P>> : std::true_type {};

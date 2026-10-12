@@ -764,14 +764,15 @@ template<typename P>
 void moment_manager<P>::make_nodal(
     moment_id id, interpolation_manager<P> const &interp,
     hierarchy_manipulator<P> const &hier,
-    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
+    kronmult::workspace<P> &kwork, std::vector<P> &nodal) const
 {
   update_position_grid_dsort();
 
   if (num_pos_ == 1 and needs_poisson(id))
     cache_raw_from_level(id, hier);
 
-  interp.pos2nodal(pos_grid, raw_vals[id].data(), workspace, kwork);
+  nodal.resize(pos_grid.num_dof());
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), nodal.data(), kwork);
 
   interps[id].resize(pntr.back() * full_block);
 
@@ -782,7 +783,7 @@ void moment_manager<P>::make_nodal(
   {
     P *base = interps[id].data() + pntr[i] * full_block;
     for (int j = 0; j < pos_block; j++)
-      std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+      std::fill_n(base + j * vel_block, vel_block, nodal[i * pos_block + j]);
 
     P *out = base + full_block;
     for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)

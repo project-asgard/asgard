@@ -311,6 +311,10 @@ void discretization_manager<precision>::set_initial_condition()
   }
   #endif
 
+  interpolation_plan interplan;
+  if (initial_md_)
+    interplan.enable();
+
   sparse_grid &grid = terms.grid;
 
   bool keep_refining = true;
@@ -323,14 +327,15 @@ void discretization_manager<precision>::set_initial_condition()
     state.resize(terms.num_dof());
 
     if (initial_md_)
-      terms.interp(grid, terms.conn, {}, time, 1,
+      terms.interp(interplan, grid, terms.conn, {}, time, 1,
                    // using the moment signature, even thought the initial conditions
                    // cannot have a moment dependence
                    [&](precision t, vector2d<precision> const &x,
-                       momentset<precision> const &, std::vector<precision> &vals)
+                       momentset<precision> const &, std::vector<int> const &,
+                       std::vector<precision> &vals)
                        -> void {
                          initial_md_(t, x, vals);
-                   }, 0, state, terms.kwork);
+                   }, 0, state.data(), terms.kwork);
     else
       std::fill(state.begin(), state.end(), precision{0});
 
