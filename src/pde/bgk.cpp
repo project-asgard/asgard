@@ -771,6 +771,8 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex1");
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex2");
   test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex1 -nohybrid");
   test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex2 -nohybrid");
 
@@ -778,7 +780,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  test_energy<float>(pde_mode::poisson, "-m 8 -n 100 -s imex2 -nohybrid");
+  test_energy<float>(pde_mode::poisson, "-m 8 -n 100 -s imex2 -a 1.E-2");
 
 #endif
 }
