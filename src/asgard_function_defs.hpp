@@ -199,6 +199,17 @@ using md_gpu_mom_func = std::function<void(int64_t const num, P t, P const x[], 
 
 /*!
  * \ingroup asgard_funcdef
+ * \brief Signature for a non-separable function with moment and index dependence on the GPU
+ *
+ * This is the GPU version of asgard::md_mom_idx_func with inputs similar to asgard::md_gpu_func
+ *
+ * See \ref asgard_examples_bgk "BGK example" for details.
+ */
+template<typename P>
+using md_gpu_mom_idx_func = std::function<void(int64_t const num, P t, P const x[], momentset_gpu<P> const &moments, int const indexes[], P fx[])>;
+
+/*!
+ * \ingroup asgard_funcdef
  * \brief Signature for a GPU non-separable function that accepts an moment and field parameters
  *
  * This is the GPU version of asgard::md_mom_func_f with inputs similar to asgard::md_gpu_mom_func
@@ -213,6 +224,9 @@ using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, 
 //! variant holding any of the possible multidimensional field functions
 template<typename P>
 using md_field_func = std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>>;
+//! variant holding any of the possible multidimensional field functions with index dependence
+template<typename P>
+using md_hybrid_func = std::variant<std::monostate, md_mom_idx_func<P>, md_gpu_mom_idx_func<P>>;
 
 //! trait type that indicates if a function signature uses moments
 template<typename F> struct uses_mom_trait : std::false_type {};
@@ -232,6 +246,7 @@ template<typename P> struct uses_gpu_trait<md_gpu_func<P>> : std::true_type {};
 template<typename P> struct uses_gpu_trait<md_gpu_func_f<P>> : std::true_type {};
 template<typename P> struct uses_gpu_trait<md_gpu_mom_func<P>> : std::true_type {};
 template<typename P> struct uses_gpu_trait<md_gpu_mom_func_f<P>> : std::true_type {};
+template<typename P> struct uses_gpu_trait<md_gpu_mom_idx_func<P>> : std::true_type {};
 
 template<typename F> constexpr bool uses_gpu = uses_gpu_trait<F>::value;
 

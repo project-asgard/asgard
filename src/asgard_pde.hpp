@@ -1936,7 +1936,23 @@ public:
             "hybrid interpolation requires a pde_domain with position dimensions");
     rassert(domain_.num_vel() > 0,
             "hybrid interpolation requires a pde_domain with velocity dimensions");
-    rassert(not ref_hybrid_, "hybrid refinement source has already been added, cannot have two");
+    rassert(std::holds_alternative<std::monostate>(ref_hybrid_),
+            "hybrid refinement source has already been added, cannot have two");
+    has_interp_funcs = true;
+    ref_hybrid_ = std::move(func);
+    add_density_moment_if_electric(moments);
+    ref_hybrid_moms_ = std::move(moments);
+  }
+  //! set an hybrid interpolation function for adaptivity, moments will be used if provided (internal use)
+  void set_adapt_hybrid(md_gpu_mom_idx_func<P> func, std::vector<moment_id> moments = {}) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU hybrid adapt weight requires a GPU backend enabled with either CUDA or ROCM");
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+    rassert(std::holds_alternative<std::monostate>(ref_hybrid_),
+            "hybrid refinement source has already been added, cannot have two");
     has_interp_funcs = true;
     ref_hybrid_ = std::move(func);
     add_density_moment_if_electric(moments);
@@ -2022,7 +2038,7 @@ private:
 
   md_field_func<P> ref_interp_;
   std::vector<moment_id> ref_moments_;
-  md_mom_idx_func<P> ref_hybrid_;
+  md_hybrid_func<P> ref_hybrid_;
   std::vector<moment_id> ref_hybrid_moms_;
 };
 

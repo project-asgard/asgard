@@ -639,7 +639,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
                                       hierarchy_manipulator<P> const &hier, interpolation_manager<P> const &interp,
                                       kronmult::workspace<P> &work) const
 {
-  std::visit([&](auto &p) {
+  std::visit([&, this](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
       p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
@@ -710,7 +710,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
         w1.vec = raw_vals[melectric];
-        interp.pos2nodal(dev, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(dev, pos_grid, w1.vec.data(), this->wav_scale, w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
         moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);

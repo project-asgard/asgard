@@ -118,7 +118,7 @@ private:
           return uses_moments<current_type>;
         }, interp_);
     }
-    //! indicates whether the weights use moments
+    //! indicates whether the weights use GPU
     bool is_gpu() const {
       return std::visit([](auto const &v) -> bool {
           using current_type = std::decay_t<decltype(v)>;
@@ -130,20 +130,29 @@ private:
     //! holds the interpolation weight variant
     md_field_func<P> interp_;
   };
-
+  //! wrapper around a hybrid source weight
   struct hybrid_weights {
+    //! calls the CPU version of the weight
     void operator ()
       (P t, vector2d<P> const &x, momentset<P> const &moments,
        std::vector<int> const &indexes, std::vector<P> &fx) const
     {
-      func_(t, x, moments, indexes, fx);
+      assert(std::holds_alternative<md_mom_idx_func<P>>(func_));
+      std::get<md_mom_idx_func<P>>(func_)(t, x, moments, indexes, fx);
     }
     //! wrapper around a hybrid weight
     bool is_hybrid() const { return true; }
+    //! indicates whether the weights use GPU
+    bool is_gpu() const {
+      return std::visit([](auto const &v) -> bool {
+          using current_type = std::decay_t<decltype(v)>;
+          return uses_gpu<current_type>;
+        }, func_);
+    }
     //! indicates whether the hybrid source has been initialized
-    operator bool () const { return !!func_; }
+    operator bool () const { return (not std::holds_alternative<std::monostate>(func_)); }
     //! the hybrid source function
-    md_mom_idx_func<P> func_;
+    md_hybrid_func<P> func_;
   };
 
   interp_weights iweights_;

@@ -390,6 +390,15 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 
   int const num_dims = domain_.num_dims();
 
+  int const num_pos = domain_.num_pos();
+
+  // TODO: merge these into a single if-def
+  #ifdef ASGARD_USE_GPU
+  std::ignore = num_dims;
+  #else
+  std::ignore = num_pos;
+  #endif
+
   if constexpr (std::is_same_v<opmode, term_md<P>>) {
     std::vector<term_1d<P>> nuI(domain_.num_dims(), term_identity{});
     nuI[0] = term_volume<P>{nu};

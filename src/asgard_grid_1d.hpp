@@ -47,9 +47,9 @@ public:
     volume = 0,
     //! \brief Uses the full volume and edge connectivity
     full,
-    //! \brief Column transfomed volumes from diagonal (but not row transformed)
+    //! \brief Column transformed volumes from diagonal (but not row transformed)
     col_volume,
-    //! \brief Column transfomed full from triangular (but not row transformed)
+    //! \brief Column transformed full from triangular (but not row transformed)
     col_full,
   };
   //! Type tag for column transformations

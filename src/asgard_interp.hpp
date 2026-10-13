@@ -563,7 +563,8 @@ public:
       std::vector<P> const &nodal = [&]() -> std::vector<P> const &
         {
           if (plan.uses_field()) {
-            return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
+            // return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
+            return ifield;
           } else {
             if (plan.uses_hybrid())
               pos2nodal(dev, grid, state, gpu_t1.data(), work);
@@ -611,7 +612,7 @@ public:
     tools::time_event perf_("interpolation source-gpu");
     {
       // tools::time_event perf_("source func");
-      func(time, nodes(grid), moments, cpu_it1[dev()]);
+      func(time, nodes(grid), moments, grid.indexes(), cpu_it1[dev()]);
     }
     gpu_it1[dev()] = cpu_it1[dev()];
     nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);

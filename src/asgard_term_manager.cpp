@@ -332,11 +332,11 @@ void term_manager<P>::apply_tmpl_gpu(
       interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
       interp.gpu_it1[0].copy_to_host(interp.ifield);
     }
-    if (not interp.hybrid_ifield.empty()) {
-      interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
-      interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
-      interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
-    }
+    // if (not interp.hybrid_ifield.empty()) {
+    //   interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
+    //   interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+    //   interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
+    // }
 
     bool term_found = false; // does this GPU have at least 1 term
 
