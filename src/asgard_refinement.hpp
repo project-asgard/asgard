@@ -131,7 +131,24 @@ private:
     md_field_func<P> interp_;
   };
 
+  struct hybrid_weights {
+    void operator ()
+      (P t, vector2d<P> const &x, momentset<P> const &moments,
+       std::vector<int> const &indexes, std::vector<P> &fx) const
+    {
+      func_(t, x, moments, indexes, fx);
+    }
+    //! wrapper around a hybrid weight
+    bool is_hybrid() const { return true; }
+    //! indicates whether the hybrid source has been initialized
+    operator bool () const { return !!func_; }
+    //! the hybrid source function
+    md_mom_idx_func<P> func_;
+  };
+
   interp_weights iweights_;
+
+  hybrid_weights ihybrid_;
 
   std::vector<moment_id> moments_;
 

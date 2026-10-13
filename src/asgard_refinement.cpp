@@ -20,13 +20,21 @@ refinement_manager<P>::refinement_manager(prog_opts const &options, pde_scheme<P
     rtol = static_cast<P>(options.adapt_relative.value_or(0));
 
     iweights_.interp_ = std::move(pde.ref_interp_);
+    ihybrid_.func_    = std::move(pde.ref_hybrid_);
 
     moments_ = std::move(pde.ref_moments_);
+    if (not pde.ref_hybrid_moms_.empty()) {
+      // get the unique moments, if there are repetitions
+      moments_.insert(moments_.end(), pde.ref_hybrid_moms_.begin(), pde.ref_hybrid_moms_.end());
+      std::sort(moments_.begin(), moments_.end(),
+                [](moment_id a, moment_id b) -> bool { return a() < b(); });
+      moments_.erase(std::unique(moments_.begin(), moments_.end()), moments_.end());
+    }
 
     if (iweights_) {
       iplan.enable();
       iplan.stop_hier();
-      iplan.use_hybrid(pde.ref_hybrid_);
+      iplan.use_moments(iweights_.is_moment());
     }
   }
 }
@@ -109,28 +117,30 @@ void refinement_manager<P>::refine_(std::vector<P> const &state, strategy mode,
     };
 
   // add the correction due to the interpolation terms
+  if (not moments_.empty()) {
+    // moments can be associated with either regular or hybrid refinement weight
+    terms.moms.update_position_grid(terms.grid);
+    std::visit([&](auto &p)
+      {
+        if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
+          p.update_level(terms.grid.current_level(0));
+        } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
+          p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
+        }
+      }, terms.moms.poisson_solver);
+    terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.conn, terms.hier, terms.kwork);
+  }
+
   if (iplan.is_enabled()) {
-    if (iweights_.is_moment()) {
-      terms.moms.update_position_grid(terms.grid);
-      std::visit([&](auto &p)
-        {
-          if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
-            p.update_level(terms.grid.current_level(0));
-          } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
-            p.update_preconditioner(terms.moms.get_position_grid(), terms.conn, poisson_bc::periodic);
-          }
-        }, terms.moms.poisson_solver);
-      terms.moms.compute_interps(moments_, terms.grid, state, terms.interp, terms.conn, terms.hier, terms.kwork);
-      iplan.use_moments(true);
-      terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
-                   1, iweights_, 0, terms.t1.data(), terms.kwork);
-      update_stats(terms.t1);
-    } else { // no moments in the adaptive weight
-      iplan.use_moments(false);
-      terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
-                   1, iweights_, 0, terms.t1.data(), terms.kwork);
-      update_stats(terms.t1);
-    }
+    terms.interp(iplan, terms.grid, terms.conn, terms.moms.get_cached_interps(), 0, state.data(),
+                  1, iweights_, 0, terms.t1.data(), terms.kwork);
+    update_stats(terms.t1);
+  }
+
+  if (ihybrid_) {
+    terms.interp(terms.grid, terms.conn, terms.moms.get_cached_interps(), 0,
+                 1, ihybrid_, 0, terms.t1.data(), terms.kwork);
+    update_stats(terms.t1);
   }
 
   terms.grid.refine(terms.conn[connect_1d::hierarchy::volume], mode, stats);

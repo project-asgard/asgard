@@ -334,11 +334,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
         if (not t.tmd.get_interp_moments().empty()) {
           t.interplan.use_moments();
         }
-        if (t.tmd.uses_hybrid_interp()) {
-          rassert(not t.tmd.is_gpu_interpolatory(),
-                  "hybrid interpolation is not implemented for GPU interpolation functions");
-          t.interplan.use_hybrid();
-        }
         #ifdef ASGARD_USE_GPU
         if (t.tmd.is_gpu_interpolatory()) {
           t.interplan.use_gpu_func();

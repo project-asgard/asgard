@@ -293,25 +293,20 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     }
   }
 
-  auto apply_interp = [&](source_entry_interp<P> const &src, P alpha_) {
-    interp(grid, conn, moms.get_cached_interps(), time, alpha_, src, P{1}, y, kwork);
-  };
-
   if (group == group_id::all()) {
-  for (auto const &src : sources_md) {
-    if (not src or not resources.owns(src.rec)) continue;
+    P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+    for (auto const &src : sources_md)
+    {
+      if (not src or not resources.owns(src.rec)) continue;
 
-    if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-      apply_interp(src, P{1});
-    else
-      apply_interp(src, alpha);
+      interp(grid, conn, moms.get_cached_interps(), time, al_, src, P{1}, y, kwork);
     }
   } else {
-    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()]) {
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        apply_interp(sources_md[group()], P{1});
-      else
-        apply_interp(sources_md[group()], alpha);
+    if (!!sources_md[group()] and resources.owns(sources_md[group()].rec))
+    {
+      P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+
+      interp(grid, conn, moms.get_cached_interps(), time, al_, sources_md[group()], P{1}, y, kwork);
     }
   }
 

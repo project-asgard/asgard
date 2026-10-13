@@ -356,30 +356,13 @@ void hybrid_interp_requires_position_velocity_dims()
   options.degree = 1;
   options.start_levels = {1, 1};
 
-  auto interp_func = [](P, vector2d<P> const &, std::vector<P> const &u,
+  auto interp_func = [](P, vector2d<P> const &, momentset<P> const &, std::vector<int> const &,
                         std::vector<P> &vals) -> void {
-    vals = u;
+    std::fill(vals.begin(), vals.end(), P{0});
   };
 
-  pde_scheme<P> unset_split(options, pde_domain<P>(2));
-  terror_message(unset_split += term_interp<P>(interp_func), "position dimensions");
-//   bool rejected = false;
-//   try {
-//
-//   } catch (std::runtime_error const &e) {
-//     rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
-//   }
-//   tassert(rejected);
-
   pde_scheme<P> adapt_unset_split(options, pde_domain<P>(2));
-  terror_message(adapt_unset_split.set_adapt_weight(interp_func, true), "position dimensions");
-  // rejected = false;
-  // try {
-  //   adapt_unset_split.set_adapt_weight(interp_func, true);
-  // } catch (std::runtime_error const &e) {
-  //   rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
-  // }
-  // tassert(rejected);
+  terror_message(adapt_unset_split.set_adapt_hybrid(interp_func), "position dimensions");
 
   auto source_func = [](P, vector2d<P> const &, std::vector<P> &vals) -> void {
     std::fill(vals.begin(), vals.end(), P{0});
@@ -388,24 +371,10 @@ void hybrid_interp_requires_position_velocity_dims()
   pde_scheme<P> pos_only(options,
                          pde_domain<P>(position_dims{2}, velocity_dims{0}));
   terror_message(pos_only += source<P>(source_func), "velocity dimensions");
-  // rejected = false;
-  // try {
-  //   pos_only += source<P>(source_func, true);
-  // } catch (std::runtime_error const &e) {
-  //   rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
-  // }
-  // tassert(rejected);
 
   pde_scheme<P> adapt_pos_only(options,
                                pde_domain<P>(position_dims{2}, velocity_dims{0}));
-  terror_message(adapt_pos_only.set_adapt_weight(interp_func, true), "velocity dimensions");
-  // rejected = false;
-  // try {
-  //   adapt_pos_only.set_adapt_weight(interp_func, true);
-  // } catch (std::runtime_error const &e) {
-  //   rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
-  // }
-  // tassert(rejected);
+  terror_message(adapt_pos_only.set_adapt_hybrid(interp_func), "velocity dimensions");
 }
 
 template<typename P>
@@ -448,9 +417,6 @@ void hybrid_maxwellian_collision()
   md_mom_idx_func<P> hybrid_maxwellian =
       [=](P, vector2d<P> const &nodes, momentset<P> const &moments,
           std::vector<int> const &indexes, std::vector<P> &vals) -> void {
-    static_cast<void>(nodes);
-
-    std::cout << " called\n";
 
     std::vector<P> const &m0 = moments[im0];
     std::vector<P> const &m1 = moments[im1];

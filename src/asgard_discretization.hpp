@@ -18,8 +18,6 @@
 namespace asgard
 {
 
-inline sparse_grid* global_grid = nullptr;
-
 /*!
  * \ingroup asgard_discretization
  * \brief Wrapper around several aspects of the pde discretization
@@ -125,7 +123,7 @@ public:
     return terms.has_poisson();
   }
   //! check if the terms have moment dependence
-  bool has_moments() const { return terms.moms; } 
+  bool has_moments() const { return terms.moms; }
 
   //! computes the right-hand-side of the ode
   void ode_rhs(group_id gid, precision time, std::vector<precision> const &current,

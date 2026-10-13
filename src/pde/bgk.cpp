@@ -393,25 +393,30 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
 
     P const adapt_scale = 10.0 * nu * dt;
 
-    #ifdef ASGARD_USE_GPU
-    // see the 1x1v case
-    pde += asgard::operators::simple_bgk_collisions{nu};
-    // using square initial condition and with weight divided by 10
-    // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
-    // add default adaptivity (??) think about it
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
-    std::ignore = fbgk;
-    #else
-    pde += asgard::term_md<P>(nuI);
-    pde.set_source(fbgk, mids);
+    if (use_hybrid) {
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+    } else {
+      #ifdef ASGARD_USE_GPU
+      // see the 1x1v case
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      // using square initial condition and with weight divided by 10
+      // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
+      // add default adaptivity (??) think about it
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+      std::ignore = fbgk;
+      #else
+      pde += asgard::term_md<P>(nuI);
+      pde.set_source(fbgk, mids);
 
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
-    #endif
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+      #endif
+    }
 
   } else /* if (dims == 3) */ {
 
     // the simple for of the BGK operator (shows above) is built into the ASGarD library
-    // it can be used for any combination of position/velocity dimensions 1 - 3
+    // it can be used for matching number of velocity and position dimensions, 1D, 2D or 3D
     pde += asgard::operators::simple_bgk_collisions{nu};
     pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
   }

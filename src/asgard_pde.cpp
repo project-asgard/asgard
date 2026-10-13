@@ -565,19 +565,12 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         }
       }
     };
-
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
-    };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
-      this->set_source(fbgk, {im0, im1, im2}, true);
+      this->set_source(fbgk, {im0, im1, im2});
     } else {
-      this->set_adapt_weight(wbgk, {im0, im1, im2});
+      this->set_adapt_hybrid(fbgk, {im0, im1, im2});
     }
   }
   break;
@@ -660,19 +653,12 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         }
       }
     };
-
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
-    };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
-      this->set_source(fbgk, mids, true);
+      this->set_source(fbgk, mids);
     } else {
-      this->set_adapt_weight(wbgk, mids);
+      this->set_adapt_hybrid(fbgk, mids);
     }
   }
   break;
@@ -767,19 +753,12 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         }
       }
     };
-
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, asgard::global_grid->iset().indexes(), vals);
-    };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
-      this->set_source(fbgk, mids, true);
+      this->set_source(fbgk, mids);
     } else {
-      this->set_adapt_weight(wbgk, mids);
+      this->set_adapt_hybrid(fbgk, mids);
     }
   }
   break;

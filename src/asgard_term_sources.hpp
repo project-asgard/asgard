@@ -68,7 +68,6 @@ struct source_entry_interp
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                   std::vector<int> const &indexes, std::vector<P> &vals) const
   {
-
     assert(not is_gpu());
     if (std::holds_alternative<md_mom_idx_func<P>>(func)) {
       std::get<md_mom_idx_func<P>>(func)(t, x, moments, indexes, vals);
