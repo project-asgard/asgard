@@ -377,8 +377,8 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
     if (has_field_interp)
       interp.ifield.resize(1);
-    if (has_hybrid_field_interp)
-      interp.hybrid_ifield.resize(1);
+    // if (has_hybrid_field_interp)
+    //   interp.hybrid_ifield.resize(1);
 
     // handle the moment dependencies, identify regular and interp moments for each group
     // respect the MPI and GPU distributions

@@ -62,7 +62,7 @@ struct interpolation_plan
     else
       plan_mode_ &= ~(1 << gpu_func_);
   }
-  //! does the interpolation project only in position directions
+  //! does the interpolation project only in position directions (incomplete feature)
   void use_hybrid(bool val = true) {
     if (val)
       plan_mode_ |= (1 << hybrid_);
@@ -303,12 +303,14 @@ public:
     tools::time_event perf_("interpolation term");
     assert(plan.is_enabled());
 
-    interp_dims const idim = (plan.uses_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+    // interp_dims const idim = (plan.uses_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+    interp_dims constexpr idim = interp_dims::full;
 
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
         if (plan.uses_field()) {
-          return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
+          // return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
+          return ifield;
         } else {
           wav2nodal(idim, grid, state, it1.data(), work);
           return it1;
@@ -647,14 +649,14 @@ public:
   size_t used_bytes() const {
     size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
               + nodes1d_.size() * sizeof(P)
-              + (ifield.size() + hybrid_ifield.size() + it1.size() + it2.size()) * sizeof(P);
+              + (ifield.size() + it1.size() + it2.size()) * sizeof(P);
     t += wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
     return t;
   }
   //! values for the interpolation field, allows reuse for several interp ops
   mutable std::vector<P> ifield;
-  //! hybrid interpolation field, nodal in position and wavelet in velocity
-  mutable std::vector<P> hybrid_ifield;
+  // //! hybrid interpolation field, nodal in position and wavelet in velocity
+  // mutable std::vector<P> hybrid_ifield;
   //! temporary workspace vector
   mutable std::vector<P> it1;
   //! temporary workspace vector

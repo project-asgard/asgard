@@ -85,10 +85,10 @@ void term_manager<P>::apply_tmpl(
     interp.ifield.resize(grid.num_dof());
     interp.wav2nodal(grid, px, interp.ifield.data(), kwork);
   }
-  if (not interp.hybrid_ifield.empty()) {
-    interp.hybrid_ifield.resize(grid.num_dof());
-    interp.pos2nodal(grid, px, interp.hybrid_ifield.data(), kwork);
-  }
+  // if (not interp.hybrid_ifield.empty()) {
+  //   interp.hybrid_ifield.resize(grid.num_dof());
+  //   interp.pos2nodal(grid, px, interp.hybrid_ifield.data(), kwork);
+  // }
 
   auto const group = terms_group_range(gid);
   int icurrent = group.ibegin();
