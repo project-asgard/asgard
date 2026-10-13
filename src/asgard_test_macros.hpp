@@ -40,7 +40,7 @@ inline bool asgard_all_tests  = true;  // reports total result of all tests
   try { \
     (_code_); \
   } catch (std::runtime_error &err) { \
-    if (std::string_view(err.what()).find((_message_)) != 0) { \
+    if (std::string_view(err.what()).find((_message_)) == std::string::npos) { \
       throw std::runtime_error(" expected error: '" + std::string((_message_)) + "' but found '" + err.what() + "'"); \
     } \
   } \

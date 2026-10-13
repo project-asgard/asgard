@@ -838,25 +838,21 @@ private:
 template<typename P>
 struct term_interp {
   //! create the intermediate term and set the interpolation function
-  explicit term_interp(md_func_f<P> itep, bool hybrid_interp = false)
-      : interp(std::move(itep)), hybrid(hybrid_interp) {}
+  explicit term_interp(md_func_f<P> itep)
+      : interp(std::move(itep)) {}
     //! create the intermediate term and set the interpolation function
-  explicit term_interp(md_gpu_func_f<P> itep, bool hybrid_interp = false)
-      : interp(std::move(itep)), hybrid(hybrid_interp) {}
+  explicit term_interp(md_gpu_func_f<P> itep)
+      : interp(std::move(itep)) {}
   //! create the term with the moment interpolation function and moment ids
-  explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids,
-                       bool hybrid_interp = false)
-      : interp(std::move(itep)), mids(std::move(ids)), hybrid(hybrid_interp) {}
+  explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! create the term with the moment interpolation function and moment ids
-  explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids,
-                       bool hybrid_interp = false)
-      : interp(std::move(itep)), mids(std::move(ids)), hybrid(hybrid_interp) {}
+  explicit term_interp(md_gpu_mom_func_f<P> itep, std::vector<moment_id> ids)
+      : interp(std::move(itep)), mids(std::move(ids)) {}
   //! holds the interpolation function
   std::variant<md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>> interp;
   //! moment ids required for the interpolation function
   std::vector<moment_id> mids;
-  //! whether to project only in position directions
-  bool hybrid = false;
 };
 
 /*!
@@ -1209,8 +1205,7 @@ public:
   }
   //! set an interpolation term
   term_md(term_interp<P> tint)
-    : mode_(mode::interpolatory), mids_(std::move(tint.mids)),
-      hybrid_interp_(tint.hybrid)
+    : mode_(mode::interpolatory), mids_(std::move(tint.mids))
   {
     if (std::holds_alternative<md_mom_func_f<P>>(tint.interp)) {
       rassert(not mids_.empty(), "moment interpolation set but no moment_id provides");
@@ -1296,12 +1291,14 @@ public:
   }
   //! returns true if the term uses position-only hybrid interpolation
   bool uses_hybrid_interp() const {
-    if (hybrid_interp_)
-      return true;
-
-    for (auto const &ch : chain_)
-      if (ch.uses_hybrid_interp())
-        return true;
+    // will report using the function signature
+    // if (hybrid_interp_)
+    //   return true;
+    //
+    // chain cannot be a hybrid, may contains one but that is handled at the level of individual term
+    // for (auto const &ch : chain_)
+    //   if (ch.uses_hybrid_interp())
+    //     return true;
 
     return false;
   }
@@ -1439,8 +1436,6 @@ private:
                md_gpu_mom_func_f<P>> interp_ = std::monostate{};
   // moments needed by the interpolation
   std::vector<moment_id> mids_;
-  // whether the interpolation projects only in position directions
-  bool hybrid_interp_ = false;
   // chain of other terms
   std::vector<term_md<P>> chain_;
   // boundary conditions

@@ -298,7 +298,7 @@ pde_scheme<P> make_hybrid_interp_relaxation(prog_opts options,
   };
 
   if (hybrid_interp)
-    pde += term_interp<P>(gx_u, true);
+    pde += term_interp<P>(gx_u);
   else
     pde += term_interp<P>(gx_u);
   pde.set_initial(hybrid_non_equilibrium<P>);
@@ -362,22 +362,24 @@ void hybrid_interp_requires_position_velocity_dims()
   };
 
   pde_scheme<P> unset_split(options, pde_domain<P>(2));
-  bool rejected = false;
-  try {
-    unset_split += term_interp<P>(interp_func, true);
-  } catch (std::runtime_error const &e) {
-    rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
-  }
-  tassert(rejected);
+  terror_message(unset_split += term_interp<P>(interp_func), "position dimensions");
+//   bool rejected = false;
+//   try {
+//
+//   } catch (std::runtime_error const &e) {
+//     rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
+//   }
+//   tassert(rejected);
 
   pde_scheme<P> adapt_unset_split(options, pde_domain<P>(2));
-  rejected = false;
-  try {
-    adapt_unset_split.set_adapt_weight(interp_func, true);
-  } catch (std::runtime_error const &e) {
-    rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
-  }
-  tassert(rejected);
+  terror_message(adapt_unset_split.set_adapt_weight(interp_func, true), "position dimensions");
+  // rejected = false;
+  // try {
+  //   adapt_unset_split.set_adapt_weight(interp_func, true);
+  // } catch (std::runtime_error const &e) {
+  //   rejected = std::string(e.what()).find("position dimensions") != std::string::npos;
+  // }
+  // tassert(rejected);
 
   auto source_func = [](P, vector2d<P> const &, std::vector<P> &vals) -> void {
     std::fill(vals.begin(), vals.end(), P{0});
@@ -385,23 +387,25 @@ void hybrid_interp_requires_position_velocity_dims()
 
   pde_scheme<P> pos_only(options,
                          pde_domain<P>(position_dims{2}, velocity_dims{0}));
-  rejected = false;
-  try {
-    pos_only += source<P>(source_func, true);
-  } catch (std::runtime_error const &e) {
-    rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
-  }
-  tassert(rejected);
+  terror_message(pos_only += source<P>(source_func), "velocity dimensions");
+  // rejected = false;
+  // try {
+  //   pos_only += source<P>(source_func, true);
+  // } catch (std::runtime_error const &e) {
+  //   rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
+  // }
+  // tassert(rejected);
 
   pde_scheme<P> adapt_pos_only(options,
                                pde_domain<P>(position_dims{2}, velocity_dims{0}));
-  rejected = false;
-  try {
-    adapt_pos_only.set_adapt_weight(interp_func, true);
-  } catch (std::runtime_error const &e) {
-    rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
-  }
-  tassert(rejected);
+  terror_message(adapt_pos_only.set_adapt_weight(interp_func, true), "velocity dimensions");
+  // rejected = false;
+  // try {
+  //   adapt_pos_only.set_adapt_weight(interp_func, true);
+  // } catch (std::runtime_error const &e) {
+  //   rejected = std::string(e.what()).find("velocity dimensions") != std::string::npos;
+  // }
+  // tassert(rejected);
 }
 
 template<typename P>
@@ -417,6 +421,9 @@ void hybrid_maxwellian_collision()
 
   pde_domain<P> domain(position_dims{1}, velocity_dims{1},
                        {domain_range{0, 1}, domain_range{-10, 10}});
+
+  P const vleft  = domain.xleft(1);
+  P const vright = domain.xright(1);
 
   prog_opts options;
   options.degree = degree;
@@ -443,6 +450,8 @@ void hybrid_maxwellian_collision()
           std::vector<int> const &indexes, std::vector<P> &vals) -> void {
     static_cast<void>(nodes);
 
+    std::cout << " called\n";
+
     std::vector<P> const &m0 = moments[im0];
     std::vector<P> const &m1 = moments[im1];
     std::vector<P> const &m2 = moments[im2];
@@ -466,10 +475,10 @@ void hybrid_maxwellian_collision()
     };
 
     auto wavelet_maxwell =
-        [&](int64_t const v_level, int64_t const v_pos, P const u, P const theta,
+        [=](int64_t const v_level, int64_t const v_pos, P const u, P const theta,
             std::vector<P> &mulin, std::vector<P> &mulout) -> void {
-      P const a = domain.xleft(1);
-      P const b = domain.xright(1);
+      P const a = vleft;
+      P const b = vright;
       P const dv = (v_level == 0) ? b - a : (b - a) / (int64_t{1} << (v_level - 1));
       P const loca = a + v_pos * dv;
 
@@ -560,8 +569,7 @@ void hybrid_maxwellian_collision()
   nu_identity.emplace_back(term_volume<P>{nu});
   nu_identity.emplace_back(term_identity{});
   pde += term_md<P>(std::move(nu_identity));
-  bool constexpr use_hybrid = true;
-  pde += source<P>(hybrid_maxwellian, mids, use_hybrid);
+  pde += source<P>(hybrid_maxwellian, mids);
   pde.set_initial(hybrid_non_equilibrium<P>);
 
   discretization_manager<P> disc(pde, verbosity_level::quiet);
