@@ -8,7 +8,19 @@ namespace asgard
 /*!
  * \brief Describes the stages of the interpolation operation.
  *
- * Uses bit operations to avoid storing multiple bools.
+ * An interpolation operation can have multiple stages and multiple shortcuts can be taken
+ * to avoid repeated or redundant work.
+ * These are expressed with multiple flags, which are stored here in a single int
+ * using bit-wise operations.
+ *
+ * Interpolation is applied to either sources or terms but two have differences.
+ * Both separable and interpolatory terms are stored together in a single data-structure
+ * for purposes of chaining and several of the plan flags depend on the previous and following
+ * terms of the chain, i.e., the plan cannot be figured out by just looking at a single term.
+ * In contrast, sources are stored separately and interpolatory sources do not use
+ * the majority of the flags in the plan.
+ * All relevant information for the source can be determined from looking just at a single source.
+ * Therefore, the plan is used only for terms and not sources.
  */
 struct interpolation_plan
 {
@@ -330,45 +342,33 @@ public:
    */
   template<typename tmd_type>
   void operator ()
-      (interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments, P time,
-       P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work) const
+      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
+       P time, P alpha, tmd_type const &func, P beta, P y[], kronmult::workspace<P> &work) const
   {
-    assert(plan.is_enabled());
     {
       tools::time_event perf_("interpolation source");
       func(time, nodes(grid), moments, grid.indexes(), it1);
     }
-    if (plan.uses_hybrid())
-      nodal2wav<interp_dims::hybrid_pos>(grid, conn, alpha, it1.data(), beta, y, work, it2);
-    else
-      nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(idim, grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
-
-  template<typename tmd_type>
-  void eval_posonly_with_idx
-      (interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, momentset<P> const &moments,
-       P time, P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work) const
+  /*!
+   * \brief Perform interpolation on a basic md_func
+   *
+   * This signature is used to set the initial conditions for the PDE,
+   * it does not use moments or any kind of hybrid interpolation.
+   */
+  void operator ()
+      (sparse_grid const &grid, connection_patterns const &conn,
+       P time, P alpha, md_func<P> const &func, P beta, P y[], kronmult::workspace<P> &work) const
   {
-    assert(plan.is_enabled());
-
-    int64_t const nentries = grid.num_dof();
-
-    // Must size buffers BEFORE callback writes into them
-    it1.assign(nentries, P{0}); // or resize(nentries) if you prefer
-    it2.resize(nentries);
     {
       tools::time_event perf_("interpolation source");
-      func(time, nodes(grid), moments, grid.iset().indexes(), it1);
+      func(time, nodes(grid), it1);
     }
-
-    if (plan.uses_hybrid())
-      nodal2wav<interp_dims::hybrid_pos>(grid, conn, alpha, it1.data(), beta, y, work, it2);
-    else
-      nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
+    nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
 
   //! indicates whether the manager has been initialized

@@ -294,18 +294,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
   }
 
   auto apply_interp = [&](source_entry_interp<P> const &src, P alpha_) {
-    interpolation_plan plan;
-    plan.enable();
-    plan.use_moments(src.is_moment());
-    plan.use_hybrid(src.hybrid_interp);
-
-    if (std::holds_alternative<md_mom_idx_func<P>>(src.func)) {
-      interp.eval_posonly_with_idx(plan, grid, conn, moms.get_cached_interps(),
-                                   time, alpha_, src, P{1}, y, kwork);
-    } else {
-      interp(plan, grid, conn, moms.get_cached_interps(),
-            time, alpha_, src, P{1}, y, kwork);
-    }
+    interp(grid, conn, moms.get_cached_interps(), time, alpha_, src, P{1}, y, kwork);
   };
 
   if (group == group_id::all()) {

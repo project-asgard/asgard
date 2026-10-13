@@ -52,22 +52,7 @@ struct source_entry_interp
 {
   //! resource (GPU/MPI-rank) assigned to this source
   resource rec;
-  //! calls the moment variant, if set for moments
-  // void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
-  //                  std::vector<P> &vals) const
-  // {
-  //   assert(not is_gpu());
-  //   if (std::holds_alternative<md_mom_idx_func<P>>(func)) {
-  //   // This signature requires indexes, so this overload cannot call it.
-  //   // It is intended to be called only from eval_posonly_with_idx().
-  //     throw std::runtime_error("md_mom_idx_func requires indexes (use eval_posonly_with_idx)");
-  //   }
-  //   else if (std::holds_alternative<md_mom_func<P>>(func)) {
-  //     std::get<md_mom_func<P>>(func)(t, x, moments, vals);
-  //   } else {
-  //     std::get<md_func<P>>(func)(t, x, vals);
-  //   }
-  // }
+
   //! calls the moment variant, if set for moments
   void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
                    P vals[]) const
@@ -106,12 +91,14 @@ struct source_entry_interp
         return uses_gpu<std::decay_t<decltype(v)>>;
     }, func);
   }
+  //! indicates whether the entry contains a hybrid interpolation function
+  bool is_hybrid() const {
+    return (std::holds_alternative<md_mom_idx_func<P>>(func));
+  }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
   //! interpolatory function for the source entry
   md_source_func<P> func;
-  //! indicates whether to use hybrid source interpolation
-  bool hybrid_interp = false;
 };
 
 /*!
