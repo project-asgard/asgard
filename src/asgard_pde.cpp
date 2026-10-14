@@ -518,9 +518,15 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     moment_id im2 = this->register_moment(moment(2));
 
     #ifdef ASGARD_USE_GPU
+    gbasis.push_back(domain_.xleft(1));
+    gbasis.push_back(domain_.xright(1));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
     auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
     {
-      gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
+      // gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
+      gpu::bgk_hybrid1D(pdof, gpu_basis, nu, nodes, moments[im0], moments[im1], moments[im2], vals);
     };
     #else
     P const domain_left1  = domain_.xleft(1);
