@@ -518,13 +518,9 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     moment_id im2 = this->register_moment(moment(2));
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
     {
       gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
     };
     #else
     P const domain_left1  = domain_.xleft(1);
@@ -593,14 +589,10 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im10, im01, im20, im02};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
     {
       gpu::bgk_vel2(nu, num_pos, nodes, moments[im0], moments[im10], moments[im01],
                     moments[im20], moments[im02], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
     };
     #else
     P const domain_left2  = domain_.xleft(2);
@@ -683,14 +675,10 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im100, im010, im001, im200, im020, im002};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
     {
       gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
                     moments[im001], moments[im200], moments[im020], moments[im002], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
     };
     #else
     P const domain_left3  = domain_.xleft(3);

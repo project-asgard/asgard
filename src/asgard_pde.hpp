@@ -1765,6 +1765,23 @@ public:
     sources_md_[idx] = std::move(fmd);
     sources_moments_[idx] = std::move(mids);
   }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_gpu_mom_idx_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+    // sources_md_[idx] = std::move(fmd);
+    // sources_moments_[idx] = std::move(mids);
+  }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {
     rassert(smd.is_valid(), "invalid separable function added as source");

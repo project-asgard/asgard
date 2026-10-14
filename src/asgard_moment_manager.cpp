@@ -660,7 +660,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       {
         efield.copy_to_host(this->raw_vals[mid]);
         this->full_level.get(mid).resize(0);
-        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), w2.vec.data(), work);
         gpu::vector<P> &res = this->gpu_interps[0][mid];
         res.resize(this->full_block * grid.num_indexes());
         moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
@@ -710,7 +710,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
         w1.vec = raw_vals[melectric];
-        interp.pos2nodal(dev, pos_grid, w1.vec.data(), this->wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(dev, pos_grid, w1.vec.data(), w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
         moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
@@ -734,7 +734,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
           efield.copy_to_host(this->raw_vals[mid]);
           this->full_level.get(mid).resize(0);
         }
-        interp.pos2nodal(dev, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(dev, this->pos_grid, efield.data(), w2.vec.data(), work);
         gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
         res.resize(this->full_block * grid.num_indexes());
         moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
