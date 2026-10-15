@@ -10,7 +10,7 @@ namespace asgard::legendre
 // transform
 std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
 {
-  assert(degree >= 2); // if you need degree 0 or 1, see the switch statement below
+  // assert(degree >= 2); // if you need degree 0 or 1, see the switch statement below
 
   // Consider the first two levels of the wavelet hierarchy and the corresponding
   // cell-by-cell (non-hierarchical) Legendre basis representation.
@@ -28,60 +28,61 @@ std::array<std::vector<double>, 4> generate_multi_wavelets(int const degree)
   // hard-cording degree 0, 1, 2 (mostly for less rounding)
   // but levels 0 and 1 are even more hard-coded directly into the transform algorithms
   // thus, keeping the degree == 2 special case and a general case for 3 and above
-  // if (degree <= 2)
-  // {
-  //   constexpr double s2 = 1.41421356237309505;
-  //
-  //   switch (degree)
-  //   {
-  //   case 0: {
-  //     double const is2 = 1 / s2;
-  //     std::vector<double> h0 = {is2,};
-  //     std::vector<double> h1 = {is2,};
-  //     std::vector<double> g0 = {-is2,};
-  //     std::vector<double> g1 = {is2,};
-  //     return {h0, h1, g0, g1};
-  //   }
-  //   case 1: {
-  //     double const is2  = 1 / s2;
-  //     double const is22 = 1 / (2 * s2);
-  //     double const is6  = std::sqrt(6.0) / 4;
-  //     std::vector<double> h0 = {is2, -is6, 0, is22};
-  //     std::vector<double> h1 = {is2,  is6, 0, is22};
-  //     std::vector<double> g0 = {0,  is22, -is2, is6};
-  //     std::vector<double> g1 = {0, -is22,  is2, is6};
-  //     return {h0, h1, g0, g1};
-  //   }
-  //   case 2: {
-  //     double const is2  = 1 / s2;
-  //     double const is22 = 1 / (2 * s2);
-  //     double const is24 = 1 / (4 * s2);
-  //     double const is6  = std::sqrt(6.0) / 4;
-  //     double const is30 = 15 / (4.0 * std::sqrt(30.0));
-  //     std::vector<double> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
-  //     std::vector<double> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
-  //     std::vector<double> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
-  //     std::vector<double> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
-  //     return {h0, h1, g0, g1};
-  //   }
-  //   default:
-  //     break;
-  //   };
-  // }
+  // the degree 0 and 1 are used only for the hybrid BGK method
+  if (degree <= 2)
+  {
+    constexpr double s2 = 1.41421356237309505;
 
-  if (degree == 2) {
-    constexpr double s2 = 1.41421356237309505; // std::sqrt(2.0)
-    double const is2  = 1.0 / s2;
-    double const is22 = 1.0 / (2 * s2);
-    double const is24 = 1.0 / (4 * s2);
-    double const is6  = std::sqrt(6.0) / 4;
-    double const is30 = 15 / (4.0 * std::sqrt(30.0));
-    std::vector<double> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
-    std::vector<double> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
-    std::vector<double> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
-    std::vector<double> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
-    return {h0, h1, g0, g1};
+    switch (degree)
+    {
+    case 0: {
+      double const is2 = 1 / s2;
+      std::vector<double> h0 = {is2,};
+      std::vector<double> h1 = {is2,};
+      std::vector<double> g0 = {-is2,};
+      std::vector<double> g1 = {is2,};
+      return {h0, h1, g0, g1};
+    }
+    case 1: {
+      double const is2  = 1 / s2;
+      double const is22 = 1 / (2 * s2);
+      double const is6  = std::sqrt(6.0) / 4;
+      std::vector<double> h0 = {is2, -is6, 0, is22};
+      std::vector<double> h1 = {is2,  is6, 0, is22};
+      std::vector<double> g0 = {0,  is22, -is2, is6};
+      std::vector<double> g1 = {0, -is22,  is2, is6};
+      return {h0, h1, g0, g1};
+    }
+    case 2: {
+      double const is2  = 1 / s2;
+      double const is22 = 1 / (2 * s2);
+      double const is24 = 1 / (4 * s2);
+      double const is6  = std::sqrt(6.0) / 4;
+      double const is30 = 15 / (4.0 * std::sqrt(30.0));
+      std::vector<double> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
+      std::vector<double> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
+      std::vector<double> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
+      std::vector<double> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
+      return {h0, h1, g0, g1};
+    }
+    default:
+      break;
+    };
   }
+
+  // if (degree == 2) {
+  //   constexpr double s2 = 1.41421356237309505; // std::sqrt(2.0)
+  //   double const is2  = 1.0 / s2;
+  //   double const is22 = 1.0 / (2 * s2);
+  //   double const is24 = 1.0 / (4 * s2);
+  //   double const is6  = std::sqrt(6.0) / 4;
+  //   double const is30 = 15 / (4.0 * std::sqrt(30.0));
+  //   std::vector<double> h0 = {is2, -is6, 0, 0, is22, -is30, 0, 0, is24};
+  //   std::vector<double> h1 = {is2,  is6, 0, 0, is22,  is30, 0, 0, is24};
+  //   std::vector<double> g0 = {0, 0, -is22, 0,  is24, -is6, -is2, is30, 0};
+  //   std::vector<double> g1 = {0, 0,  is22, 0, -is24, -is6,  is2, is30, 0};
+  //   return {h0, h1, g0, g1};
+  // }
 
   std::vector<double> g0(pdof * pdof);
   std::vector<double> g1(pdof * pdof);

@@ -55,27 +55,41 @@ struct source_entry_interp
 
   //! calls the moment variant, if set for moments
   void operator() (int64_t const num, P t, P const x[], momentset_gpu<P> const &moments,
-                   P vals[]) const
+                   int const cells[], P vals[]) const
   {
     assert(is_gpu());
-    if (std::holds_alternative<md_gpu_mom_func<P>>(func)) {
-      std::get<md_gpu_mom_func<P>>(func)(num, t, x, moments, vals);
-    } else {
-      std::get<md_gpu_func<P>>(func)(num, t, x, vals);
-    }
+    std::visit([&](auto const &f) -> void {
+        using ftype = std::decay_t<decltype(f)>;
+        if constexpr (std::is_same_v<ftype, md_gpu_mom_idx_func<P>>)
+          f(num, t, x, moments, cells, vals);
+        else if constexpr (std::is_same_v<ftype, md_gpu_mom_func<P>>)
+          f(num, t, x, moments, vals);
+        else if constexpr (std::is_same_v<ftype, md_gpu_func<P>>)
+          f(num, t, x, vals);
+      }, func);
   }
   //! calls the moment+indexes variant
   void operator() (P t, vector2d<P> const &x, momentset<P> const &moments,
                   std::vector<int> const &indexes, std::vector<P> &vals) const
   {
     assert(not is_gpu());
-    if (std::holds_alternative<md_mom_idx_func<P>>(func)) {
-      std::get<md_mom_idx_func<P>>(func)(t, x, moments, indexes, vals);
-    } else if (std::holds_alternative<md_mom_func<P>>(func)) {
-      std::get<md_mom_func<P>>(func)(t, x, moments, vals);
-    } else {
-      std::get<md_func<P>>(func)(t, x, vals);
-    }
+    std::visit([&](auto const &f) -> void {
+        using ftype = std::decay_t<decltype(f)>;
+        if constexpr (std::is_same_v<ftype, md_mom_idx_func<P>>)
+          f(t, x, moments, indexes, vals);
+        else if constexpr (std::is_same_v<ftype, md_mom_func<P>>)
+          f(t, x, moments, vals);
+        else if constexpr (std::is_same_v<ftype, md_func<P>>)
+          f(t, x, vals);
+      }, func);
+
+    // if (std::holds_alternative<md_mom_idx_func<P>>(func)) {
+    //   std::get<md_mom_idx_func<P>>(func)(t, x, moments, indexes, vals);
+    // } else if (std::holds_alternative<md_mom_func<P>>(func)) {
+    //   std::get<md_mom_func<P>>(func)(t, x, moments, vals);
+    // } else {
+    //   std::get<md_func<P>>(func)(t, x, vals);
+    // }
   }
 
   //! indicates whether the entry contains a moment function
@@ -92,7 +106,8 @@ struct source_entry_interp
   }
   //! indicates whether the entry contains a hybrid interpolation function
   bool is_hybrid() const {
-    return (std::holds_alternative<md_mom_idx_func<P>>(func));
+    return (std::holds_alternative<md_mom_idx_func<P>>(func)
+            or std::holds_alternative<md_gpu_mom_idx_func<P>>(func));
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }

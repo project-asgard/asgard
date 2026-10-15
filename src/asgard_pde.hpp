@@ -1779,8 +1779,8 @@ public:
             "hybrid interpolation requires a pde_domain with position dimensions");
     rassert(domain_.num_vel() > 0,
             "hybrid interpolation requires a pde_domain with velocity dimensions");
-    // sources_md_[idx] = std::move(fmd);
-    // sources_moments_[idx] = std::move(mids);
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
   }
   //! add separable right-hand-source, can have multiple
   void add_source(separable_func<P> smd) {

@@ -220,7 +220,7 @@ using md_gpu_mom_func_f = std::function<void(int64_t const num, P t, P const x[]
 #ifndef __ASGARD_DOXYGEN_SKIP
 //! variant holding any of the possible multidimensional source functions
 template<typename P>
-using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_mom_idx_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>>;
+using md_source_func = std::variant<std::monostate, md_func<P>, md_mom_func<P>, md_mom_idx_func<P>, md_gpu_func<P>, md_gpu_mom_func<P>, md_gpu_mom_idx_func<P>>;
 //! variant holding any of the possible multidimensional field functions
 template<typename P>
 using md_field_func = std::variant<std::monostate, md_func_f<P>, md_mom_func_f<P>, md_gpu_func_f<P>, md_gpu_mom_func_f<P>>;

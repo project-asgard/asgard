@@ -523,10 +523,14 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 
     gpu::vector<P> gpu_basis{gbasis};
 
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
+    std::cout << "making gpu  fbgk()\n";
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
+      std::ignore = nodes;
+      std::ignore = cells;
       // gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
-      gpu::bgk_hybrid1D(pdof, gpu_basis, nu, nodes, moments[im0], moments[im1], moments[im2], vals);
+      gpu::bgk_hybrid1D(pdof, gpu_basis, nu, cells, moments[im0], moments[im1], moments[im2], vals);
     };
     #else
     P const domain_left1  = domain_.xleft(1);
@@ -579,8 +583,10 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
+        std::cout << "set_source()\n";
       this->set_source(fbgk, {im0, im1, im2});
     } else {
+        std::cout << "set_weight()\n";
       this->set_adapt_hybrid(fbgk, {im0, im1, im2});
     }
   }

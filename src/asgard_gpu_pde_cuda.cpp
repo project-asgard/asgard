@@ -269,11 +269,71 @@ struct gpu_is_same<A, A> {
   static constexpr bool value = true;
 };
 
+template<typename P>
+__device__ inline P subkernel_wavelet_maxwell_pdof1(
+    P const gbasis[], int idx, P xleft, P xright, P u, P th)
+{
+  // pdof == 1, then each team has only one thread
+  // this is a special case, no need to work so much with vectors and can do things more cleanly
+  if (idx == 0) {
+
+    return sqrt(P{1} / (xleft - xright));
+
+  } else {
+
+    P constexpr is2   = 7.071067811865475e-01; // 1 / sqrt(2)
+
+    int lvl = idx;
+    int num_idx_above = 1;
+    while (lvl >>= 1)
+      num_idx_above <<= 1;
+
+    P const dv = (xright - xleft) / num_idx_above; // (b-a)/2^(lev-1)
+    // Endpoints of wavelet element
+
+    P left  = xleft + (idx - num_idx_above) * dv;;
+    P right = left + dv/2;
+
+    P z_l = (left-u) / sqrt(th);
+    P z_r = (right-u) / sqrt(th);
+
+    // Integrals of 1/√(2π)(1,z,z^2)exp(-z^2/2) from z=a..b
+    P T0_l, T0_r;
+
+    if constexpr (std::is_same_v<P, double>) {
+      T0_l = 0.5 * erf(is2 * z_l); // P T0_l = 0.5*std::erf(z_l/std::sqrt(2.0));
+      T0_r = 0.5 * erf(is2 * z_r);  // P T0_r = 0.5*std::erf(z_r/std::sqrt(2.0));
+    } else {
+      T0_l = 0.5f * erff(is2 * z_l);
+      T0_r = 0.5f * erff(is2 * z_r);
+    }
+
+    P vleft = sqrt(P{2} / dv) * (T0_r - T0_l);
+
+    left += dv;
+    right += dv;
+
+    z_l = (left-u) / sqrt(th);
+    z_r = (right-u) / sqrt(th);
+
+    if constexpr (std::is_same_v<P, double>) {
+      T0_l = 0.5 * erf(is2 * z_l); // P T0_l = 0.5*std::erf(z_l/std::sqrt(2.0));
+      T0_r = 0.5 * erf(is2 * z_r);  // P T0_r = 0.5*std::erf(z_r/std::sqrt(2.0));
+    } else {
+      T0_l = 0.5f * erff(is2 * z_l);
+      T0_r = 0.5f * erff(is2 * z_r);
+    }
+
+    P vright = sqrt(P{2} / dv) * (T0_r - T0_l);
+
+    return gbasis[0] * vleft + gbasis[1] * vright;
+  }
+}
 
 template<typename P, int pdof>
-__device__ inline void subkernel_wavelet_maxwell(
-    P const gbasis[], int idx, P xleft, P xright, P u, P th, P temp[], P out[])
+__device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u, P th, P out[])
 {
+  static_assert(pdof > 1, "the pdof == 1 case is handled separately");
   if (idx == 0) {
     // Integrate from -infty to infty to preserve collision invariants
     P const mid = 0.5*(xleft + xright);
@@ -290,8 +350,8 @@ __device__ inline void subkernel_wavelet_maxwell(
     P const jv  = sqrt(jv2); // inverse root jacobian
 
     out[0] = sqrt(1.0/2.0)*jv*I0;
-    if constexpr (pdof > 1)
-      out[1] = sqrt(3.0/2.0)*jv*jv2*( -I0*mid + I1 );
+    out[1] = sqrt(3.0/2.0)*jv*jv2*( -I0*mid + I1 );
+
     if constexpr (pdof > 2)
       out[2] = sqrt(5.0/8.0)*jv*( (3.0*jv2*jv2*mid*mid-1.0)*I0 - 6.0*jv2*jv2*mid*I1 + 3.0*jv2*jv2*I2);
     if constexpr (pdof > 3)
@@ -303,7 +363,6 @@ __device__ inline void subkernel_wavelet_maxwell(
 
   } else {
 
-    P constexpr s2    = 1.414213562373095; // sqrt(2)
     P constexpr is2   = 7.071067811865475e-01; // 1 / sqrt(2)
     P constexpr is2pi = 3.989422804014327e-01; // 1.0/std::sqrt(2.0*PI)
 
@@ -365,60 +424,125 @@ __device__ inline void subkernel_wavelet_maxwell(
       P jv = sqrt(4.0/dv); // inverse root jacobian
       P jv2= jv*jv;
 
-      out[0] = sqrt(1.0/2.0)*jv*I0;
-      if (pdof > 1)
-        out[1] = sqrt(3.0/2.0)*jv*jv*jv*( -I0*mid + I1 );
-      if (pdof > 2)
-        out[2] = sqrt(5.0/8.0)*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0 - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
-      if (pdof > 3)
-        out[3] = sqrt(7.0/8.0)*jv*( (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
-                                   + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
-                                   -  15.0*jv2*jv2*jv2*mid*I2
-                                   +   5.0*jv2*jv2*jv2*I3
-                                  );
+      out[0 + pdof * l] = sqrt(1.0/2.0)*jv*I0;
+      out[1 + pdof * l] = sqrt(3.0/2.0)*jv*jv*jv*( -I0*mid + I1 );
+
+      if constexpr (pdof > 2)
+        out[2 + pdof * l] = sqrt(5.0/8.0)*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0
+                                               - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
+      if constexpr (pdof > 3)
+        out[3 + pdof * l] = sqrt(7.0/8.0)*jv*( (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
+                                               + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
+                                               -  15.0*jv2*jv2*jv2*mid*I2
+                                               +   5.0*jv2*jv2*jv2*I3
+                                              );
 
     }
-
   }
-
 }
 
 
-template<typename P, int num_threads>
+// the total number of threads must be at least 2 * pdof * pdof + 2, even if num is less
+// num_teams is the number of teams per block
+// num is the total vector size divided by pdof
+template<typename P, int num_teams, int pdof>
 __global__ void kernel_bgk_hybrid1D(
-    int64_t num, P nu, P const nodes[],
+    int64_t num, P nu, P const mbasis[], int const cells[],
     P const mom0[], P const mom1[], P const mom2[], P vals[])
 {
+  // team ID: threadIdx.y
+  // member number within team: threadIdx.x
+  // num teams in block: blockDim.y
+  // num blocks: gridDim.x
+  __shared__ P gbasis[2 * pdof * pdof];
+  __shared__ P domain[2]; // left/right end-points of the domain
+  __shared__ P out[num_teams][2 * pdof];
   P constexpr PI_ = 3.141592653589793;
 
-  int i = threadIdx.x + blockIdx.x * num_threads;
+  // read the mbasis into __shared__ memory, all teams read the same data
+  int64_t i = threadIdx.y + threadIdx.x * blockDim.x; // total tread index in block
+  if (i < 2 * pdof * pdof) {
+    gbasis[i] = mbasis[i];
+  } else if (i < 2 * pdof * pdof + 2) {
+    domain[i - 2 * pdof * pdof] = mbasis[i];
+  }
+  __syncthreads(); // ensure all i/o in __shared__ memory has been complete
+
+  i = threadIdx.y + blockIdx.x * blockDim.y;
+
   while (i < num)
   {
-    // P const v = nodes[i * (num_pos + 1) + num_pos];
-    //
-    // P const n = mom0[i];
-    // P const u = mom1[i] / n;
-    // P const d = v - u;
-    // P const t = mom2[i] / n - u * u;
-    //
-    // vals[i] = exp(- P{0.5} * d * d / t) * nu * n / sqrt(2 * PI_ * t);
+    int const j = i * pdof; // j is the index in the global vector
+    int const icell = i / pdof; // icell is the cell index
 
-    i += num_threads * gridDim.x;
+    P const u1 = mom1[j] / mom0[j];
+    P const t  = mom2[j] / mom0[j] - u1 * u1;
+
+    int const idx = cells[2 * icell + 1];
+
+    if constexpr (pdof == 1)
+    {
+      vals[j] = nu * mom0[j] * subkernel_wavelet_maxwell_pdof1<P>
+                                    (gbasis, idx, domain[0], domain[1], u1, t);
+    }
+    else
+    {
+      // this is more complex here ...
+      if (threadIdx.x == 0) { // only one thread can populate the temp workspace
+        subkernel_wavelet_maxwell<P, pdof>(idx, domain[0], domain[1], u1, t, out[threadIdx.y]);
+      }
+      __syncthreads(); // ensure the temp/io threads have been set
+
+      P v = 0;
+      if (idx == 0) {
+        v = out[threadIdx.y][threadIdx.x]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v += gbasis[k * pdof + threadIdx.x] * out[threadIdx.y][k];
+      }
+
+      vals[j + threadIdx.x] = v;
+    }
+
+    i += gridDim.x * blockDim.y;
   }
+}
+
+template<typename P, int pdof>
+void launch_kernel_bgk_hybrid1D(
+    int64_t num, P nu, P const mbasis[], int const cells[],
+    P const mom0[], P const mom1[], P const mom2[], P vals[])
+{
+  constexpr int num_threads = 1024;
+  constexpr int num_teams = num_threads / pdof;
+
+  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+
+  dim3 const launch_grid(pdof, num_teams);
+
+  kernel_bgk_hybrid1D<P, num_teams, pdof>
+    <<<launch_blocks, launch_grid>>>
+    (num, nu, mbasis, cells, mom0, mom1, mom2, vals);
 }
 
 template<typename P>
-void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, P const nodes[], vector<P> const &mom0,
+void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
                   vector<P> const &mom1, vector<P> const &mom2, P vals[])
 {
+  int64_t const num = mom0.size();
+
   switch (pdof) {
   case 1:
+    launch_kernel_bgk_hybrid1D<P, 1>(num, nu, gbasis.data(), cells, mom0.data(), mom1.data(), mom2.data(), vals);
     break;
   case 2:
+    launch_kernel_bgk_hybrid1D<P, 2>(num, nu, gbasis.data(), cells, mom0.data(), mom1.data(), mom2.data(), vals);
     break;
   case 3:
+    launch_kernel_bgk_hybrid1D<P, 3>(num, nu, gbasis.data(), cells, mom0.data(), mom1.data(), mom2.data(), vals);
     break;
   case 4:
+    launch_kernel_bgk_hybrid1D<P, 4>(num, nu, gbasis.data(), cells, mom0.data(), mom1.data(), mom2.data(), vals);
     break;
   default: // unreachable
     break;
@@ -452,7 +576,7 @@ template void bgk_vel3(double, int, double const[], vector<double> const &,
                        vector<double> const &, vector<double> const &, vector<double> const &,
                        double vals[]);
 
-template void bgk_hybrid1D(int, vector<double> const &, double, double const[], vector<double> const &,
+template void bgk_hybrid1D(int, vector<double> const &, double, int const[], vector<double> const &,
                            vector<double> const &, vector<double> const &, double[]);
 #endif
 
@@ -483,7 +607,7 @@ template void bgk_vel3(float, int, float const[], vector<float> const &,
                        vector<float> const &, vector<float> const &, vector<float> const &,
                        float vals[]);
 
-template void bgk_hybrid1D(int, vector<float> const &, float, float const[], vector<float> const &,
+template void bgk_hybrid1D(int, vector<float> const &, float, int const[], vector<float> const &,
                            vector<float> const &, vector<float> const &, float[]);
 #endif
 }

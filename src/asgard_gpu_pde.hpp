@@ -49,7 +49,7 @@ void bgk_vel3(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
 
 //! computing Bhatnagar-Gross-Krook for 1x1v using hybrid approach
 template<typename P>
-void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, P const nodes[], vector<P> const &mom0,
+void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
                   vector<P> const &mom1, vector<P> const &mom2, P vals[]);
 
 }

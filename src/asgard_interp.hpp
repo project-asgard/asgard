@@ -632,7 +632,7 @@ public:
     tools::time_event perf_("interpolation source-gpu");
     {
       // tools::time_event perf_("source func (gpu)");
-      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, gpu_it1[dev()].data());
+      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, grid.gpu_indexes(), gpu_it1[dev()].data());
     }
     nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }

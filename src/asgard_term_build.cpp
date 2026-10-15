@@ -347,13 +347,13 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
     bool has_field_interp = false; // interpolating from a field
-    bool has_hybrid_field_interp = false; // position-only field interpolation
+    // bool has_hybrid_field_interp = false; // position-only field interpolation
     auto mark_field_interp = [&](term_entry<P> const &entry) {
       if (entry.interplan.uses_field() and not entry.interplan.uses_gpu_func()) {
-        if (entry.interplan.uses_hybrid())
-          has_hybrid_field_interp = true;
-        else
-          has_field_interp = true;
+        // if (entry.interplan.uses_hybrid())
+        //   has_hybrid_field_interp = true;
+        // else
+        has_field_interp = true;
       }
     };
     auto it = terms.begin();

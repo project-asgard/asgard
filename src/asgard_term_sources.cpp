@@ -310,6 +310,8 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     }
   }
 
+  tools::dump(grid.num_dof(), y, "CPU interp src");
+
   indexrange ibrng = (group == group_id::all()) ? indexrange(bcs)
                                                 : source_groups[group()].bc_range;
 
@@ -753,21 +755,15 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
   auto interp_source = [&](source_entry_interp<P> const &src)
         -> void {
+      P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+
       if (src.is_gpu()) {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
-                 1, src, 1, y, kwork);
-        else
-          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
-                 alpha, src, 1, y, kwork);
+        interp(dev, grid, conn, moms.get_cached_interps(dev), time, al_, src, 1, y, kwork);
       } else {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(dev, grid, conn, moms.get_cached_interps(), time,
-                 1, src, 1, y, kwork);
-        else
-          interp(dev, grid, conn, moms.get_cached_interps(), time,
-                 alpha, src, 1, y, kwork);
+        interp(dev, grid, conn, moms.get_cached_interps(), time, al_, src, 1, y, kwork);
       }
+
+      tools::dump(gpu::vector<P>(y, grid.num_dof()).copy_to_host(), "gpu src");
     };
 
   // interpolation sources
