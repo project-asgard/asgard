@@ -47,6 +47,8 @@ void bgk_vel3(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
               vector<P> const &mom200, vector<P> const &mom020, vector<P> const &mom002,
               P vals[]);
 
+// bgk_hybridXD methods are implemented in asgard_gpu_pde_bgk.cpp
+
 //! computing Bhatnagar-Gross-Krook for 1x1v using hybrid approach
 template<typename P>
 void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,

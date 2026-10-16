@@ -178,7 +178,7 @@ public:
       if constexpr (std::is_same_v<P, double>) {
           rocblas_ddot(rocblas, num, x, 1, y, 1, result_dev);
       } else {
-          rocblas_fdot(rocblas, num, x, 1, y, 1, result_dev);
+          rocblas_sdot(rocblas, num, x, 1, y, 1, result_dev);
       }
 
       // 3. Reset to HOST mode for standard ASGarD operations
