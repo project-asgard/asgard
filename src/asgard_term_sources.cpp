@@ -310,7 +310,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
     }
   }
 
-  tools::dump(grid.num_dof(), y, "CPU interp src");
+  // tools::dump(grid.num_dof(), y, "CPU interp src");
 
   indexrange ibrng = (group == group_id::all()) ? indexrange(bcs)
                                                 : source_groups[group()].bc_range;
@@ -763,7 +763,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
         interp(dev, grid, conn, moms.get_cached_interps(), time, al_, src, 1, y, kwork);
       }
 
-      tools::dump(gpu::vector<P>(y, grid.num_dof()).copy_to_host(), "gpu src");
+      // tools::dump(gpu::vector<P>(y, grid.num_dof()).copy_to_host(), "gpu src");
     };
 
   // interpolation sources

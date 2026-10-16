@@ -260,15 +260,6 @@ void bgk_vel3(P nu, int num_pos, P const nodes[], vector<P> const &mom0,
   };
 }
 
-template<typename A, typename B>
-struct gpu_is_same {
-  static constexpr bool value = false;
-};
-template<typename A>
-struct gpu_is_same<A, A> {
-  static constexpr bool value = true;
-};
-
 template<typename P>
 __device__ inline P subkernel_wavelet_maxwell_pdof1(
     P const gbasis[], int idx, P xleft, P xright, P u, P th)
@@ -346,7 +337,7 @@ __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u
 
     // Integral of 1/√(2πt)(phi_0,phi_1,phi_2)exp(-(v-u)^2/2t) where
     //   phi_i are the orthonormal Legendre polynomials on each element
-    P const jv2 = 2.0 / (xleft - xright);
+    P const jv2 = 2.0 / (xright - xleft);
     P const jv  = sqrt(jv2); // inverse root jacobian
 
     out[0] = sqrt(1.0/2.0)*jv*I0;
@@ -441,15 +432,19 @@ __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u
   }
 }
 
-
 // the total number of threads must be at least 2 * pdof * pdof + 2, even if num is less
 // num_teams is the number of teams per block
 // num is the total vector size divided by pdof
-template<typename P, int num_teams, int pdof>
+template<typename P, int num_teams, int pdof, int num_threads>
 __global__ void kernel_bgk_hybrid1D(
     int64_t num, P nu, P const mbasis[], int const cells[],
     P const mom0[], P const mom1[], P const mom2[], P vals[])
 {
+  static_assert(num_threads >= 2 * pdof * pdof + 2,
+                "num_threads is used for sanity check in this kernel, "
+                "must have enough threads to read mbasis into shared-cache as a one-shot operation");
+  static_assert(num_teams == num_threads / pdof, "sanity check on the threads and teams");
+
   // team ID: threadIdx.y
   // member number within team: threadIdx.x
   // num teams in block: blockDim.y
@@ -459,7 +454,7 @@ __global__ void kernel_bgk_hybrid1D(
   __shared__ P out[num_teams][2 * pdof];
 
   // read the mbasis into __shared__ memory, all teams read the same data
-  int64_t i = threadIdx.y + threadIdx.x * blockDim.x; // total tread index in block
+  int64_t i = threadIdx.x + threadIdx.y * blockDim.x; // total tread index in block
   if (i < 2 * pdof * pdof) {
     gbasis[i] = mbasis[i];
   } else if (i < 2 * pdof * pdof + 2) {
@@ -515,11 +510,17 @@ void launch_kernel_bgk_hybrid1D(
   constexpr int num_threads = 1024;
   constexpr int num_teams = num_threads / pdof;
 
-  constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+  // constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+  // max_teams is the number of teams that we need to use, that cannot exceed 2^31
+  // so capt it at 2^30
+  int64_t const max_teams = (num + num_teams - 1) / num_teams;
+  int launch_blocks = (1 << 30);
+  if (max_teams < (1l << 30))
+    launch_blocks = static_cast<int>(max_teams);
 
   dim3 const launch_grid(pdof, num_teams);
 
-  kernel_bgk_hybrid1D<P, num_teams, pdof>
+  kernel_bgk_hybrid1D<P, num_teams, pdof, num_threads>
     <<<launch_blocks, launch_grid>>>
     (num, nu, mbasis, cells, mom0, mom1, mom2, vals);
 }
@@ -542,6 +543,303 @@ void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], ve
     break;
   case 4:
     launch_kernel_bgk_hybrid1D<P, 4>(num, nu, gbasis.data(), cells, mom0.data(), mom1.data(), mom2.data(), vals);
+    break;
+  default: // unreachable
+    break;
+  };
+}
+
+// num_teams is the number of teams per block
+// num is the total vector size divided by pdof
+template<typename P, int num_teams, int pdof, int num_threads>
+__global__ void kernel_bgk_hybrid2D(
+    int64_t num, P nu, P const mbasis[], int const cells[],
+    P const mom0[], P const mom10[], P const mom01[], P const mom20[], P const mom02[], P vals[])
+{
+  static_assert(num_threads >= 2 * pdof * pdof + 4,
+                "num_threads is used for sanity check in this kernel, "
+                "must have enough threads to read mbasis into shared-cache as a one-shot operation");
+  static_assert(num_teams == num_threads / (pdof * pdof), "sanity check on the threads and teams");
+
+  // team ID: threadIdx.y
+  // member number within team: threadIdx.x
+  // num teams in block: blockDim.y
+  // num blocks: gridDim.x
+  __shared__ P gbasis[2 * pdof * pdof];
+  __shared__ P domain[4]; // left/right end-points of the domain
+  __shared__ P out[num_teams][2][2 * pdof];
+
+  // read the mbasis into __shared__ memory, all teams read the same data
+  int64_t i = threadIdx.x + threadIdx.y * blockDim.x; // total tread index in block
+  if (i < 2 * pdof * pdof) {
+    gbasis[i] = mbasis[i];
+  } else if (i < 2 * pdof * pdof + 4) {
+    domain[i - 2 * pdof * pdof] = mbasis[i];
+  }
+  __syncthreads(); // ensure all i/o in __shared__ memory has been complete
+
+  i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  int const iv1 = threadIdx.x / pdof;
+  int const iv2 = threadIdx.x % pdof;
+
+  while (i < num)
+  {
+    int const j = i * pdof * pdof; // j is the index in the global vector
+    int const icell = i / (pdof * pdof); // icell is the cell index
+
+    P const u1 = mom10[j] / mom0[j];
+    P const u2 = mom01[j] / mom0[j];
+    P const t  = P{0.5} * ((mom20[j] + mom02[j]) / mom0[j] - u1 * u1 - u2 * u2);
+
+    int const cell1 = cells[4 * icell + 2];
+    int const cell2 = cells[4 * icell + 3];
+
+    if constexpr (pdof == 1)
+    {
+      P v1 = subkernel_wavelet_maxwell_pdof1<P>(gbasis, cell1, domain[0], domain[1], u1, t);
+      P v2 = subkernel_wavelet_maxwell_pdof1<P>(gbasis, cell2, domain[2], domain[3], u2, t);
+
+      vals[j] = nu * mom0[j] * v1 * v2;
+    }
+    else
+    {
+      // this is more complex here ...
+      if (threadIdx.x == 0) { // only one thread can populate the temp workspace
+        subkernel_wavelet_maxwell<P, pdof>(cell1, domain[0], domain[1], u1, t, out[threadIdx.y][0]);
+        subkernel_wavelet_maxwell<P, pdof>(cell2, domain[2], domain[3], u2, t, out[threadIdx.y][1]);
+      }
+      __syncthreads(); // ensure the temp/io threads have been set
+
+      P v1 = 0;
+      if (cell1 == 0) {
+        v1 = out[threadIdx.y][0][iv1]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v1 += gbasis[k * pdof + iv1] * out[threadIdx.y][0][k];
+      }
+
+      P v2 = 0;
+      if (cell2 == 0) {
+        v2 = out[threadIdx.y][1][iv2]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v2 += gbasis[k * pdof + iv2] * out[threadIdx.y][1][k];
+      }
+
+      vals[j + threadIdx.x] = nu * mom0[j] * v1 * v2;
+    }
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename P, int pdof>
+void launch_kernel_bgk_hybrid2D(
+    int64_t num, P nu, P const mbasis[], int const cells[],
+    P const mom0[], P const mom10[], P const mom01[], P const mom20[], P const mom02[], P vals[])
+{
+  constexpr int num_threads = 1024;
+  constexpr int num_teams = num_threads / (pdof * pdof);
+
+  // constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+  // max_teams is the number of teams that we need to use, that cannot exceed 2^31
+  // so capt it at 2^30
+  int64_t const max_teams = (num + num_teams - 1) / num_teams;
+  int launch_blocks = (1 << 30);
+  if (max_teams < (1l << 30))
+    launch_blocks = static_cast<int>(max_teams);
+
+  dim3 const launch_grid(pdof * pdof, num_teams);
+
+  kernel_bgk_hybrid2D<P, num_teams, pdof, num_threads>
+    <<<launch_blocks, launch_grid>>>
+    (num, nu, mbasis, cells, mom0, mom10, mom01, mom20, mom02, vals);
+}
+
+template<typename P>
+void bgk_hybrid2D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
+                  vector<P> const &mom10, vector<P> const &mom01,
+                  vector<P> const &mom20, vector<P> const &mom02, P vals[])
+{
+  int64_t const num = mom0.size() / (pdof * pdof);
+
+  switch (pdof) {
+  case 1:
+    launch_kernel_bgk_hybrid2D<P, 1>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom10.data(), mom01.data(), mom20.data(), mom02.data(), vals);
+    break;
+  case 2:
+    launch_kernel_bgk_hybrid2D<P, 2>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom10.data(), mom01.data(), mom20.data(), mom02.data(), vals);
+    break;
+  case 3:
+    launch_kernel_bgk_hybrid2D<P, 3>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom10.data(), mom01.data(), mom20.data(), mom02.data(), vals);
+    break;
+  case 4:
+    launch_kernel_bgk_hybrid2D<P, 4>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom10.data(), mom01.data(), mom20.data(), mom02.data(), vals);
+    break;
+  default: // unreachable
+    break;
+  };
+}
+
+// num_teams is the number of teams per block
+// num is the total vector size divided by pdof
+template<typename P, int num_teams, int pdof, int num_threads>
+__global__ void kernel_bgk_hybrid3D(
+    int64_t num, P nu, P const mbasis[], int const cells[], P const mom0[],
+    P const mom100[], P const mom010[], P const mom001[],
+    P const mom200[], P const mom020[], P const mom002[], P vals[])
+{
+  static_assert(num_threads >= 2 * pdof * pdof + 6,
+                "num_threads is used for sanity check in this kernel, "
+                "must have enough threads to read mbasis into shared-cache as a one-shot operation");
+  static_assert(num_teams == num_threads / (pdof * pdof * pdof), "sanity check on the threads and teams");
+
+  // team ID: threadIdx.y
+  // member number within team: threadIdx.x
+  // num teams in block: blockDim.y
+  // num blocks: gridDim.x
+  __shared__ P gbasis[2 * pdof * pdof];
+  __shared__ P domain[6]; // left/right end-points of the domain
+  __shared__ P out[num_teams][3][2 * pdof];
+
+  // read the mbasis into __shared__ memory, all teams read the same data
+  int64_t i = threadIdx.x + threadIdx.y * blockDim.x; // total tread index in block
+  if (i < 2 * pdof * pdof) {
+    gbasis[i] = mbasis[i];
+  } else if (i < 2 * pdof * pdof + 6) {
+    domain[i - 2 * pdof * pdof] = mbasis[i];
+  }
+  __syncthreads(); // ensure all i/o in __shared__ memory has been complete
+
+  i = threadIdx.y + blockIdx.x * blockDim.y;
+
+  int const iv1 = threadIdx.x / (pdof * pdof);
+  int const iv2 = (threadIdx.x / pdof) % pdof;
+  int const iv3 = threadIdx.x % pdof;
+
+  while (i < num)
+  {
+    int const j = i * pdof * pdof * pdof; // j is the index in the global vector
+    int const icell = i / (pdof * pdof * pdof); // icell is the cell index
+
+    P const u1 = mom100[j] / mom0[j];
+    P const u2 = mom010[j] / mom0[j];
+    P const u3 = mom001[j] / mom0[j];
+    P const t  =  (1.0/3.0) * ((mom200[j] + mom020[j] + mom002[j]) / mom0[j] - u1 * u1 - u2 * u2 - u3 * u3);
+
+    int const cell1 = cells[6 * icell + 3];
+    int const cell2 = cells[6 * icell + 4];
+    int const cell3 = cells[6 * icell + 5];
+
+    if constexpr (pdof == 1)
+    {
+      P v1 = subkernel_wavelet_maxwell_pdof1<P>(gbasis, cell1, domain[0], domain[1], u1, t);
+      P v2 = subkernel_wavelet_maxwell_pdof1<P>(gbasis, cell2, domain[2], domain[3], u2, t);
+      P v3 = subkernel_wavelet_maxwell_pdof1<P>(gbasis, cell3, domain[4], domain[5], u3, t);
+
+      vals[j] = nu * mom0[j] * v1 * v2 * v3;
+    }
+    else
+    {
+      // this is more complex here ...
+      if (threadIdx.x == 0) { // only one thread can populate the temp workspace
+        subkernel_wavelet_maxwell<P, pdof>(cell1, domain[0], domain[1], u1, t, out[threadIdx.y][0]);
+        subkernel_wavelet_maxwell<P, pdof>(cell2, domain[2], domain[3], u2, t, out[threadIdx.y][1]);
+        subkernel_wavelet_maxwell<P, pdof>(cell3, domain[4], domain[5], u3, t, out[threadIdx.y][2]);
+      }
+      __syncthreads(); // ensure the temp/io threads have been set
+
+      P v1 = 0;
+      if (cell1 == 0) {
+        v1 = out[threadIdx.y][0][iv1]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v1 += gbasis[k * pdof + iv1] * out[threadIdx.y][0][k];
+      }
+
+      P v2 = 0;
+      if (cell2 == 0) {
+        v2 = out[threadIdx.y][1][iv2]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v2 += gbasis[k * pdof + iv2] * out[threadIdx.y][1][k];
+      }
+
+      P v3 = 0;
+      if (cell3 == 0) {
+        v3 = out[threadIdx.y][2][iv3]; // already in out
+      } else { // out has 2 * pdof entries and must multiply by gbasis
+        for (int k = 0; k < 2 * pdof; k++)
+          v3 += gbasis[k * pdof + iv3] * out[threadIdx.y][2][k];
+      }
+
+      vals[j + threadIdx.x] = nu * mom0[j] * v1 * v2 * v3;
+    }
+
+    i += gridDim.x * blockDim.y;
+  }
+}
+
+template<typename P, int pdof>
+void launch_kernel_bgk_hybrid3D(
+    int64_t num, P nu, P const mbasis[], int const cells[], P const mom0[],
+    P const mom100[], P const mom010[], P const mom001[],
+    P const mom200[], P const mom020[], P const mom002[], P vals[])
+{
+  constexpr int num_threads = 1024;
+  constexpr int team_size = pdof * pdof * pdof;
+  constexpr int num_teams = num_threads / team_size;
+
+  // constexpr int launch_blocks = ASGARD_NUM_GPU_BLOCKS;
+  // max_teams is the number of teams that we need to use, that cannot exceed 2^31
+  // so capt it at 2^30
+  int64_t const max_teams = (num + num_teams - 1) / num_teams;
+  int launch_blocks = (1 << 30);
+  if (max_teams < (1l << 30))
+    launch_blocks = static_cast<int>(max_teams);
+
+  dim3 const launch_grid(team_size, num_teams);
+
+  kernel_bgk_hybrid3D<P, num_teams, pdof, num_threads>
+    <<<launch_blocks, launch_grid>>>
+    (num, nu, mbasis, cells, mom0, mom100, mom010, mom001, mom200, mom020, mom002, vals);
+
+  compute->device_synchronize();
+}
+
+template<typename P>
+void bgk_hybrid3D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
+                  vector<P> const &mom100, vector<P> const &mom010, vector<P> const &mom001,
+                  vector<P> const &mom200, vector<P> const &mom020, vector<P> const &mom002,
+                  P vals[])
+{
+  int64_t const num = mom0.size() / (pdof * pdof * pdof);
+
+  switch (pdof) {
+  case 1:
+    launch_kernel_bgk_hybrid3D<P, 1>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom100.data(), mom010.data(), mom001.data(),
+                                     mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  case 2:
+    launch_kernel_bgk_hybrid3D<P, 2>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom100.data(), mom010.data(), mom001.data(),
+                                     mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  case 3:
+    launch_kernel_bgk_hybrid3D<P, 3>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom100.data(), mom010.data(), mom001.data(),
+                                     mom200.data(), mom020.data(), mom002.data(), vals);
+    break;
+  case 4:
+    launch_kernel_bgk_hybrid3D<P, 4>(num, nu, gbasis.data(), cells, mom0.data(),
+                                     mom100.data(), mom010.data(), mom001.data(),
+                                     mom200.data(), mom020.data(), mom002.data(), vals);
     break;
   default: // unreachable
     break;
@@ -577,6 +875,15 @@ template void bgk_vel3(double, int, double const[], vector<double> const &,
 
 template void bgk_hybrid1D(int, vector<double> const &, double, int const[], vector<double> const &,
                            vector<double> const &, vector<double> const &, double[]);
+
+template void bgk_hybrid2D(int, vector<double> const &, double, int const[], vector<double> const &,
+                           vector<double> const &, vector<double> const &,
+                           vector<double> const &, vector<double> const &, double[]);
+
+template void bgk_hybrid3D(int, vector<double> const &, double, int const[], vector<double> const &,
+                           vector<double> const &, vector<double> const &, vector<double> const &,
+                           vector<double> const &, vector<double> const &, vector<double> const &,
+                           double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -608,5 +915,14 @@ template void bgk_vel3(float, int, float const[], vector<float> const &,
 
 template void bgk_hybrid1D(int, vector<float> const &, float, int const[], vector<float> const &,
                            vector<float> const &, vector<float> const &, float[]);
+
+template void bgk_hybrid2D(int, vector<float> const &, float, int const[], vector<float> const &,
+                           vector<float> const &, vector<float> const &,
+                           vector<float> const &, vector<float> const &, float[]);
+
+template void bgk_hybrid3D(int, vector<float> const &, float, int const[], vector<float> const &,
+                           vector<float> const &, vector<float> const &, vector<float> const &,
+                           vector<float> const &, vector<float> const &, vector<float> const &,
+                           float[]);
 #endif
 }

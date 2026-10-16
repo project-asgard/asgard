@@ -235,6 +235,7 @@ template<typename P> struct uses_mom_trait<md_mom_func<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_mom_idx_func<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_mom_func_f<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_gpu_mom_func<P>> : std::true_type {};
+template<typename P> struct uses_mom_trait<md_gpu_mom_idx_func<P>> : std::true_type {};
 template<typename P> struct uses_mom_trait<md_gpu_mom_func_f<P>> : std::true_type {};
 
 template<typename F> constexpr bool uses_moments = uses_mom_trait<F>::value;

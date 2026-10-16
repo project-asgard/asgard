@@ -390,13 +390,11 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 
   int const num_dims = domain_.num_dims();
 
-  int const num_pos = domain_.num_pos();
+  // int const num_pos = domain_.num_pos();
 
   // TODO: merge these into a single if-def
   #ifdef ASGARD_USE_GPU
   std::ignore = num_dims;
-  #else
-  std::ignore = num_pos;
   #endif
 
   if constexpr (std::is_same_v<opmode, term_md<P>>) {
@@ -505,9 +503,7 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
         else
           asgard::smmat::gemv1(pdof, pdof, gbasis.data() + pdof * pdof, mulin, mulout);
       }
-
     }
-
   };
 
   switch(domain_.num_vel())
@@ -522,8 +518,6 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     gbasis.push_back(domain_.xright(1));
 
     gpu::vector<P> gpu_basis{gbasis};
-
-    std::cout << "making gpu  fbgk()\n";
 
     auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
@@ -583,10 +577,8 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
-        std::cout << "set_source()\n";
       this->set_source(fbgk, {im0, im1, im2});
     } else {
-        std::cout << "set_weight()\n";
       this->set_adapt_hybrid(fbgk, {im0, im1, im2});
     }
   }
@@ -601,10 +593,19 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im10, im01, im20, im02};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
+    gbasis.push_back(domain_.xleft(2));
+    gbasis.push_back(domain_.xright(2));
+    gbasis.push_back(domain_.xleft(3));
+    gbasis.push_back(domain_.xright(3));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
-      gpu::bgk_vel2(nu, num_pos, nodes, moments[im0], moments[im10], moments[im01],
-                    moments[im20], moments[im02], vals);
+      std::ignore = nodes;
+      std::ignore = cells;
+      gpu::bgk_hybrid2D(pdof, gpu_basis, nu, cells, moments[im0], moments[im10], moments[im01],
+                        moments[im20], moments[im02], vals);
     };
     #else
     P const domain_left2  = domain_.xleft(2);
@@ -687,10 +688,25 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im100, im010, im001, im200, im020, im002};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const[], P vals[])
+    gbasis.push_back(domain_.xleft(3));
+    gbasis.push_back(domain_.xright(3));
+    gbasis.push_back(domain_.xleft(4));
+    gbasis.push_back(domain_.xright(4));
+    gbasis.push_back(domain_.xleft(5));
+    gbasis.push_back(domain_.xright(5));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
-      gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
-                    moments[im001], moments[im200], moments[im020], moments[im002], vals);
+      std::ignore = nodes;
+      std::ignore = cells;
+      gpu::bgk_hybrid3D(pdof, gpu_basis, nu, cells, moments[im0],
+                        moments[im100], moments[im010], moments[im001],
+                        moments[im200], moments[im020], moments[im002], vals);
+
+      // gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
+      //               moments[im001], moments[im200], moments[im020], moments[im002], vals);
     };
     #else
     P const domain_left3  = domain_.xleft(3);

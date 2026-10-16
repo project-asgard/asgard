@@ -52,4 +52,17 @@ template<typename P>
 void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
                   vector<P> const &mom1, vector<P> const &mom2, P vals[]);
 
+//! computing Bhatnagar-Gross-Krook for 2x2v using hybrid approach
+template<typename P>
+void bgk_hybrid2D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
+                  vector<P> const &mom10, vector<P> const &mom01,
+                  vector<P> const &mom20, vector<P> const &mom02, P vals[]);
+
+//! computing Bhatnagar-Gross-Krook for 3x3v using hybrid approach
+template<typename P>
+void bgk_hybrid3D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
+                  vector<P> const &mom100, vector<P> const &mom010, vector<P> const &mom001,
+                  vector<P> const &mom200, vector<P> const &mom020, vector<P> const &mom002,
+                  P vals[]);
+
 }
