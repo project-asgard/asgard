@@ -466,13 +466,19 @@ public:
               P{1}, f, P{0}, vals, work, nodal2hier_);
   }
   //! compute wavelet coefficients from nodal values
+  template<interp_dims imode = interp_dims::full>
   void nodal2wav(gpu::device dev, sparse_grid const &grid,
                  connection_patterns const &conn,
                  P alpha, P const f[], P beta, P vals[],
                  kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
+    kronmult::permutes const &ip_low = (imode == interp_dims::full) ? perm_low : perm_low_pos;
+    kronmult::permutes const &ip_up  = (imode == interp_dims::full) ? perm_up : perm_up_pos;
+
+    P const scale = (imode == interp_dims::full) ? iwav_scale : pos_iwav_scale;
+
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 3;
+    int constexpr id = (imode == imode::full) ? 5 : 6;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm, work);
@@ -484,10 +490,22 @@ public:
     #else
     // tools::time_event performance_("nodal-to-wavelet-gpu");
     #endif
-    block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
+    block_gpu(dev, pdof, grid, conn, ip_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
-    block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
-              alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
+    block_gpu(dev, pdof, grid, conn, ip_up, gpu_hier2wav_[dev.id],
+              alpha * scale, t1.data(), beta, vals, work, hier2wav_);
+  }
+
+ //! compute nodal values for the field on the gpu
+  void nodal2wav(gpu::device dev, interp_dims imode, sparse_grid const &grid,
+                 connection_patterns const &conn,
+                 P alpha, P const f[], P beta, P vals[],
+                 kronmult::workspace<P> &work, gpu::vector<P> &t1) const
+  {
+    if (imode == interp_dims::full)
+      nodal2wav<interp_dims::full>(dev, grid, conn, alpha, f, beta, vals, work, t1);
+    else
+      nodal2wav<interp_dims::hybrid_pos>(dev, grid, conn, alpha, f, beta, vals, work, t1);
   }
 
   //! compute hirarchical coefficients from hybrid nodal values
@@ -532,9 +550,9 @@ public:
           if (plan.uses_field()) {
             return gpu_ifield;
           } else {
-            if (plan.uses_hybrid())
-              pos2nodal(dev, grid, state, gpu_t1.data(), work);
-            else
+            // if (plan.uses_hybrid())
+            //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
+            // else
               wav2nodal(dev, grid, state, gpu_t1.data(), work);
             return gpu_t1;
           }
@@ -549,14 +567,14 @@ public:
         }
       }
       if (plan.uses_hier()) {
-        if (plan.uses_hybrid())
-          pos2hier(dev, grid, conn, gpu_t2.data(), y, work);
-        else
+        // if (plan.uses_hybrid())
+        //   pos2hier(dev, grid, conn, gpu_t2.data(), y, work);
+        // else
           nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
       } else {
-        if (plan.uses_hybrid())
-          pos2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
-        else
+        // if (plan.uses_hybrid())
+        //   pos2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+        // else
           nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
       }
     } else {
@@ -566,9 +584,9 @@ public:
             // return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
             return ifield;
           } else {
-            if (plan.uses_hybrid())
-              pos2nodal(dev, grid, state, gpu_t1.data(), work);
-            else
+            // if (plan.uses_hybrid())
+            //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
+            // else
               wav2nodal(dev, grid, state, gpu_t1.data(), work);
             gpu_t1.copy_to_host(t1);
             return t1;
@@ -584,14 +602,14 @@ public:
       }
       gpu_t1 = t2;
       if (plan.uses_hier()) {
-        if (plan.uses_hybrid())
-          pos2hier(dev, grid, conn, gpu_t1.data(), y, work);
-        else
+        // if (plan.uses_hybrid())
+        //   pos2hier(dev, grid, conn, gpu_t1.data(), y, work);
+        // else
           nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
       } else {
-        if (plan.uses_hybrid())
-          pos2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
-        else
+        // if (plan.uses_hybrid())
+        //   pos2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+        // else
           nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
       }
     }
@@ -615,7 +633,10 @@ public:
       func(time, nodes(grid), moments, grid.indexes(), cpu_it1[dev()]);
     }
     gpu_it1[dev()] = cpu_it1[dev()];
-    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
   /*!
    * \brief Computes the interpolation function on the GPU
@@ -634,7 +655,10 @@ public:
       // tools::time_event perf_("source func (gpu)");
       func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, grid.gpu_indexes(), gpu_it1[dev()].data());
     }
-    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
 
   //! field value sitting on the GPU

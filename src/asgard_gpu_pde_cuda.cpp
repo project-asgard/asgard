@@ -336,10 +336,10 @@ __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u
   static_assert(pdof > 1, "the pdof == 1 case is handled separately");
   if (idx == 0) {
     // Integrate from -infty to infty to preserve collision invariants
-    P const mid = 0.5*(xleft + xright);
+    P const mid = 0.5 * (xright + xleft);
 
     // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) for v=\pm\infty
-    P const I0 = 1.0;
+    P const I0 = 1;
     P const I1 = u;
     P const I2 = th + u*u;
     P const I3 = 3.0*u*th + u*u*u;
@@ -457,7 +457,6 @@ __global__ void kernel_bgk_hybrid1D(
   __shared__ P gbasis[2 * pdof * pdof];
   __shared__ P domain[2]; // left/right end-points of the domain
   __shared__ P out[num_teams][2 * pdof];
-  P constexpr PI_ = 3.141592653589793;
 
   // read the mbasis into __shared__ memory, all teams read the same data
   int64_t i = threadIdx.y + threadIdx.x * blockDim.x; // total tread index in block
@@ -501,7 +500,7 @@ __global__ void kernel_bgk_hybrid1D(
           v += gbasis[k * pdof + threadIdx.x] * out[threadIdx.y][k];
       }
 
-      vals[j + threadIdx.x] = v;
+      vals[j + threadIdx.x] = nu * mom0[j] * v;
     }
 
     i += gridDim.x * blockDim.y;
@@ -529,7 +528,7 @@ template<typename P>
 void bgk_hybrid1D(int pdof, vector<P> const &gbasis, P nu, int const cells[], vector<P> const &mom0,
                   vector<P> const &mom1, vector<P> const &mom2, P vals[])
 {
-  int64_t const num = mom0.size();
+  int64_t const num = mom0.size() / pdof;
 
   switch (pdof) {
   case 1:
