@@ -10,11 +10,8 @@ __device__ inline P subkernel_wavelet_maxwell_pdof1(
   // pdof == 1, then each team has only one thread
   // this is a special case, no need to work so much with vectors and can do things more cleanly
   if (idx == 0) {
-
     return sqrt(P{1} / (xleft - xright));
-
   } else {
-
     P constexpr is2   = 7.071067811865475e-01; // 1 / sqrt(2)
 
     int lvl = idx;
@@ -28,8 +25,9 @@ __device__ inline P subkernel_wavelet_maxwell_pdof1(
     P left  = xleft + (idx - num_idx_above) * dv;;
     P right = left + dv/2;
 
-    P z_l = (left-u) / sqrt(th);
-    P z_r = (right-u) / sqrt(th);
+    P const sth = sqrt(th);
+    P z_l = (left-u) / sth;
+    P z_r = (right-u) / sth;
 
     // Integrals of 1/√(2π)(1,z,z^2)exp(-z^2/2) from z=a..b
     P T0_l, T0_r;
@@ -47,8 +45,8 @@ __device__ inline P subkernel_wavelet_maxwell_pdof1(
     left += dv;
     right += dv;
 
-    z_l = (left-u) / sqrt(th);
-    z_r = (right-u) / sqrt(th);
+    z_l = (left-u) / sth;
+    z_r = (right-u) / sth;
 
     if constexpr (std::is_same_v<P, double>) {
       T0_l = 0.5 * erf(is2 * z_l); // P T0_l = 0.5*std::erf(z_l/std::sqrt(2.0));
@@ -68,12 +66,18 @@ template<typename P, int pdof>
 __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u, P th, P out[])
 {
   static_assert(pdof > 1, "the pdof == 1 case is handled separately");
+
+  P constexpr sqr12 = 0.707106781186548; // sqrt(1/2)
+  P constexpr sqr32 = 1.224744871391589; // sqrt(3/2)
+  P constexpr sqr58 = 0.790569415042095; // sqrt(5/8)
+  P constexpr sqr78 = 0.935414346693485; // sqrt(7/8)
+
   if (idx == 0) {
     // Integrate from -infty to infty to preserve collision invariants
     P const mid = 0.5 * (xright + xleft);
 
     // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) for v=\pm\infty
-    P const I0 = 1;
+    P constexpr I0 = 1;
     P const I1 = u;
     P const I2 = th + u*u;
     P const I3 = 3.0*u*th + u*u*u;
@@ -83,17 +87,17 @@ __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u
     P const jv2 = 2.0 / (xright - xleft);
     P const jv  = sqrt(jv2); // inverse root jacobian
 
-    out[0] = sqrt(1.0/2.0)*jv*I0;
-    out[1] = sqrt(3.0/2.0)*jv*jv2*( -I0*mid + I1 );
+    out[0] = sqr12*jv*I0;
+    out[1] = sqr32*jv*jv2*( -I0*mid + I1 );
 
     if constexpr (pdof > 2)
-      out[2] = sqrt(5.0/8.0)*jv*( (3.0*jv2*jv2*mid*mid-1.0)*I0 - 6.0*jv2*jv2*mid*I1 + 3.0*jv2*jv2*I2);
+      out[2] = sqr58*jv*( (3.0*jv2*jv2*mid*mid-1.0)*I0 - 6.0*jv2*jv2*mid*I1 + 3.0*jv2*jv2*I2);
     if constexpr (pdof > 3)
-      out[3] = sqrt(7.0/8.0)*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
-                               + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
-                               -  15.0*jv2*jv2*jv2*mid*I2
-                               +  5.0*jv2*jv2*jv2*I3
-                               );
+      out[3] = sqr78*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
+                        + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
+                        -  15.0*jv2*jv2*jv2*mid*I2
+                        +  5.0*jv2*jv2*jv2*I3
+                        );
 
   } else {
 
@@ -158,18 +162,18 @@ __device__ inline void subkernel_wavelet_maxwell(int idx, P xleft, P xright, P u
       P jv = sqrt(4.0/dv); // inverse root jacobian
       P jv2= jv*jv;
 
-      out[0 + pdof * l] = sqrt(1.0/2.0)*jv*I0;
-      out[1 + pdof * l] = sqrt(3.0/2.0)*jv*jv*jv*( -I0*mid + I1 );
+      out[0 + pdof * l] = sqr12*jv*I0;
+      out[1 + pdof * l] = sqr32*jv*jv*jv*( -I0*mid + I1 );
 
       if constexpr (pdof > 2)
-        out[2 + pdof * l] = sqrt(5.0/8.0)*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0
-                                               - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
+        out[2 + pdof * l] = sqr58*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0
+                                      - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
       if constexpr (pdof > 3)
-        out[3 + pdof * l] = sqrt(7.0/8.0)*jv*( (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
-                                               + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
-                                               -  15.0*jv2*jv2*jv2*mid*I2
-                                               +   5.0*jv2*jv2*jv2*I3
-                                              );
+        out[3 + pdof * l] = sqr78*jv*( (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
+                                      + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
+                                      -  15.0*jv2*jv2*jv2*mid*I2
+                                      +   5.0*jv2*jv2*jv2*I3
+                                     );
 
     }
   }
