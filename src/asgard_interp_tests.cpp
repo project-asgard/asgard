@@ -246,7 +246,7 @@ P maxwellian1d(P n, P u, P theta, P v)
 template<typename P>
 void hybrid_non_equilibrium(P, vector2d<P> const &nodes, std::vector<P> &vals)
 {
-  assert(vals.size() == static_cast<size_t>(nodes.num_strips()));
+  tassert(vals.size() == static_cast<size_t>(nodes.num_strips()));
 
   for (int64_t i = 0; i < nodes.num_strips(); i++) {
     P const x = nodes[i][0];
@@ -422,11 +422,11 @@ void hybrid_maxwellian_collision()
     std::vector<P> const &m1 = moments[im1];
     std::vector<P> const &m2 = moments[im2];
 
-    assert(vals.size() == static_cast<size_t>(nodes.num_strips()));
-    assert(m0.size() == vals.size());
-    assert(m1.size() == vals.size());
-    assert(m2.size() == vals.size());
-    assert(indexes.size() % 2 == 0);
+    tassert(vals.size() == static_cast<size_t>(nodes.num_strips()));
+    tassert(m0.size() == vals.size());
+    tassert(m1.size() == vals.size());
+    tassert(m2.size() == vals.size());
+    tassert(indexes.size() % 2 == 0);
 
     int constexpr pdof = degree + 1;
     int constexpr block_size = pdof * pdof;
