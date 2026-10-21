@@ -1,4 +1,8 @@
 #include "asgard_pde_functions.hpp"
+#include "asgard_small_mats.hpp"
+#include "asgard_wavelet_basis.hpp"
+#include "asgard_discretization.hpp"
+#include "asgard_interp.hpp"
 
 #ifdef ASGARD_USE_GPU
 #include "asgard_gpu_pde.hpp"
@@ -373,21 +377,134 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
 {
   static_assert(std::is_same_v<opmode, source<P>> or std::is_same_v<opmode, term_md<P>>);
 
+  int const pdof = degree() + 1;
+
   rassert(domain_.num_pos() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no position dimensions");
   rassert(domain_.num_vel() > 0, "cannot set simple_bgk_collisions operator for a pde_domain with no velocity dimensions");
   rassert(domain_.num_pos() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 position dimensions");
   rassert(domain_.num_vel() <= 3, "cannot set simple_bgk_collisions operator for a pde_domain with more than 3 velocity dimensions");
+  rassert(2 <= pdof and pdof <= 4, "simple_bgk_collisions only valid on polynomial degrees 1, 2, and 3.");
   rassert(bgkc.nu > 0, "the collision frequency has to be positive");
 
   P const nu = static_cast<P>(bgkc.nu);
 
+  int const num_dims = domain_.num_dims();
+
+  // int const num_pos = domain_.num_pos();
+
+  // TODO: merge these into a single if-def
+  #ifdef ASGARD_USE_GPU
+  std::ignore = num_dims;
+  #endif
+
   if constexpr (std::is_same_v<opmode, term_md<P>>) {
-    std::vector<asgard::term_1d<P>> nuI(domain_.num_dims(), asgard::term_identity{});
-    nuI[0] = asgard::term_volume<P>{nu};
-    *this += asgard::term_md<P>(nuI);
+    std::vector<term_1d<P>> nuI(domain_.num_dims(), term_identity{});
+    nuI[0] = term_volume<P>{nu};
+    *this += term_md<P>(nuI);
   }
 
-  int const num_pos = domain_.num_pos();
+  // copy the wavelet transformation matrices G0/G1 into a single vector
+  std::vector<P> gbasis = [&, this]() -> std::vector<P>
+    {
+      std::array<std::vector<double>, 4> basis_mats = legendre::generate_multi_wavelets(degree());
+      std::vector<P> result(2 * pdof * pdof);
+      std::copy_n(basis_mats[2].data(), pdof * pdof, result.data());
+      std::copy_n(basis_mats[3].data(), pdof * pdof, result.data() + pdof * pdof);
+      return result;
+    }();
+
+  auto wavelet_maxwell = [gbasis, pdof](
+      int idx, P const a, P const b, P const u, P const th, P mulin[], P mulout[])
+  {
+    if (idx == 0)
+    {
+      // Integrate from -infty to infty to preserve collision invariants
+      P mid = 0.5*(b+a);
+
+      // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) for v=\pm\infty
+      P I0 = 1.0;
+      P I1 = u;
+      P I2 = th + u*u;
+      P I3 = 3.0*u*th + u*u*u;
+
+      // Integral of 1/√(2πt)(phi_0,phi_1,phi_2)exp(-(v-u)^2/2t) where
+      //   phi_i are the orthonormal Legendre polynomials on each element
+      P jv2 = 2.0 / (b - a);
+      P jv  = std::sqrt(jv2); // inverse root jacobian
+
+      mulout[0] = std::sqrt(1.0/2.0)*jv*I0;
+      if (pdof > 1)
+        mulout[1] = std::sqrt(3.0/2.0)*jv*jv2*( -I0*mid + I1 );
+      if (pdof > 2)
+        mulout[2] = std::sqrt(5.0/8.0)*jv*( (3.0*jv2*jv2*mid*mid-1.0)*I0 - 6.0*jv2*jv2*mid*I1 + 3.0*jv2*jv2*I2);
+      if (pdof > 3)
+        mulout[3] = std::sqrt(7.0/8.0)*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
+                                         + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
+                                         -  15.0*jv2*jv2*jv2*mid*I2
+                                         +  5.0*jv2*jv2*jv2*I3
+                                         );
+    }
+    else
+    {
+      // given idx > 0, this computes 2^( floor( log_2(idx) ) ) using integer bit-wise operations
+      int const num_idx_above = fm::ipow2_log2(idx); // number of points on the level above idx
+
+      P const dv = (b-a) / num_idx_above; // (b-a)/2^(lev-1)
+      // Endpoints of wavelet element
+      P const loca = a + (idx - num_idx_above) * dv;
+
+      // For v_lev > 0 wavlets are piecewise polynomials
+      // Integrate legendre polynomials the map to wavelets
+      for (int l=0; l<2; l++)
+      {
+        P left  = loca + l*dv/2;
+        P right = loca + (l+1)*dv/2;
+        P mid = 0.5*(left+right);
+
+        // v -> (v-u)/sqrt(t)
+        P z_l = (left-u)/std::sqrt(th);
+        P z_r = (right-u)/std::sqrt(th);
+
+        // Integrals of 1/√(2π)(1,z,z^2)exp(-z^2/2) from z=a..b
+        P T0_l = 0.5*std::erf(z_l/std::sqrt(2.0));
+        P T0_r = 0.5*std::erf(z_r/std::sqrt(2.0));
+        P T1_l = 1.0/std::sqrt(2.0*PI)*std::exp(-0.5*z_l*z_l);
+        P T1_r = 1.0/std::sqrt(2.0*PI)*std::exp(-0.5*z_r*z_r);
+        P C0   =   T0_r - T0_l;
+        P C1   = -(T1_r - T1_l);
+        P C2   = -(z_r*T1_r - z_l*T1_l) + C0;
+        P C3   = (z_l*z_l+2.0)*T1_l - (z_r*z_r+2.0)*T1_r;
+
+        // Integral of 1/√(2πt)(1,v,v^2)exp(-(v-u)^2/2t) dv using z = (v-u)/√t
+        P I0 =       C0;
+        P I1 =     u*C0 +         std::sqrt(th)*C1;
+        P I2 =   u*u*C0 +   2.0*u*std::sqrt(th)*C1 +       th*C2;
+        P I3 = u*u*u*C0 + 3.0*u*u*std::sqrt(th)*C1 + 3.0*u*th*C2 + std::sqrt(th)*th*C3;
+
+        // Integral of 1/√(2πt)(phi_0,phi_1,phi_2)exp(-(v-u)^2/2t) where
+        //   phi_i are the orthonormal Legendre polynomials on each element
+        P jv = std::sqrt(4.0/dv); // inverse root jacobian
+        P jv2= jv*jv;
+
+        mulin[0] = std::sqrt(1.0/2.0)*jv*I0;
+        if (pdof > 1)
+          mulin[1] = std::sqrt(3.0/2.0)*jv*jv*jv*( -I0*mid + I1 );
+        if (pdof > 2)
+          mulin[2] = std::sqrt(5.0/8.0)*jv*( (3.0*jv*jv*jv*jv*mid*mid-1.0)*I0 - 6.0*jv*jv*jv*jv*mid*I1 + 3.0*jv*jv*jv*jv*I2);
+        if (pdof > 3)
+          mulin[3] = std::sqrt(7.0/8.0)*jv*(  (3.0*jv2*mid - 5.0*jv2*jv2*jv2*mid*mid*mid)*I0
+                                          + (15.0*jv2*jv2*jv2*mid*mid - 3.0*jv2)*I1
+                                          -  15.0*jv2*jv2*jv2*mid*I2
+                                          +   5.0*jv2*jv2*jv2*I3
+                                        );
+
+        if (l == 0)
+          asgard::smmat::gemv(pdof, pdof, gbasis.data(), mulin, mulout);
+        else
+          asgard::smmat::gemv1(pdof, pdof, gbasis.data() + pdof * pdof, mulin, mulout);
+      }
+    }
+  };
 
   switch(domain_.num_vel())
   {
@@ -397,48 +514,72 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     moment_id im2 = this->register_moment(moment(2));
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    gbasis.push_back(domain_.xleft(1));
+    gbasis.push_back(domain_.xright(1));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
-      gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
+      std::ignore = nodes;
+      std::ignore = cells;
+      // gpu::bgk_vel1(nu, num_pos, nodes, moments[im0], moments[im1], moments[im2], vals);
+      gpu::bgk_hybrid1D(pdof, gpu_basis, nu, cells, moments[im0], moments[im1], moments[im2], vals);
     };
     #else
-    auto fbgk = [=](P, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    P const domain_left1  = domain_.xleft(1);
+    P const domain_right1 = domain_.xright(1);
+
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments,
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
       std::vector<P> const &m0 = moments[im0];
       std::vector<P> const &m1 = moments[im1];
       std::vector<P> const &m2 = moments[im2];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const v = nodes[i][num_pos];
+      int64_t const num_indexes = static_cast<int64_t>(indexes.size()) / num_dims;
 
-        P const n = m0[i];
-        P const u = m1[i] / m0[i];
-        P const t = m2[i] / m0[i] - u * u;
+      #pragma omp parallel
+      {
+        std::vector<P> wspace(2 * pdof, 0.0);
 
-        vals[i] = nu * n / std::sqrt(2 * PI * t);
-        P const d = v - u;
-        vals[i] *= std::exp(- P{0.5} * d * d / t);
+        P *mulout1 = wspace.data();
+        P *mulin1  = wspace.data() + pdof;
+
+        #pragma omp for
+        for (int64_t i = 0; i < num_indexes; i++)
+        {
+          // Get index starting point of cell
+          int64_t j = i * pdof * pdof;
+
+          // Loop over polynomial x dof in element
+          for (int ix1 = 0; ix1 < pdof; ix1++)
+          {
+            // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+            P const n  = m0[j];
+            P const u1 = m1[j] / m0[j];
+            P const t  = m2[j] / m0[j] - u1 * u1;
+
+            // Calculate 1D analytic maxwellian
+            wavelet_maxwell(indexes[2*i+1], domain_left1, domain_right1, u1, t, mulin1, mulout1);
+
+            // Take kroneckor product and store
+            for (int iv1 = 0; iv1 < pdof; iv1++)
+              vals[j + iv1] = nu * n * mulout1[iv1];
+
+            j += pdof;
+          }
+        }
       }
-    };
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
     };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
       this->set_source(fbgk, {im0, im1, im2});
     } else {
-      this->set_adapt_weight(wbgk, {im0, im1, im2});
+      this->set_adapt_hybrid(fbgk, {im0, im1, im2});
     }
   }
   break;
@@ -452,51 +593,86 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im10, im01, im20, im02};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    gbasis.push_back(domain_.xleft(2));
+    gbasis.push_back(domain_.xright(2));
+    gbasis.push_back(domain_.xleft(3));
+    gbasis.push_back(domain_.xright(3));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
-      gpu::bgk_vel2(nu, num_pos, nodes, moments[im0], moments[im10], moments[im01],
-                    moments[im20], moments[im02], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
+      std::ignore = nodes;
+      std::ignore = cells;
+      gpu::bgk_hybrid2D(pdof, gpu_basis, nu, cells, moments[im0], moments[im10], moments[im01],
+                        moments[im20], moments[im02], vals);
     };
     #else
-    auto fbgk = [=](P, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    P const domain_left2  = domain_.xleft(2);
+    P const domain_right2 = domain_.xright(2);
+    P const domain_left3  = domain_.xleft(3);
+    P const domain_right3 = domain_.xright(3);
+
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments,
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
-      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m0  = moments[im0];
       std::vector<P> const &m10 = moments[im10];
       std::vector<P> const &m01 = moments[im01];
       std::vector<P> const &m20 = moments[im20];
       std::vector<P> const &m02 = moments[im02];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const n = m0[i];
-        P const u0 = m10[i] / m0[i];
-        P const u1 = m01[i] / m0[i];
-        P const t = 0.5 * ((m20[i] + m02[i]) / m0[i] - u0 * u0 - u1 * u1);
+      int64_t const num_indexes = static_cast<int64_t>(indexes.size()) / num_dims;
 
-        P const vu0 = nodes[i][num_pos] - u0;
-        P const vu1 = nodes[i][num_pos + 1] - u1;
-        P const d = vu0 * vu0 + vu1 * vu1;
-        vals[i] = std::exp(- P{0.5} * d / t) * nu * n / (2 * PI * t);
+      #pragma omp parallel
+      {
+        int const pdof2 = pdof * pdof;
+
+        std::vector<P> workspace(4 * pdof, 0.0);
+
+        P* mulout1 = workspace.data();
+        P* mulin1  = workspace.data() + pdof;
+        P* mulout2 = workspace.data() + 2 * pdof;
+        P* mulin2  = workspace.data() + 3 * pdof;
+
+        #pragma omp for
+        for (int64_t i = 0; i < num_indexes; i++)
+        {
+          // Get index starting point of cell in this coordinate for x1,x2
+          int64_t j = i * pdof2 * pdof2;
+
+          // Loop over polynomial x dof in element
+          for (int ix1 = 0; ix1 < pdof; ix1++)
+            for (int ix2 = 0; ix2 < pdof; ix2++)
+            {
+              // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+              P const n  = m0[j];
+              P const u1 = m10[j] / m0[j];
+              P const u2 = m01[j] / m0[j];
+              P const t  = P{0.5} * ((m20[j] + m02[j]) / m0[j] - u1 * u1 - u2 * u2);
+
+              // Calculate 1D analytic maxwellian
+              wavelet_maxwell(indexes[4*i+2], domain_left2, domain_right2, u1, t, mulin1, mulout1);
+              wavelet_maxwell(indexes[4*i+3], domain_left3, domain_right3, u2, t, mulin2, mulout2);
+
+              // Take Kronecker product and store
+              for (int iv1 = 0; iv1 < pdof; iv1++)
+                for (int iv2 = 0; iv2 < pdof; iv2++)
+                  vals[j + iv1 * pdof + iv2] = nu * n * mulout1[iv1] * mulout2[iv2];
+
+              j += pdof2;
+            }
+        }
       }
-    };
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
     };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
       this->set_source(fbgk, mids);
     } else {
-      this->set_adapt_weight(wbgk, mids);
+      this->set_adapt_hybrid(fbgk, mids);
     }
   }
   break;
@@ -512,20 +688,40 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
     std::vector<moment_id> const mids = {im0, im100, im010, im001, im200, im020, im002};
 
     #ifdef ASGARD_USE_GPU
-    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, P vals[])
+    gbasis.push_back(domain_.xleft(3));
+    gbasis.push_back(domain_.xright(3));
+    gbasis.push_back(domain_.xleft(4));
+    gbasis.push_back(domain_.xright(4));
+    gbasis.push_back(domain_.xleft(5));
+    gbasis.push_back(domain_.xright(5));
+
+    gpu::vector<P> gpu_basis{gbasis};
+
+    auto fbgk = [=](int64_t, P, P const nodes[], momentset_gpu<P> const &moments, int const cells[], P vals[])
     {
-      gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
-                    moments[im001], moments[im200], moments[im020], moments[im002], vals);
-    };
-    auto wbgk = [=](int64_t num, P time, P const nodes[], momentset_gpu<P> const &moments, P const[], P vals[])
-    {
-      fbgk(num, time, nodes, moments, vals);
+      std::ignore = nodes;
+      std::ignore = cells;
+      gpu::bgk_hybrid3D(pdof, gpu_basis, nu, cells, moments[im0],
+                        moments[im100], moments[im010], moments[im001],
+                        moments[im200], moments[im020], moments[im002], vals);
+
+      // gpu::bgk_vel3(nu, num_pos, nodes, moments[im0], moments[im100], moments[im010],
+      //               moments[im001], moments[im200], moments[im020], moments[im002], vals);
     };
     #else
-    auto fbgk = [=](P /* time */, vector2d<P> const &nodes,
-                    momentset<P> const &moments, std::vector<P> &vals)
+    P const domain_left3  = domain_.xleft(3);
+    P const domain_right3 = domain_.xright(3);
+    P const domain_left4  = domain_.xleft(4);
+    P const domain_right4 = domain_.xright(4);
+    P const domain_left5  = domain_.xleft(5);
+    P const domain_right5 = domain_.xright(5);
+
+    auto fbgk = [=](P /* time */, asgard::vector2d<P> const &,
+                    asgard::momentset<P> const &moments,
+                    std::vector<int> const &indexes,
+                    std::vector<P> &vals)
     {
-      std::vector<P> const &m0 = moments[im0];
+      std::vector<P> const &m0   = moments[im0];
       std::vector<P> const &m100 = moments[im100];
       std::vector<P> const &m010 = moments[im010];
       std::vector<P> const &m001 = moments[im001];
@@ -533,36 +729,61 @@ void pde_scheme<P>::process(operators::simple_bgk_collisions bgkc)
       std::vector<P> const &m020 = moments[im020];
       std::vector<P> const &m002 = moments[im002];
 
-      int64_t const num_nodes = nodes.num_strips();
-      ASGARD_OMP_PARFOR_SIMD
-      for (int64_t i = 0; i < num_nodes; i++) {
-        P const n = m0[i];
-        P const u0 = m100[i] / m0[i];
-        P const u1 = m010[i] / m0[i];
-        P const u2 = m001[i] / m0[i];
-        P const t = ((m200[i] + m020[i] + m002[i]) / m0[i] - u0 * u0 - u1 * u1 - u2 * u2) / P{3};
+      int64_t const num_indexes = static_cast<int64_t>(indexes.size()) / num_dims;
 
-        P const pit = 2 * PI * t;
-        vals[i] = nu * n / (pit * std::sqrt(pit));
-        P const vu0 = nodes[i][num_pos] - u0;
-        P const vu1 = nodes[i][num_pos + 1] - u1;
-        P const vu2 = nodes[i][num_pos + 2] - u2;
-        P const d = vu0 * vu0 + vu1 * vu1 + vu2 * vu2;
-        vals[i] *= std::exp(- P{0.5} * d / t);
+      #pragma omp parallel
+      {
+        int const pdof3 = pdof * pdof * pdof;
+
+        std::vector<P> workspace(6 * pdof, 0.0);
+
+        P* mulout1 = workspace.data();
+        P* mulin1  = workspace.data() + pdof;
+        P* mulout2 = workspace.data() + 2 * pdof;
+        P* mulin2  = workspace.data() + 3 * pdof;
+        P* mulout3 = workspace.data() + 4 * pdof;
+        P* mulin3  = workspace.data() + 5 * pdof;
+
+        #pragma omp for
+        for (int64_t i = 0; i < num_indexes; i++)
+        {
+          // Get index starting point of cell
+          int64_t j = i * pdof3 * pdof3;
+
+          // Loop over polynomial x dof in element
+          for (int64_t ix1 = 0; ix1 < pdof; ix1++)
+            for (int64_t ix2 = 0; ix2 < pdof; ix2++)
+              for (int64_t ix3 = 0; ix3 < pdof; ix3++)
+              {
+                // Get fluid variables that given on points in (x,v).  The v coordinate doesnt matter
+                P const n  = m0[j];
+                P const u1 = m100[j] / m0[j];
+                P const u2 = m010[j] / m0[j];
+                P const u3 = m001[j] / m0[j];
+                P const t  =  (1.0/3.0) * ((m200[j] + m020[j] + m002[j]) / m0[j] - u1 * u1 - u2 * u2 - u3 * u3);
+
+                // Calculate 1D analytic maxwellian
+                wavelet_maxwell(indexes[6*i+3], domain_left3, domain_right3, u1, t, mulin1, mulout1);
+                wavelet_maxwell(indexes[6*i+4], domain_left4, domain_right4, u2, t, mulin2, mulout2);
+                wavelet_maxwell(indexes[6*i+5], domain_left5, domain_right5, u3, t, mulin3, mulout3);
+
+                // Take kroneckor product and store
+                for (int iv1 = 0; iv1 < pdof; iv1++)
+                  for (int iv2 = 0; iv2 < pdof; iv2++)
+                    for (int iv3 = 0; iv3 < pdof; iv3++)
+                      vals[j + iv1 * pdof * pdof + iv2 * pdof + iv3] = nu * n * mulout1[iv1] * mulout2[iv2] * mulout3[iv3];
+
+                j += pdof3;
+              }
+        }
       }
-    };
-    auto wbgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
     };
     #endif
 
     if constexpr (std::is_same_v<opmode, term_md<P>>) {
       this->set_source(fbgk, mids);
     } else {
-      this->set_adapt_weight(wbgk, mids);
+      this->set_adapt_hybrid(fbgk, mids);
     }
   }
   break;

@@ -294,25 +294,23 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
   }
 
   if (group == group_id::all()) {
-    for (auto const &src : sources_md) {
+    P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+    for (auto const &src : sources_md)
+    {
       if (not src or not resources.owns(src.rec)) continue;
 
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conn, moms.get_cached_interps(), time, 1, src, 1, y, kwork);
-      else
-        interp(grid, conn, moms.get_cached_interps(), time, alpha, src, 1, y, kwork);
+      interp(grid, conn, moms.get_cached_interps(), time, al_, src, P{1}, y, kwork);
     }
   } else {
-    if (resources.owns(sources_md[group()].rec) and !!sources_md[group()])
+    if (!!sources_md[group()] and resources.owns(sources_md[group()].rec))
     {
-      if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-        interp(grid, conn, moms.get_cached_interps(), time, 1, sources_md[group()],
-               1, y, kwork);
-      else
-        interp(grid, conn, moms.get_cached_interps(), time, alpha, sources_md[group()],
-               1, y, kwork);
+      P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+
+      interp(grid, conn, moms.get_cached_interps(), time, al_, sources_md[group()], P{1}, y, kwork);
     }
   }
+
+  // tools::dump(grid.num_dof(), y, "CPU interp src");
 
   indexrange ibrng = (group == group_id::all()) ? indexrange(bcs)
                                                 : source_groups[group()].bc_range;
@@ -757,21 +755,15 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
   auto interp_source = [&](source_entry_interp<P> const &src)
         -> void {
+      P const al_ = (dmode == data_mode::increment or dmode == data_mode::replace) ? P{1} : alpha;
+
       if (src.is_gpu()) {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
-                 1, src, 1, y, kwork);
-        else
-          interp(dev, grid, conn, moms.get_cached_interps(dev), time,
-                 alpha, src, 1, y, kwork);
+        interp(dev, grid, conn, moms.get_cached_interps(dev), time, al_, src, 1, y, kwork);
       } else {
-        if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          interp(dev, grid, conn, moms.get_cached_interps(), time,
-                 1, src, 1, y, kwork);
-        else
-          interp(dev, grid, conn, moms.get_cached_interps(), time,
-                 alpha, src, 1, y, kwork);
+        interp(dev, grid, conn, moms.get_cached_interps(), time, al_, src, 1, y, kwork);
       }
+
+      // tools::dump(gpu::vector<P>(y, grid.num_dof()).copy_to_host(), "gpu src");
     };
 
   // interpolation sources

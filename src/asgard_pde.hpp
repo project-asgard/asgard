@@ -838,9 +838,11 @@ private:
 template<typename P>
 struct term_interp {
   //! create the intermediate term and set the interpolation function
-  explicit term_interp(md_func_f<P> itep) : interp(std::move(itep)) {}
+  explicit term_interp(md_func_f<P> itep)
+      : interp(std::move(itep)) {}
     //! create the intermediate term and set the interpolation function
-  explicit term_interp(md_gpu_func_f<P> itep) : interp(std::move(itep)) {}
+  explicit term_interp(md_gpu_func_f<P> itep)
+      : interp(std::move(itep)) {}
   //! create the term with the moment interpolation function and moment ids
   explicit term_interp(md_mom_func_f<P> itep, std::vector<moment_id> ids)
       : interp(std::move(itep)), mids(std::move(ids)) {}
@@ -1056,24 +1058,32 @@ struct source {
             "invalid separable function for source entry");
   }
   //! make an interpolation source
-  source(md_func<P> s) : func_(std::move(s)) {}
+  source(md_func<P> s) : func_(std::move(s))
+  {}
   //! make an interpolation source using a GPU device data
-  source(md_gpu_func<P> s) : func_(std::move(s)) {
+  source(md_gpu_func<P> s) : func_(std::move(s))
+  {
     static_assert(has_gpu_enabled<source<P>>,
                   "cannot set a GPU source function without CUDA or ROCM enabled");
   }
   //! make an interpolation moment source
   source(md_mom_func<P> s, std::vector<moment_id> mids)
-    : func_(std::move(s)), mids_(std::move(mids)) {}
+    : func_(std::move(s)), mids_(std::move(mids))
+  {}
+  //! make an interpolation moment source with indicies
+  source(md_mom_idx_func<P> s, std::vector<moment_id> mids)
+    : func_(std::move(s)), mids_(std::move(mids))
+  {}
   //! make an interpolation moment source using a GPU device data
   source(md_gpu_mom_func<P> s, std::vector<moment_id> mids)
-    : func_(std::move(s)), mids_(std::move(mids)) {
+    : func_(std::move(s)), mids_(std::move(mids))
+  {
     static_assert(has_gpu_enabled<source<P>>,
                   "cannot set a GPU moment source function without CUDA or ROCM enabled");
   }
 
   //! variant holding all permissible function types
-  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>,
+  std::variant<separable_func<P>, md_func<P>, md_mom_func<P>, md_mom_idx_func<P>,
                md_gpu_func<P>, md_gpu_mom_func<P>> func_;
   //! holds the moment ids for moment sources
   std::vector<moment_id> mids_;
@@ -1588,7 +1598,7 @@ public:
         if (options_.default_degree)
           options_.degree = options_.default_degree.value();
         else
-          throw std::runtime_error("must provide a polynomial degree with -d or default_degree()");
+          throw std::runtime_error("must provide a polynomial degree with -d or default_degree");
       }
 
       // setting step method
@@ -1721,9 +1731,28 @@ public:
     sources_moments_[idx] = std::move(mids);
   }
   //! set non-separable moment right-hand-source, can have only one per term-group
-  void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids) {
+  void set_source(md_mom_idx_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_gpu_mom_func<P> fmd, std::vector<moment_id> mids,
+                  bool hybrid_interp = false) {
     static_assert(has_gpu_enabled<pde_scheme<P>>,
                   "using a GPU source requires a GPU backend enabled with eithe CUDA or ROCM");
+    rassert(not hybrid_interp, "hybrid source interpolation is not implemented for GPU sources");
     rassert(fmd, "cannot add an empty moment source");
     has_interp_funcs = true;
     int const idx = std::max(current_term_group, 0); // current group index
@@ -1733,6 +1762,23 @@ public:
             "or the two can be lumped into a single source");
     rassert(not mids.empty(), "cannot set a moment source without moment ids");
 
+    sources_md_[idx] = std::move(fmd);
+    sources_moments_[idx] = std::move(mids);
+  }
+  //! set non-separable moment right-hand-source, can have only one per term-group
+  void set_source(md_gpu_mom_idx_func<P> fmd, std::vector<moment_id> mids) {
+    rassert(fmd, "cannot add an empty moment source");
+    has_interp_funcs = true;
+    int const idx = std::max(current_term_group, 0); // current group index
+    rassert(std::holds_alternative<std::monostate>(sources_md_[idx]),
+            "cannot simultaneously set a moment and non-moment source for the same term group, "
+            "either this needs to go into a separate group, e.g., imex implicit vs. explicit, "
+            "or the two can be lumped into a single source");
+    rassert(not mids.empty(), "cannot set a moment source without moment ids");
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
     sources_md_[idx] = std::move(fmd);
     sources_moments_[idx] = std::move(mids);
   }
@@ -1813,7 +1859,7 @@ public:
               "mismatch between the velocity dimensions for the domain and "
               "the dimensions of the moment");
     }
-    
+
     moment_id const id = mlist.get_add_id(mom);
     if (current_term_group >= 0)
       mom_groups[current_term_group].get_add_id(mom);
@@ -1884,16 +1930,8 @@ public:
             "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
     ref_interp_  = std::move(func);
-    bool has_electric = false;
-    for (moment_id mid : moments) {
-      moment const mom = mlist[mid];
-      if (mom.is_electric()) {
-        has_electric = true;
-        break;
-      }
-    }
-    if (has_electric)
-      moments.push_back(mlist.get_id(moment::zero(domain_.num_vel())));
+
+    add_density_moment_if_electric(moments);
     ref_moments_ = std::move(moments);
   }
   //! set an interpolation function for adaptivity
@@ -1905,17 +1943,37 @@ public:
             "set_adapt_weight() already called, cannot set two different adapt weights");
     has_interp_funcs = true;
     ref_interp_  = std::move(func);
-    bool has_electric = false;
-    for (moment_id mid : moments) {
-      moment const mom = mlist[mid];
-      if (mom.is_electric()) {
-        has_electric = true;
-        break;
-      }
-    }
-    if (has_electric)
-      moments.push_back(mlist.get_id(moment::zero(domain_.num_vel())));
+    add_density_moment_if_electric(moments);
     ref_moments_ = std::move(moments);
+  }
+
+  //! set an hybrid interpolation function for adaptivity, moments will be used if provided (internal use)
+  void set_adapt_hybrid(md_mom_idx_func<P> func, std::vector<moment_id> moments = {}) {
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+    rassert(std::holds_alternative<std::monostate>(ref_hybrid_),
+            "hybrid refinement source has already been added, cannot have two");
+    has_interp_funcs = true;
+    ref_hybrid_ = std::move(func);
+    add_density_moment_if_electric(moments);
+    ref_hybrid_moms_ = std::move(moments);
+  }
+  //! set an hybrid interpolation function for adaptivity, moments will be used if provided (internal use)
+  void set_adapt_hybrid(md_gpu_mom_idx_func<P> func, std::vector<moment_id> moments = {}) {
+    static_assert(has_gpu_enabled<pde_scheme<P>>,
+                  "using a GPU hybrid adapt weight requires a GPU backend enabled with either CUDA or ROCM");
+    rassert(domain_.num_pos() > 0,
+            "hybrid interpolation requires a pde_domain with position dimensions");
+    rassert(domain_.num_vel() > 0,
+            "hybrid interpolation requires a pde_domain with velocity dimensions");
+    rassert(std::holds_alternative<std::monostate>(ref_hybrid_),
+            "hybrid refinement source has already been added, cannot have two");
+    has_interp_funcs = true;
+    ref_hybrid_ = std::move(func);
+    add_density_moment_if_electric(moments);
+    ref_hybrid_moms_ = std::move(moments);
   }
 
   //! adds adaptive weight corresponding to the operator
@@ -1953,6 +2011,14 @@ private:
   //! updates the moment dependence based on the term just added
   void update_deps(term_md<P> &tmd);
 
+  void add_density_moment_if_electric(std::vector<moment_id> &moments)
+  {
+    auto is_electric = [&](moment_id mid) -> bool { return (mlist[mid].is_electric()); };
+
+    if (std::any_of(moments.begin(), moments.end(), is_electric))
+      moments.push_back(mlist.get_id(moment::zero(domain_.num_vel())));
+  }
+
   //! process the operator, opmode is either term_md or source for operator or adapt weight
   template<typename opmode>
   void process(operators::lenard_bernstein_collisions lbc);
@@ -1989,6 +2055,8 @@ private:
 
   md_field_func<P> ref_interp_;
   std::vector<moment_id> ref_moments_;
+  md_hybrid_func<P> ref_hybrid_;
+  std::vector<moment_id> ref_hybrid_moms_;
 };
 
 } // namespace asgard

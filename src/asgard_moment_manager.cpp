@@ -51,12 +51,6 @@ moment_manager<P>::moment_manager(pde_domain<P> const &domain, int max_level,
   pos_grid.block_size_ = (domain.num_pos() == 0) ? 0 : fm::ipow(pdof, domain.num_pos());
   pos_grid.iset_.num_dimensions_ = domain.num_pos();
 
-  wav_scale  = 1;
-  for (int d : iindexof(pos_grid.num_dims())) {
-    wav_scale *= (domain.xright(d) - domain.xleft(d));
-  }
-  wav_scale = P{1} / std::sqrt(wav_scale);
-
   dim_level.fill(moment_level::zero);
 
   moment const max_moms = mlist.max_moment();
@@ -645,7 +639,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
                                       hierarchy_manipulator<P> const &hier, interpolation_manager<P> const &interp,
                                       kronmult::workspace<P> &work) const
 {
-  std::visit([&](auto &p) {
+  std::visit([&, this](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
       p.solve_periodic(get_cached_level(p.moment0(), hier), full_level.get(p.moment_electric()));
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
@@ -666,7 +660,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       {
         efield.copy_to_host(this->raw_vals[mid]);
         this->full_level.get(mid).resize(0);
-        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), w2.vec.data(), work);
         gpu::vector<P> &res = this->gpu_interps[0][mid];
         res.resize(this->full_block * grid.num_indexes());
         moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
@@ -716,7 +710,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
         w1.vec = raw_vals[melectric];
-        interp.pos2nodal(dev, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(dev, pos_grid, w1.vec.data(), w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
         moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
@@ -740,7 +734,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
           efield.copy_to_host(this->raw_vals[mid]);
           this->full_level.get(mid).resize(0);
         }
-        interp.pos2nodal(dev, this->pos_grid, efield.data(), this->wav_scale, w2.vec.data(), work);
+        interp.pos2nodal(dev, this->pos_grid, efield.data(), w2.vec.data(), work);
         gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
         res.resize(this->full_block * grid.num_indexes());
         moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
@@ -770,14 +764,15 @@ template<typename P>
 void moment_manager<P>::make_nodal(
     moment_id id, interpolation_manager<P> const &interp,
     hierarchy_manipulator<P> const &hier,
-    kronmult::workspace<P> &kwork, std::vector<P> &workspace) const
+    kronmult::workspace<P> &kwork, std::vector<P> &nodal) const
 {
   update_position_grid_dsort();
 
   if (num_pos_ == 1 and needs_poisson(id))
     cache_raw_from_level(id, hier);
 
-  interp.pos2nodal(pos_grid, raw_vals[id].data(), wav_scale, workspace, kwork);
+  nodal.resize(pos_grid.num_dof());
+  interp.pos2nodal(pos_grid, raw_vals[id].data(), nodal.data(), kwork);
 
   interps[id].resize(pntr.back() * full_block);
 
@@ -788,7 +783,7 @@ void moment_manager<P>::make_nodal(
   {
     P *base = interps[id].data() + pntr[i] * full_block;
     for (int j = 0; j < pos_block; j++)
-      std::fill_n(base + j * vel_block, vel_block, workspace[i * pos_block + j]);
+      std::fill_n(base + j * vel_block, vel_block, nodal[i * pos_block + j]);
 
     P *out = base + full_block;
     for (int j = pntr[i] + 1; j < pntr[i + 1]; j++)
@@ -1072,7 +1067,7 @@ void moment_manager<P>::compute_moments(
       assert(work2[g].size() >= num_entries);
       gpu::wrap_array<P> w2(work2[g].data(), num_entries);
 
-      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
 
       moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2.vec, res);
 
@@ -1152,7 +1147,7 @@ void moment_manager<P>::compute_moments(
     assert(work2[0].size() >= num_entries);
     gpu::wrap_array<P> w2(work2[0].data(), num_entries);
 
-    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), wav_scale, w2.vec.data(), kwork);
+    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
 
     moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
 

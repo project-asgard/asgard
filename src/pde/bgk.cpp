@@ -114,6 +114,9 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   // the total number of dimensions is 2 * dims
   int const dims = (mode == pde_mode::shock2d) ? 2 : 1;
 
+  // using a double-negative here but the hybrid options is the default
+  bool const use_hybrid = not options.has_cli_entry("-nohybrid");
+
   options.title = "Bhatnagar-Gross-Krook "
                  + std::to_string(dims) + "x" + std::to_string(dims) + "v";
 
@@ -283,6 +286,7 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   double const dt = options.dt.value_or(options.default_dt.value());
 
   if (dims == 1) {
+    // this is the 1D BGK operator using non-hybrid interpolation
     asgard::moment_id im0 = pde.register_moment(asgard::moment(0));
     asgard::moment_id im1 = pde.register_moment(asgard::moment(1));
     asgard::moment_id im2 = pde.register_moment(asgard::moment(2));
@@ -295,10 +299,12 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
       std::vector<P> const &m2 = moments[im2];
 
       int64_t const num_nodes = nodes.num_strips();
+
       assert(vals.size() == static_cast<size_t>(num_nodes));
       assert(m0.size() == static_cast<size_t>(num_nodes));
       assert(m1.size() == static_cast<size_t>(num_nodes));
       assert(m2.size() == static_cast<size_t>(num_nodes));
+
       #pragma omp parallel for
       for (int64_t i = 0; i < num_nodes; i++) {
         // P const x = nodes[i][0]; // no explicit spatial dependence
@@ -314,33 +320,41 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
       }
     };
 
-    #ifdef ASGARD_USE_GPU
-    // If GPU capabilities are enabled in ASGarD, then it is preferable to use
-    // the builtin BGK operator, which will invoke GPU kernels.
-    // Using the CPU callable function fbgk is allowed, but it will result in
-    // data back-forth between the CPU/GPU and will result in slower performance.
-    pde += asgard::operators::simple_bgk_collisions{nu};
-    // The adapt weight should reflect all interpolation terms of the pde_scheme
-    // thus, the weight is not automatically set with the simple BGK operator.
-    // If the scheme has multiple interpolatory terms then a different weight is needed,
-    // but in this case, we can use the default builtin weight.
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
+    if (use_hybrid) {
+      // the hybrid approach for this particular operator takes advantage of the separability
+      // of the Maxwellian in velocity space and computes some of the integrals analytically
+      // using the builtin ASGarD operator will result in a more stable and more accurate simulation
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
+    } else {
+      #ifdef ASGARD_USE_GPU
+      // If GPU capabilities are enabled in ASGarD, then it is preferable to use
+      // the builtin BGK operator, which will invoke GPU kernels.
+      // Using the CPU callable function fbgk is allowed, but it will result in
+      // data back-forth between the CPU/GPU and will result in slower performance.
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      // The adapt weight should reflect all interpolation terms of the pde_scheme
+      // thus, the weight is not automatically set with the simple BGK operator.
+      // If the scheme has multiple interpolatory terms then a different weight is needed,
+      // but in this case, we can use the default builtin weight.
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
 
-    std::ignore = fbgk; // ignore the variable above, suppresses compiler warning
-    #else
-    // If GPU capabilities are not enabled, the builtin BGK operator is identical
-    // to the one implemented in this example.
-    pde += asgard::term_md<P>(nuI);
-    pde += asgard::source<P>(fbgk, {im0, im1, im2});
+      std::ignore = fbgk; // ignore the variable above, suppresses compiler warning
+      #else
+      // If GPU capabilities are not enabled, the builtin BGK operator is identical
+      // to the one implemented in this example.
+      pde += asgard::term_md<P>(nuI);
+      pde += asgard::source<P>(fbgk, {im0, im1, im2});
 
-    auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
-                    asgard::momentset<P> const &moments, std::vector<P> const &,
-                    std::vector<P> &vals)
-    {
-      fbgk(time, nodes, moments, vals);
-    };
-    pde.set_adapt_weight(abgk, {im0, im1, im2});
-    #endif
+      auto abgk = [=](P time, asgard::vector2d<P> const &nodes,
+                      asgard::momentset<P> const &moments, std::vector<P> const &,
+                      std::vector<P> &vals)
+      {
+        fbgk(time, nodes, moments, vals);
+      };
+      pde.set_adapt_weight(abgk, {im0, im1, im2});
+      #endif
+    }
 
   } else if (dims == 2) {
 
@@ -379,25 +393,30 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
 
     P const adapt_scale = 10.0 * nu * dt;
 
-    #ifdef ASGARD_USE_GPU
-    // see the 1x1v case
-    pde += asgard::operators::simple_bgk_collisions{nu};
-    // using square initial condition and with weight divided by 10
-    // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
-    // add default adaptivity (??) think about it
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
-    std::ignore = fbgk;
-    #else
-    pde += asgard::term_md<P>(nuI);
-    pde.set_source(fbgk, mids);
+    if (use_hybrid) {
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+    } else {
+      #ifdef ASGARD_USE_GPU
+      // see the 1x1v case
+      pde += asgard::operators::simple_bgk_collisions{nu};
+      // using square initial condition and with weight divided by 10
+      // and ./bgk -shock2d -nu 100 -m 8 -a 5.E-5 -n -> see pattern
+      // add default adaptivity (??) think about it
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+      std::ignore = fbgk;
+      #else
+      pde += asgard::term_md<P>(nuI);
+      pde.set_source(fbgk, mids);
 
-    pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
-    #endif
+      pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{adapt_scale});
+      #endif
+    }
 
   } else /* if (dims == 3) */ {
 
     // the simple for of the BGK operator (shows above) is built into the ASGarD library
-    // it can be used for any combination of position/velocity dimensions 1 - 3
+    // it can be used for matching number of velocity and position dimensions, 1D, 2D or 3D
     pde += asgard::operators::simple_bgk_collisions{nu};
     pde.set_adapt_weight(asgard::operators::simple_bgk_collisions{nu});
   }
@@ -642,6 +661,7 @@ int main(int argc, char** argv)
 -shock2d                 -          sets a 2x2v problem with a shock in the initial cond.
 -nu                      double     accepts: a positive number
                                     collision frequency
+-nohybrid                -          disables the hybrid interpolation strategy
 
 -test                               perform self-testing
 )help";
@@ -651,7 +671,8 @@ int main(int argc, char** argv)
   // this is an optional step, check if there are misspelled or incorrect cli entries
   // the first set/vector of entries are those that can appear by themselves
   // the second set/vector requires extra parameters
-  options.throw_if_argv_not_in({"-test", "--test", "-poisson", "-shock1d", "-shock2d"}, {"-nu", });
+  options.throw_if_argv_not_in({"-test", "--test", "-poisson", "-shock1d", "-shock2d", "-nohybrid"},
+                               {"-nu", });
 
   if (options.has_cli_entry("-test") or options.has_cli_entry("--test")) {
     // perform series of internal tests, not part of the example/tutorial
@@ -757,12 +778,14 @@ void self_test() {
 
   test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex1");
   test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex2");
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex1 -nohybrid");
+  test_energy<double>(pde_mode::poisson, "-m 8 -n 100 -s imex2 -nohybrid");
 
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
 
-  test_energy<float>(pde_mode::poisson, "-m 8 -n 100 -s imex2");
+  test_energy<float>(pde_mode::poisson, "-m 8 -n 100 -s imex2 -a 1.E-2");
 
 #endif
 }

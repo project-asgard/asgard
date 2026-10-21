@@ -191,7 +191,7 @@ void discretization_manager<precision>::restart_from_file(pde_scheme<precision> 
     };
     terms.moms.set_poisson(terms.max_level, terms.grid, terms.xleft, terms.xright, terms.conn, terms.hier, build_func, options_);
   }
-  
+
   start_moments();
 
   terms.build_matrices();
@@ -322,14 +322,9 @@ void discretization_manager<precision>::set_initial_condition()
     state.resize(terms.num_dof());
 
     if (initial_md_)
-      terms.interp(grid, terms.conn, {}, time, 1,
-                   // using the moment signature, even thought the initial conditions
-                   // cannot have a moment dependence
-                   [&](precision t, vector2d<precision> const &x,
-                       momentset<precision> const &, std::vector<precision> &vals)
-                       -> void {
-                         initial_md_(t, x, vals);
-                   }, 0, state, terms.kwork);
+      terms.interp(grid, terms.conn, time,
+                   1, initial_md_, 0, state.data(), // 1 * initial_md_ + 0 * state -> state
+                   terms.kwork);
     else
       std::fill(state.begin(), state.end(), precision{0});
 

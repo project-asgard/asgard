@@ -4,10 +4,23 @@
 
 namespace asgard
 {
+
 /*!
  * \brief Describes the stages of the interpolation operation.
  *
- * Uses bit operations to avoid storing multiple bools.
+ * An interpolation operation can have multiple stages and multiple shortcuts can be taken
+ * to avoid repeated or redundant work.
+ * These are expressed with multiple flags, which are stored here in a single int
+ * using bit-wise operations.
+ *
+ * Interpolation is applied to either sources or terms but two have differences.
+ * Both separable and interpolatory terms are stored together in a single data-structure
+ * for purposes of chaining and several of the plan flags depend on the previous and following
+ * terms of the chain, i.e., the plan cannot be figured out by just looking at a single term.
+ * In contrast, sources are stored separately and interpolatory sources do not use
+ * the majority of the flags in the plan.
+ * All relevant information for the source can be determined from looking just at a single source.
+ * Therefore, the plan is used only for terms and not sources.
  */
 struct interpolation_plan
 {
@@ -49,6 +62,13 @@ struct interpolation_plan
     else
       plan_mode_ &= ~(1 << gpu_func_);
   }
+  //! does the interpolation project only in position directions (incomplete feature)
+  void use_hybrid(bool val = true) {
+    if (val)
+      plan_mode_ |= (1 << hybrid_);
+    else
+      plan_mode_ &= ~(1 << hybrid_);
+  }
 
   //! indicates whether the plan has been enabled
   bool is_enabled() const {
@@ -63,6 +83,8 @@ struct interpolation_plan
   bool uses_hier() const { return (plan_mode_ & (1 << hier_)) != 0; }
   //! indicates whether to use GPU arrays
   bool uses_gpu_func() const { return (plan_mode_ & (1 << gpu_func_)) != 0; }
+  //! indicates whether to project only in position directions
+  bool uses_hybrid() const { return (plan_mode_ & (1 << hybrid_)) != 0; }
 
   //! tag for whether to use the enabled
   static int constexpr enabled_ = 0;
@@ -74,6 +96,8 @@ struct interpolation_plan
   static int constexpr hier_ = 3;
   //! tag for whether to call a function on the GPU
   static int constexpr gpu_func_ = 4;
+  //! tag for whether to use hybrid position-only interpolation
+  static int constexpr hybrid_ = 5;
 };
 
 /*!
@@ -119,15 +143,27 @@ public:
   template<int missing_dim = -1>
   vector2d<P> const &nodes(sparse_grid const &grid, vector2d<P> &vnodes) const;
 
+  //! interpolation mode, which dimension gets interpolation applied to
+  enum class interp_dims {
+    //! using all dimensions
+    full,
+    //! using hybrid interpolation, pos-dimensions
+    hybrid_pos
+  };
+
   //! compute nodal values for the field
+  template<interp_dims imode = interp_dims::full>
   void wav2nodal(sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
+    kronmult::permutes const &ip = (imode == interp_dims::full) ? perm : perm_pos;
+    P const scale = (imode == interp_dims::full) ? wav_scale : pos_wav_scale;
+
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 0;
+    int constexpr id = (imode == imode::full) ? 0 : 1;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, ip, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -136,15 +172,23 @@ public:
     #else
     // tools::time_event performance_("wavelet-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn_reduced, perm, wav2nodal_, P{wav_scale}, f, P{0}, vals, work);
+    block_cpu(pdof, grid, conn_reduced, ip, wav2nodal_, scale, f, P{0}, vals, work);
+  }
+
+  void wav2nodal(interp_dims imode, sparse_grid const &grid, P const f[], P vals[],
+                 kronmult::workspace<P> &work) const
+  {
+    if (imode == interp_dims::full)
+      wav2nodal<interp_dims::full>(grid, f, vals, work);
+    else
+      wav2nodal<interp_dims::hybrid_pos>(grid, f, vals, work);
   }
 
   //! compute nodal values for the moment position coefficients
-  void pos2nodal(sparse_grid const &grid, P const f[], P scal, P vals[],
-                 kronmult::workspace<P> &work) const
+  void pos2nodal(sparse_grid const &grid, P const f[], P vals[], kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = 2;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
@@ -156,27 +200,20 @@ public:
     #else
     // tools::time_event performance_("position-to-nodal");
     #endif
-    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, scal, f, P{0}, vals, work);
+    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, pos_wav_scale, f, P{0}, vals, work);
   }
-  //! compute values for the moment position coefficients, vector overload
-  void pos2nodal(sparse_grid const &grid, P const f[], P scal, std::vector<P> &vals,
-                 kronmult::workspace<P> &work) const
-  {
-    size_t const num_entries = static_cast<size_t>(grid.num_indexes()
-                                                   * fm::ipow(pdof, grid.num_dims()));
-    vals.resize(num_entries);
-    pos2nodal(grid, f, scal, vals.data(), work);
-  }
-
   //! converts interpolated nodal values to hierarchical coefficients
+  template<interp_dims imode = interp_dims::full>
   void nodal2hier(sparse_grid const &grid, connection_patterns const &conn,
                   P const f[], P hier[], kronmult::workspace<P> &work) const
   {
+    kronmult::permutes const &ip = (imode == interp_dims::full) ? perm_low : perm_low_pos;
+
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 2;
+    int constexpr id = (imode == imode::full) ? 3 : 4;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm_low, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, ip, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -185,19 +222,34 @@ public:
     #else
     // tools::time_event performance_("nodal-to-hier");
     #endif
-    block_cpu(pdof, grid, conn, perm_low, nodal2hier_, P{1}, f, P{0}, hier, work);
+    block_cpu(pdof, grid, conn, ip, nodal2hier_, P{1}, f, P{0}, hier, work);
   }
 
+  //! converts interpolated nodal values to hierarchical coefficients
+  void nodal2hier(interp_dims imode, sparse_grid const &grid, connection_patterns const &conn,
+                  P const f[], P hier[], kronmult::workspace<P> &work) const
+  {
+    if (imode == interp_dims::full)
+      nodal2hier<interp_dims::full>(grid, conn, f, hier, work);
+    else
+      nodal2hier<interp_dims::hybrid_pos>(grid, conn, f, hier, work);
+  }
   //! compute nodal values for the field
+  template<interp_dims imode = interp_dims::full>
   void nodal2wav(sparse_grid const &grid, connection_patterns const &conn,
                  P alpha, P const f[], P beta, P vals[],
                  kronmult::workspace<P> &work, std::vector<P> &t1) const
   {
+    kronmult::permutes const &ip_low = (imode == interp_dims::full) ? perm_low : perm_low_pos;
+    kronmult::permutes const &ip_up  = (imode == interp_dims::full) ? perm_up : perm_up_pos;
+
+    P const scale = (imode == interp_dims::full) ? iwav_scale : pos_iwav_scale;
+
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 3;
+    int constexpr id = (imode == imode::full) ? 5 : 6;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm_up, work);
+          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, ip_up, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -206,11 +258,20 @@ public:
     #else
     // tools::time_event performance_("nodal-to-wavelet");
     #endif
-    block_cpu(pdof, grid, conn, perm_low, nodal2hier_,
-              P{1}, f, P{0}, t1.data(), work);
-    block_cpu(pdof, grid, conn, perm_up, hier2wav_,
-              alpha * P{iwav_scale}, t1.data(), beta, vals, work);
+    block_cpu(pdof, grid, conn, ip_low, nodal2hier_, P{1}, f, P{0}, t1.data(), work);
+    block_cpu(pdof, grid, conn, ip_up, hier2wav_, alpha * scale, t1.data(), beta, vals, work);
   }
+  //! compute nodal values for the field
+  void nodal2wav(interp_dims imode, sparse_grid const &grid, connection_patterns const &conn,
+                 P alpha, P const f[], P beta, P vals[],
+                 kronmult::workspace<P> &work, std::vector<P> &t1) const
+  {
+    if (imode == interp_dims::full)
+      nodal2wav<interp_dims::full>(grid, conn, alpha, f, beta, vals, work, t1);
+    else
+      nodal2wav<interp_dims::hybrid_pos>(grid, conn, alpha, f, beta, vals, work, t1);
+  }
+
   /*!
    * \brief Performs the interpolation of the function func
    *
@@ -241,12 +302,17 @@ public:
   {
     tools::time_event perf_("interpolation term");
     assert(plan.is_enabled());
+
+    // interp_dims const idim = (plan.uses_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+    interp_dims constexpr idim = interp_dims::full;
+
     std::vector<P> const &nodal = [&]() -> std::vector<P> const &
       {
         if (plan.uses_field()) {
+          // return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
           return ifield;
         } else {
-          wav2nodal(grid, state, it1.data(), work);
+          wav2nodal(idim, grid, state, it1.data(), work);
           return it1;
         }
       }();
@@ -258,10 +324,11 @@ public:
         tmd.interp(time, nodes(grid), nodal, it2);
       }
     }
-    if (plan.uses_hier())
-      nodal2hier(grid, conn, it2.data(), y, work);
-    else
-      nodal2wav(grid, conn, alpha, it2.data(), beta, y, work, it1);
+    if (plan.uses_hier()) {
+      nodal2hier(idim, grid, conn, it2.data(), y, work);
+    } else {
+      nodal2wav(idim, grid, conn, alpha, it2.data(), beta, y, work, it1);
+    }
   }
   /*!
    * \brief Performs the interpolation of the function func
@@ -278,31 +345,32 @@ public:
   template<typename tmd_type>
   void operator ()
       (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
-       P time, P alpha, tmd_type const &func, P beta, P y[],
-       kronmult::workspace<P> &work) const
+       P time, P alpha, tmd_type const &func, P beta, P y[], kronmult::workspace<P> &work) const
   {
     {
       tools::time_event perf_("interpolation source");
-      func(time, nodes(grid), moments, it1);
+      func(time, nodes(grid), moments, grid.indexes(), it1);
     }
-    nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(idim, grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
   /*!
-   * \brief Performs the interpolation of the function func
+   * \brief Perform interpolation on a basic md_func
    *
-   * Vector variant
+   * This signature is used to set the initial conditions for the PDE,
+   * it does not use moments or any kind of hybrid interpolation.
    */
-  template<typename tmd_type>
   void operator ()
-      (sparse_grid const &grid, connection_patterns const &conn, momentset<P> const &moments,
-       P time, P alpha, tmd_type const &func, P beta, std::vector<P> &y,
-       kronmult::workspace<P> &work) const
+      (sparse_grid const &grid, connection_patterns const &conn,
+       P time, P alpha, md_func<P> const &func, P beta, P y[], kronmult::workspace<P> &work) const
   {
-    if (beta == 0)
-      y.resize(it1.size());
-    else
-      assert(y.size() == it1.size());
-    (*this)(grid, conn, moments, time, alpha, func, beta, y.data(), work);
+    {
+      tools::time_event perf_("interpolation source");
+      func(time, nodes(grid), it1);
+    }
+    nodal2wav(grid, conn, alpha, it1.data(), beta, y, work, it2);
   }
 
   //! indicates whether the manager has been initialized
@@ -325,6 +393,7 @@ public:
                                             block_tri_matrix<P> &work) const;
   //! returns the wavelet scale factor for hier2wav
   P wav_scale_h2w() const { return iwav_scale; }
+  P hybrid_wav_scale_h2w() const { return pos_iwav_scale; }
 
 
   #ifdef ASGARD_USE_GPU
@@ -353,7 +422,7 @@ public:
     grid.use_gpu_default_xy();
   }
   //! compute nodal values for the moment
-  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P scal, P vals[],
+  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -370,7 +439,7 @@ public:
     // tools::time_event performance_("position-to-nodal-gpu");
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], scal, f,
+    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f,
               P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
@@ -397,13 +466,19 @@ public:
               P{1}, f, P{0}, vals, work, nodal2hier_);
   }
   //! compute wavelet coefficients from nodal values
+  template<interp_dims imode = interp_dims::full>
   void nodal2wav(gpu::device dev, sparse_grid const &grid,
                  connection_patterns const &conn,
                  P alpha, P const f[], P beta, P vals[],
                  kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
+    kronmult::permutes const &ip_low = (imode == interp_dims::full) ? perm_low : perm_low_pos;
+    kronmult::permutes const &ip_up  = (imode == interp_dims::full) ? perm_up : perm_up_pos;
+
+    P const scale = (imode == interp_dims::full) ? iwav_scale : pos_iwav_scale;
+
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 3;
+    int constexpr id = (imode == imode::full) ? 5 : 6;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm, work);
@@ -415,11 +490,43 @@ public:
     #else
     // tools::time_event performance_("nodal-to-wavelet-gpu");
     #endif
-    block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
+    block_gpu(dev, pdof, grid, conn, ip_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
-    block_gpu(dev, pdof, grid, conn, perm_up, gpu_hier2wav_[dev.id],
-              alpha * P{iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
+    block_gpu(dev, pdof, grid, conn, ip_up, gpu_hier2wav_[dev.id],
+              alpha * scale, t1.data(), beta, vals, work, hier2wav_);
   }
+
+ //! compute nodal values for the field on the gpu
+  void nodal2wav(gpu::device dev, interp_dims imode, sparse_grid const &grid,
+                 connection_patterns const &conn,
+                 P alpha, P const f[], P beta, P vals[],
+                 kronmult::workspace<P> &work, gpu::vector<P> &t1) const
+  {
+    if (imode == interp_dims::full)
+      nodal2wav<interp_dims::full>(dev, grid, conn, alpha, f, beta, vals, work, t1);
+    else
+      nodal2wav<interp_dims::hybrid_pos>(dev, grid, conn, alpha, f, beta, vals, work, t1);
+  }
+
+  //! compute hirarchical coefficients from hybrid nodal values
+  void pos2hier(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
+                P const f[], P vals[], kronmult::workspace<P> &work) const
+  {
+    block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
+              P{1}, f, P{0}, vals, work, nodal2hier_);
+  }
+
+  //! compute wavelet coefficients from hybrid nodal values
+  void pos2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
+               P alpha, P const f[], P beta, P vals[],
+               kronmult::workspace<P> &work, gpu::vector<P> &t1) const
+  {
+    block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
+              P{1}, f, P{0}, t1.data(), work, nodal2hier_);
+    block_gpu(dev, pdof, grid, conn, perm_up_pos, gpu_hier2wav_[dev.id],
+              alpha * P{pos_iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
+  }
+
   /*!
    * \brief Performs the interpolation of the function func
    */
@@ -443,7 +550,10 @@ public:
           if (plan.uses_field()) {
             return gpu_ifield;
           } else {
-            wav2nodal(dev, grid, state, gpu_t1.data(), work);
+            // if (plan.uses_hybrid())
+            //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
+            // else
+              wav2nodal(dev, grid, state, gpu_t1.data(), work);
             return gpu_t1;
           }
         }();
@@ -456,17 +566,28 @@ public:
           tmd.interp(nodal.size(), time, gpu_nodes(dev, grid), nodal.data(), gpu_t2.data());
         }
       }
-      if (plan.uses_hier())
-        nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
-      else
-        nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+      if (plan.uses_hier()) {
+        // if (plan.uses_hybrid())
+        //   pos2hier(dev, grid, conn, gpu_t2.data(), y, work);
+        // else
+          nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
+      } else {
+        // if (plan.uses_hybrid())
+        //   pos2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+        // else
+          nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+      }
     } else {
       std::vector<P> const &nodal = [&]() -> std::vector<P> const &
         {
           if (plan.uses_field()) {
+            // return (plan.uses_hybrid()) ? hybrid_ifield : ifield;
             return ifield;
           } else {
-            wav2nodal(dev, grid, state, gpu_t1.data(), work);
+            // if (plan.uses_hybrid())
+            //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
+            // else
+              wav2nodal(dev, grid, state, gpu_t1.data(), work);
             gpu_t1.copy_to_host(t1);
             return t1;
           }
@@ -480,10 +601,17 @@ public:
         }
       }
       gpu_t1 = t2;
-      if (plan.uses_hier())
-        nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
-      else
-        nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+      if (plan.uses_hier()) {
+        // if (plan.uses_hybrid())
+        //   pos2hier(dev, grid, conn, gpu_t1.data(), y, work);
+        // else
+          nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
+      } else {
+        // if (plan.uses_hybrid())
+        //   pos2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+        // else
+          nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+      }
     }
   }
   /*!
@@ -502,10 +630,13 @@ public:
     tools::time_event perf_("interpolation source-gpu");
     {
       // tools::time_event perf_("source func");
-      func(time, nodes(grid), moments, cpu_it1[dev()]);
+      func(time, nodes(grid), moments, grid.indexes(), cpu_it1[dev()]);
     }
     gpu_it1[dev()] = cpu_it1[dev()];
-    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
   /*!
    * \brief Computes the interpolation function on the GPU
@@ -522,9 +653,12 @@ public:
     tools::time_event perf_("interpolation source-gpu");
     {
       // tools::time_event perf_("source func (gpu)");
-      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, gpu_it1[dev()].data());
+      func(gpu_it1[dev()].size(), time, gpu_nodes(dev, grid), moments, grid.gpu_indexes(), gpu_it1[dev()].data());
     }
-    nodal2wav(dev, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+
+    interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
+
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
   }
 
   //! field value sitting on the GPU
@@ -539,11 +673,15 @@ public:
   //! computes approximate memory usage by the object
   size_t used_bytes() const {
     size_t t = diag_h2w.used_bytes() + nodes1d_.size() * sizeof(P)
-              + nodes1d_.size() * sizeof(P) + (it1.size() + it2.size()) * sizeof(P);
-    return t + wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+              + nodes1d_.size() * sizeof(P)
+              + (ifield.size() + it1.size() + it2.size()) * sizeof(P);
+    t += wav2nodal_.used_bytes() + nodal2hier_.used_bytes() + hier2wav_.used_bytes();
+    return t;
   }
   //! values for the interpolation field, allows reuse for several interp ops
   mutable std::vector<P> ifield;
+  // //! hybrid interpolation field, nodal in position and wavelet in velocity
+  // mutable std::vector<P> hybrid_ifield;
   //! temporary workspace vector
   mutable std::vector<P> it1;
   //! temporary workspace vector
@@ -555,10 +693,21 @@ public:
   //! provides access to the hier2wav matrix
   block_sparse_matrix<P> const &matrix_hier2wav() const { return hier2wav_; }
 
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute() const { return perm_pos; }
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute_low() const { return perm_low_pos; }
+  //! provides access to the permutations
+  kronmult::permutes const &pos_permute_up() const { return perm_up_pos; }
+
+  //! reduced connection pattern
+  connection_patterns const &reduced_connection() const { return conn_reduced; }
+
 private:
   int pdof = 0;
   std::array<P, max_num_dimensions> xmin, xscale;
   P wav_scale = 0, iwav_scale = 0;
+  P pos_wav_scale = 0, pos_iwav_scale = 0;
 
   std::vector<double> points;
   std::vector<int> horder;
@@ -575,6 +724,8 @@ private:
   kronmult::permutes perm_low; // only lower matrices
   kronmult::permutes perm_up; // only upper matrices
   kronmult::permutes perm_pos; // position only permutations
+  kronmult::permutes perm_low_pos; // position only lower matrices
+  kronmult::permutes perm_up_pos; // position only upper matrices
 
   block_sparse_matrix<P> wav2nodal_;
   block_sparse_matrix<P> nodal2hier_;
@@ -610,7 +761,7 @@ private:
   };
   // indexes are wav2nodal (0), wav2nodal position-only (1)
   //             nodal2hier (2), nodal2wav (3)
-  mutable std::array<flop_info_entry, 4> flop_info;
+  mutable std::array<flop_info_entry, 7> flop_info;
   #endif
 };
 
