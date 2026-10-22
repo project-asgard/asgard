@@ -188,14 +188,14 @@ public:
   void dot_device(int num, P const x[], P const y[], P* result_dev) const {
       // 1. Tell CUBLAS to write the result to a pointer on the DEVICE
       cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_DEVICE);
-      
+
       // 2. Perform the dot product
       if constexpr (std::is_same_v<P, double>) {
           cublasDdot(cublas, num, x, 1, y, 1, result_dev);
       } else {
           cublasSdot(cublas, num, x, 1, y, 1, result_dev);
       }
-      
+
       // 3. Reset to HOST mode for standard ASGarD operations
       cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_HOST);
   }
@@ -204,14 +204,14 @@ public:
   void nrm2_device(int num, P const x[], P* result_dev) const {
       // 1. Tell CUBLAS to write the result to a pointer on the DEVICE
       cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_DEVICE);
-      
+
       // 2. Perform the norm calculation
       if constexpr (std::is_same_v<P, double>) {
           cublasDnrm2(cublas, num, x, 1, result_dev);
       } else {
           cublasSnrm2(cublas, num, x, 1, result_dev);
       }
-      
+
       // 3. Reset to HOST mode
       cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_HOST);
   }

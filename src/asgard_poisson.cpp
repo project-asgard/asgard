@@ -241,7 +241,7 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
     }
   }
 
-  // Peform copy on GPU
+  // Perform copy on GPU
   gpu::vector<int64_t> gpu_transfers(transfers);
   gpu::flagged_memcopy_dev2dev(block_size, gpu_transfers, x, x_new);
   std::swap(x, x_new);

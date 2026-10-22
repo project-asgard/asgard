@@ -168,9 +168,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("wavelet-to-nodal", flops);
+    tools::time_event performance_(op_name<method::wav2nodal, imode>(), flops);
     #else
-    // tools::time_event performance_("wavelet-to-nodal");
+    // tools::time_event performance_(op_name<method::wav2nodal, imode>(), flops);
     #endif
     block_cpu(pdof, grid, conn_reduced, ip, wav2nodal_, scale, f, P{0}, vals, work);
   }
@@ -196,9 +196,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("position-to-nodal", flops);
+    tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(), flops);
     #else
-    // tools::time_event performance_("position-to-nodal");
+    // tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(), flops);
     #endif
     block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, pos_wav_scale, f, P{0}, vals, work);
   }
@@ -218,9 +218,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("nodal-to-hier", flops);
+    tools::time_event performance_(op_name<method::nodal2hier, imode>(), flops);
     #else
-    // tools::time_event performance_("nodal-to-hier");
+    // tools::time_event performance_(op_name<method::nodal2hier, imode>(), flops);
     #endif
     block_cpu(pdof, grid, conn, ip, nodal2hier_, P{1}, f, P{0}, hier, work);
   }
@@ -254,9 +254,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("nodal-to-wavelet", flops);
+    tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #else
-    // tools::time_event performance_("nodal-to-wavelet");
+    // tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #endif
     block_cpu(pdof, grid, conn, ip_low, nodal2hier_, P{1}, f, P{0}, t1.data(), work);
     block_cpu(pdof, grid, conn, ip_up, hier2wav_, alpha * scale, t1.data(), beta, vals, work);
@@ -393,7 +393,6 @@ public:
                                             block_tri_matrix<P> &work) const;
   //! returns the wavelet scale factor for hier2wav
   P wav_scale_h2w() const { return iwav_scale; }
-  P hybrid_wav_scale_h2w() const { return pos_iwav_scale; }
 
 
   #ifdef ASGARD_USE_GPU
@@ -404,7 +403,7 @@ public:
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = flop_id<method::wav2nodal, interp_dims::full>();;
+    int constexpr id = flop_id<method::wav2nodal, interp_dims::full>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
@@ -412,9 +411,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("wavelet-to-nodal-gpu", flops);
+    tools::time_event performance_(op_name<method::wav2nodal, interp_dims::full>(dev), flops);
     #else
-    // tools::time_event performance_("wavelet-to-nodal-gpu");
+    // tools::time_event performance_(op_name<method::wav2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
@@ -434,9 +433,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("position-to-nodal-gpu", flops);
+    tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(dev), flops);
     #else
-    // tools::time_event performance_("position-to-nodal-gpu");
+    // tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
     block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f,
@@ -458,9 +457,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("nodal-to-hier-gpu", flops);
+    tools::time_event performance_(op_name<method::nodal2hier, interp_dims::full>(dev), flops);
     #else
-    // tools::time_event performance_("nodal-to-hier-gpu");
+    // tools::time_event performance_(op_name<method::nodal2hier, interp_dims::full>(dev), flops);
     #endif
     block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, vals, work, nodal2hier_);
@@ -486,9 +485,9 @@ public:
         }
         return flop_info[id].flops;
       }();
-    tools::time_event performance_("nodal-to-wavelet-gpu", flops);
+    tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #else
-    // tools::time_event performance_("nodal-to-wavelet-gpu");
+    // tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #endif
     block_gpu(dev, pdof, grid, conn, ip_low, gpu_nodal2hier_[dev.id],
               P{1}, f, P{0}, t1.data(), work, nodal2hier_);
@@ -506,25 +505,6 @@ public:
       nodal2wav<interp_dims::full>(dev, grid, conn, alpha, f, beta, vals, work, t1);
     else
       nodal2wav<interp_dims::hybrid_pos>(dev, grid, conn, alpha, f, beta, vals, work, t1);
-  }
-
-  //! compute hirarchical coefficients from hybrid nodal values
-  void pos2hier(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-                P const f[], P vals[], kronmult::workspace<P> &work) const
-  {
-    block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
-              P{1}, f, P{0}, vals, work, nodal2hier_);
-  }
-
-  //! compute wavelet coefficients from hybrid nodal values
-  void pos2wav(gpu::device dev, sparse_grid const &grid, connection_patterns const &conn,
-               P alpha, P const f[], P beta, P vals[],
-               kronmult::workspace<P> &work, gpu::vector<P> &t1) const
-  {
-    block_gpu(dev, pdof, grid, conn, perm_low_pos, gpu_nodal2hier_[dev.id],
-              P{1}, f, P{0}, t1.data(), work, nodal2hier_);
-    block_gpu(dev, pdof, grid, conn, perm_up_pos, gpu_hier2wav_[dev.id],
-              alpha * P{pos_iwav_scale}, t1.data(), beta, vals, work, hier2wav_);
   }
 
   /*!
@@ -550,6 +530,7 @@ public:
           if (plan.uses_field()) {
             return gpu_ifield;
           } else {
+            // if these are to be enabled, use the template interp_dims
             // if (plan.uses_hybrid())
             //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
             // else
@@ -754,15 +735,58 @@ private:
   std::array<mat_type, max_num_gpus> gpu_hier2wav_;
   #endif
 
-  #ifdef ASGARD_USE_FLOPCOUNTER
-  static int constexpr max_flop_counted_operations = 7;
-
   enum class method {
     wav2nodal, // full grid, either all dimensions or pos-dimensions only
     pos2nodal, // position grid only, no dimension variant
     nodal2hier, // full grid, with dimension variants
     nodal2wav  // full grid, with dimension variants
   };
+
+  template<method operation, interp_dims imode>
+  static constexpr const char *op_name() {
+    if constexpr (operation == method::wav2nodal) {
+      if constexpr (imode == interp_dims::full)
+        return "wav2nodal (full)";
+      else
+        return "wav2nodal (hybrid)";
+    } else if constexpr (operation == method::pos2nodal) {
+      return "pos2nodal";
+    } else if constexpr (operation == method::nodal2hier) {
+      if constexpr (imode == interp_dims::full)
+        return "nodal2hier (full)";
+      else
+        return "nodal2hier (hybrid)";
+    } else if constexpr (operation == method::nodal2wav) {
+      if constexpr (imode == interp_dims::full)
+        return "nodal2wav (full)";
+      else
+        return "nodal2wav (hybrid)";
+    }
+  }
+  template<method operation, interp_dims imode>
+  static constexpr const char *op_name(gpu::device) {
+    if constexpr (operation == method::wav2nodal) {
+      if constexpr (imode == interp_dims::full)
+        return "wav2nodal-gpu (full)";
+      else
+        return "wav2nodal-gpu (hybrid)";
+    } else if constexpr (operation == method::pos2nodal) {
+      return "pos2nodal-gpu";
+    } else if constexpr (operation == method::nodal2hier) {
+      if constexpr (imode == interp_dims::full)
+        return "nodal2hier-gpu (full)";
+      else
+        return "nodal2hier-gpu (hybrid)";
+    } else if constexpr (operation == method::nodal2wav) {
+      if constexpr (imode == interp_dims::full)
+        return "nodal2wav-gpu (full)";
+      else
+        return "nodal2wav-gpu (hybrid)";
+    }
+  }
+
+  #ifdef ASGARD_USE_FLOPCOUNTER
+  static int constexpr max_flop_counted_operations = 7;
 
   template<method operation, interp_dims imode>
   static constexpr int flop_id() {
