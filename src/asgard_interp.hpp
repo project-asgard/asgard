@@ -160,7 +160,7 @@ public:
     P const scale = (imode == interp_dims::full) ? wav_scale : pos_wav_scale;
 
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = (imode == imode::full) ? 0 : 1;
+    int constexpr id = flop_id<method::wav2nodal, imode>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, ip, work);
@@ -188,7 +188,7 @@ public:
   void pos2nodal(sparse_grid const &grid, P const f[], P vals[], kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 2;
+    int constexpr id = flop_id<method::pos2nodal, interp_dims::full>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
@@ -210,7 +210,7 @@ public:
     kronmult::permutes const &ip = (imode == interp_dims::full) ? perm_low : perm_low_pos;
 
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = (imode == imode::full) ? 3 : 4;
+    int constexpr id = flop_id<method::nodal2hier, imode>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, ip, work);
@@ -246,7 +246,7 @@ public:
     P const scale = (imode == interp_dims::full) ? iwav_scale : pos_iwav_scale;
 
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = (imode == imode::full) ? 5 : 6;
+    int constexpr id = flop_id<method::nodal2wav, imode>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, ip_up, work);
@@ -404,7 +404,7 @@ public:
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 0;
+    int constexpr id = flop_id<method::wav2nodal, interp_dims::full>();;
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
@@ -426,10 +426,10 @@ public:
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 1;
+    int constexpr id = flop_id<method::pos2nodal, interp_dims::full>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm, work);
+          flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -450,7 +450,7 @@ public:
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = 2;
+    int constexpr id = flop_id<method::nodal2hier, interp_dims::full>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
           flop_info[id].flops = kronmult::block_cpu(pdof, grid, conn, perm, work);
@@ -478,10 +478,10 @@ public:
     P const scale = (imode == interp_dims::full) ? iwav_scale : pos_iwav_scale;
 
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int constexpr id = (imode == imode::full) ? 5 : 6;
+    int constexpr id = flop_id<method::nodal2wav, imode>();
     int64_t const flops = [&, this]()-> int64_t {
         if (flop_info[id].grid_gen != grid.generation()) {
-          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, perm, work);
+          flop_info[id].flops = 2 * kronmult::block_cpu(pdof, grid, conn, ip_low, work);
           flop_info[id].grid_gen = grid.generation();
         }
         return flop_info[id].flops;
@@ -755,13 +755,42 @@ private:
   #endif
 
   #ifdef ASGARD_USE_FLOPCOUNTER
+  static int constexpr max_flop_counted_operations = 7;
+
+  enum class method {
+    wav2nodal, // full grid, either all dimensions or pos-dimensions only
+    pos2nodal, // position grid only, no dimension variant
+    nodal2hier, // full grid, with dimension variants
+    nodal2wav  // full grid, with dimension variants
+  };
+
+  template<method operation, interp_dims imode>
+  static constexpr int flop_id() {
+    if constexpr (operation == method::wav2nodal) {
+      if constexpr (imode == interp_dims::full)
+        return 0;
+      else
+        return 1;
+    } else if constexpr (operation == method::pos2nodal) {
+      return 2;
+    } else if constexpr (operation == method::nodal2hier) {
+      if constexpr (imode == interp_dims::full)
+        return 3;
+      else
+        return 4;
+    } else if constexpr (operation == method::nodal2wav) {
+      if constexpr (imode == interp_dims::full)
+        return 5;
+      else
+        return 6;
+    }
+    static_assert(max_flop_counted_operations == 7);
+  }
   struct flop_info_entry {
     int grid_gen = -1;
     int64_t flops = 0;
   };
-  // indexes are wav2nodal (0), wav2nodal position-only (1)
-  //             nodal2hier (2), nodal2wav (3)
-  mutable std::array<flop_info_entry, 7> flop_info;
+  mutable std::array<flop_info_entry, max_flop_counted_operations> flop_info;
   #endif
 };
 

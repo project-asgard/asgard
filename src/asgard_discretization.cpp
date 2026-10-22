@@ -535,7 +535,7 @@ void discretization_manager<precision>::ode_rhs_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs terms", flops);
     #else
     tools::time_event performance_("ode-rhs terms");
@@ -611,10 +611,10 @@ void discretization_manager<precision>::ode_euler_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
-    tools::time_event performance_("ode-rhs kronmult", flops);
+    int64_t const flops = terms.flop_count(group);
+    tools::time_event performance_("ode-rhs terms", flops);
     #else
-    tools::time_event performance_("ode-rhs kronmult");
+    tools::time_event performance_("ode-rhs terms");
     #endif
     if (is_leader())
       out = in;
@@ -768,7 +768,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
@@ -841,7 +841,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
