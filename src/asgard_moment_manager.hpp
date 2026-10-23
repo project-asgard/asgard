@@ -92,10 +92,21 @@ public:
   void cache_raw_from_level(moment_id id, hierarchy_manipulator<P> const &hier) const {
     assert(num_pos_ == 1 and needs_poisson(id)); // this should only be called for 1D electric field moments
     int const level = pos_grid.current_level(0);
-    size_t const num_cells = fm::ipow2(level);
+    int const num_cells = fm::ipow2(level);
     constexpr int full_level_pdof = 1;
     std::vector<P> padded_level = pad_pdof(num_cells, full_level_pdof, pdof, full_level[id]);
-    hier.transform(level, padded_level, raw_vals[id]);
+    if (num_cells * pdof == pos_grid.num_dof()) {
+      hier.transform(level, padded_level, raw_vals[id]);
+    } else {
+      // in this case, the grid is missing at least one index compared to the full 1D level grid
+      std::vector<P> lvl;
+      hier.transform(level, padded_level, lvl);
+      auto &raw = raw_vals[id];
+      raw.resize(pos_grid.num_dof());
+      P *r = raw.data();
+      for (int i = 0; i < pos_grid.num_indexes(); i++)
+        r = std::copy_n(lvl.data() + pos_grid[i][0] * pdof, pdof, r);
+    }
   }
   //! cache a number of ids listed as the first n entries of a container ids, where ids[i] is moment_id
   template<typename vec_type>

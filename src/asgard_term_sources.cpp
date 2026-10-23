@@ -657,7 +657,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
           if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_func<P>>) {
             interp.it1.resize(subgrid.num_dof());
             func(time, ibc_nodes[flux_dim], interp.it1);
-            assert(w1.vec.size() == interp.it1.size());
+            assert(w1.vec.size() == static_cast<int64_t>(interp.it1.size()));
             w1.vec = interp.it1;
             interp.it1.resize(grid.num_dof());
           } else if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_gpu_func<P>>) {

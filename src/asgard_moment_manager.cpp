@@ -709,6 +709,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       // interpolate
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
+        assert(w1.vec.size() == static_cast<int64_t>(raw_vals[melectric].size()));
         w1.vec = raw_vals[melectric];
         interp.pos2nodal(dev, pos_grid, w1.vec.data(), w2.vec.data(), work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
