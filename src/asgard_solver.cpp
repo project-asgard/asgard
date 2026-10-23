@@ -212,7 +212,7 @@ void scaled_identity<P>::update(group_id group, size_t stage, sparse_grid const 
         rassert(t1d.is_identity() or t1d.is_volume(),
                 "scaled-identity solver can be used only with volume and identity instances of term1d");
         if (t1d.is_volume())
-          rassert(not t1d.rhs(), "detected non-constant coefficient for the scaled-identity solver");
+          rassert(not t1d.has_rhs(), "detected non-constant coefficient for the scaled-identity solver");
       }
     }
   }

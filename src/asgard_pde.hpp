@@ -79,16 +79,19 @@ enum class flux_type
  * \brief Indicates wither we need to recompute matrices based different conditions
  *
  * If a term has a fix coefficient, then there will not reason to update the matrices.
- * On ther other end of the spectrum, terms that depend on the PDE solution, e.g.,
+ * On the other end of the spectrum, terms that depend on the PDE solution, e.g.,
  * the moments or the electric field, have to be recomputed on every stage of
  * a time advance algorithm.
  * The penalty terms have to be updated when the mesh discretization level changes.
+ *
+ * Currently, terms with explicit time-dependence are not supported, moment dependence
+ * is supported and time-dependence is supported for sources and boundary conditions.
  */
 enum class changes_with
 {
   //! no need to update the operator matrices
   none,
-  //! assume we must always update on chnge in the time or the solution field
+  //! assume we must always update on change in the time or the solution field
   time
 };
 
@@ -328,12 +331,10 @@ struct volume_electric {
   //! right side depends only on the field
   volume_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
   //! right side depends on the field and position
-  volume_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
+  volume_electric(sfixed_func1d_f<P> rhs_f) : right(std::move(rhs_f)) {}
 
   //! right-hand-side function, field only no spatial dependence
-  sfixed_func1d<P> right;
-  //! right-hand-side function, depends on position and field
-  sfixed_func1d_f<P> right_f;
+  std::variant<std::monostate, sfixed_func1d<P>, sfixed_func1d_f<P>> right;
 };
 
 /*!
@@ -564,10 +565,11 @@ public:
   //! make a term that depends on the electric field
   term_1d(volume_electric<P> elmass)
     : optype_(operation_type::volume), change_(changes_with::time),
-      rhs_(std::move(elmass.right)), field_f_(std::move(elmass.right_f))
+      rhs_(std::move(elmass.right))
   {
-    depends_ = (field_f_) ? term_dependence::electric_field
-                          : term_dependence::electric_field_only;
+    bool const uses_field = std::holds_alternative<sfixed_func1d_f<P>>(rhs_);
+    depends_ = (uses_field) ? term_dependence::electric_field
+                            : term_dependence::electric_field_only;
   }
   //! make moment over density, moment dependence term
   term_1d(term_moment_over_density mover)
@@ -604,11 +606,17 @@ public:
   //! returns the flux type
   flux_type flux() const { return flux_; }
 
-  //! returns the right-hand-side function
-  sfixed_func1d<P> const &rhs() const { return rhs_; }
+  //! returns true if any rhs function has been set
+  bool has_rhs() const { return not std::holds_alternative<std::monostate>(rhs_); }
+  //! returns true if rhs function with no field has been set
+  bool has_rhs_nof() const { return std::holds_alternative<sfixed_func1d<P>>(rhs_); }
+  //! returns true if rhs function with field has been set
+  bool has_rhs_f() const { return std::holds_alternative<sfixed_func1d_f<P>>(rhs_); }
+  //! return the rhs function, no file dependence
+  sfixed_func1d<P> const &get_rhs() const { return std::get<sfixed_func1d<P>>(rhs_); }
   //! calls the right-hand-side function
   void rhs(std::vector<P> const &x, std::vector<P> &fx) const {
-    return rhs_(x, fx);
+    std::get<sfixed_func1d<P>>(rhs_)(x, fx);
   }
 
   //! returns the required moment, if any
@@ -619,18 +627,14 @@ public:
   //! get the ids of all moments needed by this 1d term
   std::vector<moment_id> const &moment_ids() const { return mids_; }
 
-  //! returns the rhs function that calls the field
-  sfixed_func1d_f<P> const &field() const { return field_f_; }
   //! calls the rhs function that depends on the field
   void field(std::vector<P> const &x, std::vector<P> const &f, std::vector<P> &fx) const {
-    return field_f_(x, f, fx);
+    std::get<sfixed_func1d_f<P>>(x, f, fx);
   }
 
   //! returns the constant right-hand-side
   P rhs_const() const { return coeffs_[0]; }
 
-  //! can read or set the the change option
-  changes_with &change() { return change_; }
   //! can read the change option
   changes_with change() const { return change_; }
 
@@ -711,10 +715,10 @@ public:
 private:
   //! helper constructor
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd),
-        rhs_(std::move(frhs)), coeffs_{crhs, 0}
+      : optype_(opt), flux_(flx), boundary_(bnd), coeffs_{crhs, 0}
   {
     assert(optype_ != operation_type::identity);
+    if (frhs) rhs_ = std::move(frhs);
 
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
@@ -752,7 +756,8 @@ private:
 
   changes_with change_ = changes_with::none;
 
-  sfixed_func1d<P> rhs_;
+  std::variant<std::monostate, sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
+  // sfixed_func1d<P> rhs_;
   // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
   std::array<P, 2> coeffs_ = {1, 0};
@@ -762,7 +767,6 @@ private:
   int mom = 0;
   moment smom_;
   std::vector<moment_id> mids_; // separable LB or interpolatory
-  sfixed_func1d_f<P> field_f_;
 
   std::vector<term_1d<P>> chain_;
 };

@@ -219,7 +219,8 @@ struct term_manager
           mass[d].spd_factorize(basis.pdof);
           active_dirs.push_back(d);
           if (moms) {
-            if (mass_term[d].rhs()) {
+            assert(not mass_term[d].has_rhs_f());
+            if (mass_term[d].has_rhs_nof()) {
               // the constant will be ignored here
               moms.set_mass(d, xleft[d], xright[d], max_level, basis, hier, 1, raw_rhs);
             } else {

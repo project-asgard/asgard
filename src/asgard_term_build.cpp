@@ -767,7 +767,8 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::electric_field_only:
         {
           moment_id mid_electric = moms.find_id(moment::electric(dimension_id(d), moms.num_pos()));
-          if (t1d.rhs()) {
+          assert(not t1d.has_rhs_f());
+          if (t1d.has_rhs_nof()) {
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
             t1d.rhs(moms.get_cached_level(mid_electric), kwork.w1);
@@ -813,18 +814,19 @@ void term_manager<P>::build_raw_mat(
           };
           break;
         default:
-          if (t1d.rhs()) {
-            gen_volume_mat<P>(basis, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
+          if (t1d.has_rhs_nof()) {
+            gen_volume_mat<P>(basis, xleft[d], xright[d], level, t1d.get_rhs(), raw_rhs, raw_diag);
           } else {
+            assert(not t1d.has_rhs_f());
             gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
           }
           break;
       }
       break;
     case operation_type::div:
-      if (t1d.rhs()) {
+      if (t1d.has_rhs()) {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_func>
-          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, t1d.get_rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_const>
           (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
@@ -835,9 +837,9 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     case operation_type::grad:
-      if (t1d.rhs()) {
+      if (t1d.has_rhs()) {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_func>
-          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+          (basis, xleft[d], xright[d], level, t1d.get_rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       } else {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_const>
           (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
@@ -848,12 +850,12 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     case operation_type::penalty:
-      assert(not t1d.rhs());
+      assert(not t1d.has_rhs());
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     case operation_type::robin:
-      assert(not t1d.rhs());
+      assert(not t1d.has_rhs());
       gen_robin_cmat<P>(basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), raw_diag);
       break;
     default: // case operation_type::identity:
@@ -897,7 +899,7 @@ void term_manager<P>::build_raw_mat(
           scale = -scale;
 
         if (bentry.flux.is_left()) {
-          P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+          P rhs_left  = (t1d.has_rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
@@ -911,7 +913,7 @@ void term_manager<P>::build_raw_mat(
         }
 
         if (bentry.flux.is_right()) {
-          P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+          P rhs_right = (t1d.has_rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
 
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
@@ -938,7 +940,7 @@ void term_manager<P>::build_raw_mat(
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
 
         if (bentry.flux.func().is_const(dimension_id{d})) {
-          if (t1d.rhs()) { // constant times spatially variable
+          if (t1d.has_rhs()) { // constant times spatially variable
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
                                              bentry.flux.func().const_at(dimension_id{d}), raw_rhs.vals);
           } else { // constant times a constant
@@ -947,7 +949,7 @@ void term_manager<P>::build_raw_mat(
                                              bentry.flux.func().const_at(dimension_id{d}) * rconst);
           }
         } else {
-          if (t1d.rhs()) { // product of non-consts
+          if (t1d.has_rhs()) { // product of non-consts
             std::vector<P> f(raw_rhs.pnts.size());
             bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, f);
             bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
@@ -975,8 +977,8 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
   assert(t1d.is_diagonal());
   assert(t1d.depends() == term_dependence::none);
 
-  if (t1d.rhs()) {
-    gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
+  if (t1d.has_rhs()) {
+    gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.get_rhs(), raw_rhs, raw_diag);
   } else {
     gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
   }

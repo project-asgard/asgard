@@ -222,7 +222,8 @@ void test_bookkeeping() {
     tassert(ptM.is_diagonal());
     tassert(not ptM.is_tri_diag());
     tassert(ptM.rhs_const() == 3.5);
-    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).rhs()); // loaded a function
+    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs()); // loaded a function
+    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_nof()); // loaded a function
   }
   {
     current_test<TestType> name_("term div");
@@ -247,7 +248,7 @@ void test_bookkeeping() {
     tassert(not ptG.is_diagonal());
     tassert(ptG.flux() == flux_type::upwind); // grad swaps the fluxes
     std::vector<TestType> x = {-1, 5, 2}, fx(3);
-    ptG.rhs()(x, fx);
+    ptG.get_rhs()(x, fx);
     tassert(fm::diff_inf(fx, std::vector<TestType>{-2, 10, 4}) == 0);
   }
   {
@@ -258,7 +259,8 @@ void test_bookkeeping() {
     tassert(ptP.is_tri_diag());
     tassert(not ptP.is_diagonal());
     tassert(ptP.flux() == flux_type::central);
-    tassert(not ptP.rhs());
+    tassert(not ptP.has_rhs());
+    tassert(not ptP.has_rhs_nof());
     tassert(ptP.rhs_const() == 11);
   }
   {
@@ -268,7 +270,7 @@ void test_bookkeeping() {
     tassert(ptR.optype() == operation_type::robin);
     tassert(not ptR.is_tri_diag());
     tassert(ptR.is_diagonal());
-    tassert(not ptR.rhs());
+    tassert(not ptR.has_rhs());
     tassert(ptR.left_robin() == 7);
     tassert(ptR.right_robin() == 9);
   }
