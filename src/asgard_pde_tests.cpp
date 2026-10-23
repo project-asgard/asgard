@@ -281,7 +281,6 @@ void test_bookkeeping() {
     tassert(not chain.is_identity());
     tassert(not chain.is_chain());
     tassert(chain.is_div());
-    tassert(chain.num_chain() == 0);
 
     term_1d<TestType> chain1({ptD, ptD});
     tassert(chain1.is_chain());
@@ -293,7 +292,6 @@ void test_bookkeeping() {
     term_1d<TestType> ptI;
     tassert(term_1d<TestType>({ptI, ptI}).is_identity());
     tassert(not term_1d<TestType>({ptI, ptI}).is_chain());
-    tassert(term_1d<TestType>({ptI, ptI}).num_chain() == 0);
 
     term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
     term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
@@ -329,7 +327,7 @@ void test_bookkeeping() {
 
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     tassert(chain[0].optype() == operation_type::grad);
-    tassert(chain.chain()[1].optype() == operation_type::volume);
+    tassert(chain.chain_link(1).optype() == operation_type::volume);
     tassert(chain[2].optype() == operation_type::div);
     tassert(chain[3].optype() == operation_type::volume);
   }

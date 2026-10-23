@@ -523,10 +523,11 @@ public:
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), coeffs_{0, 0}, chain_(std::move(tvec))
+    : optype_(operation_type::chain), coeffs_(0), extra_(std::move(tvec))
   {
     // remove the identity terms in the chain
     int numid = 0;
+    std::vector<term_1d<P>> &chain_ = std::get<std::vector<term_1d<P>>>(extra_);
     for (auto const &c : chain_) {
       if (c.is_identity())
         numid += 1;
@@ -538,16 +539,19 @@ public:
     if (num_chain == numid) {
       // all identities, nothing to chain
       optype_ = operation_type::identity;
-      chain_.resize(0);
+      extra_ = std::monostate{};
     } else if (num_chain - numid == 1) {
       // chain has only one non-identity term
-      for (auto &c : chain_) {
-        if (not c.is_identity()) {
-          term_1d<P> temp = std::move(c);
-          *this = std::move(temp);
-          break;
+      term_1d<P> temp = [&]() -> auto {
+        for (auto &c : chain_) {
+          if (not c.is_identity()) {
+            return std::move(c);
+          }
         }
-      }
+        return term_1d<P>{}; // unreachable, already checked there is 1 non-identity term
+      }();
+      extra_ = std::monostate{};
+      *this = std::move(temp);
     } else if (numid > 0) {
       std::vector<term_1d<P>> vec = std::move(chain_);
       chain_ = std::vector<term_1d<P>>();
@@ -575,14 +579,14 @@ public:
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
-      smom_(mover.mom)
+      change_(changes_with::time), coeffs_(static_cast<P>(mover.scale)),
+      extra_(mover.mom)
   {}
   //! make a special term using the collision theta term
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), coeffs_{static_cast<P>(lbt.coeff), 0}
+      change_(changes_with::time), coeffs_(static_cast<P>(lbt.coeff))
   {}
 
   //! indicates whether this is an identity term
@@ -619,13 +623,13 @@ public:
     std::get<sfixed_func1d<P>>(rhs_)(x, fx);
   }
 
-  //! returns the required moment, if any
-  int get_moment() const { return mom; }
-
   //! get the moment that is in the denominator, only for moment over density case
-  moment const &moment_over() const { return smom_; }
+  moment const &moment_over() const { return std::get<moment>(extra_); }
+
+  //! returns true if the term has a vector of moments
+  bool has_moment_ids() const { return std::holds_alternative<std::vector<moment_id>>(extra_); }
   //! get the ids of all moments needed by this 1d term
-  std::vector<moment_id> const &moment_ids() const { return mids_; }
+  std::vector<moment_id> const &moment_ids() const { return std::get<std::vector<moment_id>>(extra_); }
 
   //! calls the rhs function that depends on the field
   void field(std::vector<P> const &x, std::vector<P> const &f, std::vector<P> &fx) const {
@@ -633,7 +637,7 @@ public:
   }
 
   //! returns the constant right-hand-side
-  P rhs_const() const { return coeffs_[0]; }
+  P rhs_const() const { return coeffs_.value(); }
 
   //! can read the change option
   changes_with change() const { return change_; }
@@ -642,14 +646,20 @@ public:
   term_dependence depends() const { return depends_; }
 
   //! (chain-mode only) number of chained terms
-  int num_chain() const { return static_cast<int>(chain_.size()); }
+  int num_chain() const { return static_cast<int>(std::get<std::vector<term_1d<P>>>(extra_).size()); }
   //! (chain-mode only) get the vector of the chain
-  std::vector<term_1d<P>> const &chain() const { return chain_; }
+  // std::vector<term_1d<P>> const &chain() const { return chain_; }
   //! (chain-mode only) get the i-th term in the chain
-  term_1d<P> const &operator[](int i) const { return chain_[i]; }
+  term_1d<P> const &operator[](int i) const { return chain_link(i); }
+  //! (chain-mode only) get the last entry in the chain
+  term_1d<P> const &chain_back() const { return std::get<std::vector<term_1d<P>>>(extra_).back(); };
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> const &chain_link(int i) const { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> &chain_link(int i) { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
   //! (chain-mode only) add one more term to the chain
   void add_term(term_1d<P> tm) {
-    chain_.emplace_back(std::move(tm));
+    std::get<std::vector<term_1d<P>>>(extra_).emplace_back(std::move(tm));
     check_chain();
   }
   //! (chain-mode only) add one more term to the chain
@@ -660,7 +670,7 @@ public:
   //! returns true if the term has a flux
   bool has_flux() const {
     if (optype_ == operation_type::chain) {
-      for (auto const &cc : chain_)
+      for (auto const &cc : std::get<std::vector<term_1d<P>>>(extra_))
         if (not cc.is_identity() and not cc.is_volume())
           return true;
       return false;
@@ -690,21 +700,21 @@ public:
             or optype_ == operation_type::penalty);
   }
   //! left Robin condition
-  P left_robin() const { return coeffs_[0]; }
+  P left_robin() const { return coeffs_.left(); }
   //! right Robin condition
-  P right_robin() const { return coeffs_[1]; }
+  P right_robin() const { return coeffs_.right(); }
 
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_left_robin(P left) {
     rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
                         "or create a new term_robin");
-    coeffs_[0] = left;
+    coeffs_.set_left(left);
   }
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_right_robin(P right) {
     rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
                         "or create a new term_robin");
-    coeffs_[1] = right;
+    coeffs_.set_right(right);
   }
 
   // both the pde_scheme and term_manager need access to the internal data
@@ -715,7 +725,7 @@ public:
 private:
   //! helper constructor
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd), coeffs_{crhs, 0}
+      : optype_(opt), flux_(flx), boundary_(bnd), coeffs_(crhs)
   {
     assert(optype_ != operation_type::identity);
     if (frhs) rhs_ = std::move(frhs);
@@ -729,11 +739,14 @@ private:
   }
 
   //! (chain-mode only) access the i-th term in the chain, allows mods
-  term_1d<P> &chain(int i) { return chain_[i]; }
+  term_1d<P> &chain(int i) { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
   //! check if the chain has wrong set of fluxes
   void check_chain() {
+    if (not std::holds_alternative<std::vector<term_1d<P>>>(extra_))
+      return; // not actually a chain
     int side = 0;
     int central = 0;
+    std::vector<term_1d<P>> const &chain_ = std::get<std::vector<term_1d<P>>>(extra_);
     for (int i : iindexof(chain_)) {
       if (chain_[i].is_volume())
         continue;
@@ -757,18 +770,33 @@ private:
   changes_with change_ = changes_with::none;
 
   std::variant<std::monostate, sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
-  // sfixed_func1d<P> rhs_;
   // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
-  std::array<P, 2> coeffs_ = {1, 0};
+  class two_coefficients {
+  public:
+    two_coefficients() = default;
+    two_coefficients(P c) : vals({c, 0}) {}
+    two_coefficients(P l, P r) : vals({l, r}) {}
+
+    P left() const { return vals[0]; } // left Robin BC
+    P right() const { return vals[1]; } // left Robin BC
+
+    void set_left(P l) { vals[0] = l; }
+    void set_right(P r) { vals[1] = r; }
+
+    P value() const { return vals[0]; } // general coefficient
+
+  private:
+    std::array<P, 2> vals = {1, 0};
+  };
+
+  two_coefficients coeffs_;
 
   P penalty_ = 0;
 
-  int mom = 0;
-  moment smom_;
-  std::vector<moment_id> mids_; // separable LB or interpolatory
-
-  std::vector<term_1d<P>> chain_;
+  // extra meta-data for the term1d, could use a moment for moment over density
+  // could use a list of moments for LB or list of term_1d for a chain
+  std::variant<std::monostate, moment, std::vector<moment_id>, std::vector<term_1d<P>>> extra_;
 };
 
 /*!

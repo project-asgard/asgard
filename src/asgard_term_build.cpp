@@ -435,9 +435,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
-            auto const &mids = tentry.tmd.dim(d).mids_;
-            insert(mids, gpu_moms[tentry.rec.device][gid]);
-            insert(mids, cpu_raw[gid]);
+            if (tentry.tmd.dim(d).has_moment_ids()) {
+              auto const &mids = tentry.tmd.dim(d).moment_ids();
+              insert(mids, gpu_moms[tentry.rec.device][gid]);
+              insert(mids, cpu_raw[gid]);
+            }
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tentry.tmd.mids_;
@@ -500,9 +502,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           has_poisson |= (resources.is_leader() and moms.get_by_id(mid).is_electric());
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
-            auto const &mids = tmd.dim(d).mids_;
-            insert(mids, regular[gid]);
-            has_sep_mom = has_sep_mom or not mids.empty();
+            if (tmd.dim(d).has_moment_ids()) {
+              auto const &mids = std::get<std::vector<moment_id>>(tmd.dim(d).extra_);
+              insert(mids, regular[gid]);
+              has_sep_mom = has_sep_mom or not mids.empty();
+            }
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tmd.mids_;
@@ -757,7 +761,7 @@ void term_manager<P>::build_raw_mat(
     block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
-  term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_[clink] : tentry.tmd.dim(d);
+  term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_link(clink) : tentry.tmd.dim(d);
   assert(not t1d.is_chain());
 
   switch (t1d.optype())
@@ -791,21 +795,21 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::lenard_bernstein_coll_theta:
           switch (moms.num_vel()) {
           case 1:
-            moms.cache_levels(3, hier, t1d.mids_);
+            moms.cache_levels(3, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 1>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 2:
-            moms.cache_levels(5, hier, t1d.mids_);
+            moms.cache_levels(5, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 2>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 3:
-            moms.cache_levels(7, hier, t1d.mids_);
+            moms.cache_levels(7, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 3>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           default:
@@ -1038,7 +1042,7 @@ void term_manager<P>::rebuld_chain(
   // and at each stage we multiply by diag/tri-matrix
   // if we start with a diagonal, we will switch to tri at some point
 
-  fill current = (t1d.chain_.back().is_diagonal()) ? fill::diag : fill::tri;
+  fill current = (t1d.chain_back().is_diagonal()) ? fill::diag : fill::tri;
   build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
@@ -1093,15 +1097,15 @@ void term_manager<P>::rebuld_chain(
   if (t1d.penalty() != 0) {
     if (bmass) {
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-          t1d.chain_.back().boundary(), raw_rhs, *tri0);
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_back().flux(),
+          t1d.chain_back().boundary(), raw_rhs, *tri0);
       bmass->solve(basis.pdof, *tri0);
       raw_tri += *tri0;
     } else {
       // no need to worry about the mass, just add the penalty to the raw-tri
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-          t1d.chain_.back().boundary(), raw_rhs, raw_tri);
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_back().flux(),
+          t1d.chain_back().boundary(), raw_rhs, raw_tri);
     }
   }
 
