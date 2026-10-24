@@ -158,14 +158,12 @@ struct term_identity {};
 template<typename P = default_precision>
 struct term_volume {
   //! make a volume term with constant coefficient
-  term_volume(no_deduce<P> cc) : const_coeff(cc) {}
+  term_volume(no_deduce<P> cc) : coeff_(cc) {}
   //! make a volume term with given right hand side coefficient
-  term_volume(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+  term_volume(sfixed_func1d<P> rhs) : coeff_(std::move(rhs)) {}
 
-  //! constant coefficient, if left/right-hand-side functions are null
-  P const_coeff = 0;
-  //! right-hand-side function
-  sfixed_func1d<P> right;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 };
 
 /*!
@@ -176,33 +174,31 @@ template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with given constant coefficient, upwind flux, and given boundary_type
   term_grad(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), boundary(bnd)
+    : coeff_(cc), boundary(bnd)
   {}
   //! make a grad term with given constant coefficient, flux_type and boundary_type
   term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given constant coefficient, boundary_type and flux_type
   term_grad(no_deduce<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given coefficient, upwind flux, and given boundary_type
   term_grad(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), var_coeff(std::move(cc)), boundary(bnd)
+    : coeff_(std::move(cc)), boundary(bnd)
   {}
   //! make a grad term with given coefficient, flux_type and boundary_type
   term_grad(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given coefficient, boundary_type and flux_type
   term_grad(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, used if var_coeff is not set
-  P const_coeff = 1;
-  //! non-constant coefficient function
-  sfixed_func1d<P> var_coeff;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -218,33 +214,31 @@ template<typename P = default_precision>
 struct term_div {
   //! make a div term with given constant coefficient, upwind flux, and given boundary_type
   term_div(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), boundary(bnd)
+    : coeff_(cc), boundary(bnd)
   {}
   //! make a div term with given constant coefficient, flux_type and boundary_type
   term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a div term with given constant coefficient, boundary_type and flux_type
   term_div(no_deduce<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a div term with given coefficient, upwind flux, and given boundary_type
   term_div(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
-    : var_coeff(std::move(cc)), boundary(bnd)
+    : coeff_(std::move(cc)), boundary(bnd)
   {}
   //! make a div term with given coefficient, flux_type and boundary_type
   term_div(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
   //! make a div term with given coefficient, boundary_type and flux_type
   term_div(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
-    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, used if var_coeff is not set
-  P const_coeff = 1;
-  //! non-constant coefficient function
-  sfixed_func1d<P> var_coeff;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -467,45 +461,37 @@ public:
 
   //! make a volume term
   term_1d(term_volume<P> mt)
-    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
-              std::move(mt.right), mt.const_coeff)
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none, std::move(mt.coeff_))
   {}
-  //! make a volume term, hack around creating term_1d<float> from term_mass<double>
+  //! make a volume term, hack around creating term_1d<float> from term_volume<double>
   template<typename otherP>
   term_1d(term_volume<otherP> mt)
-    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
-              nullptr, static_cast<P>(mt.const_coeff))
   {
-    rassert(not mt.right, "type mismatch using term_mass to create term_1d, "
-                          "see the type-safety documentation of term_1d");
+    rassert(std::holds_alternative<otherP>(mt.coeff_),
+            "type mismatch using term_volume to create term_1d, "
+            "see the type-safety documentation of term_1d");
+
+    optype_ = operation_type::volume;
+    rhs_ = static_cast<P>(std::get<otherP>(mt.coeff_));
   }
   //! make a grad term
   term_1d(term_grad<P> grd)
-    : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              std::move(grd.var_coeff), grd.const_coeff)
+    : term_1d(operation_type::grad, grd.flux, grd.boundary, std::move(grd.coeff_))
   {}
   //! make a grad term
   template<typename otherP>
   term_1d(term_grad<otherP> grd)
-    : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              nullptr, grd.const_coeff)
-  {
-    rassert(not grd.var_coeff, "type mismatch, variable coefficient is set for one "
-            "precision but it is loaded into another");
-  }
+    : term_1d(operation_type::grad, grd.flux, grd.boundary, std::move(grd.coeff_))
+  {}
   //! make a div term
   term_1d(term_div<P> divt)
-    : term_1d(operation_type::div, divt.flux, divt.boundary,
-              std::move(divt.var_coeff), divt.const_coeff)
+    : term_1d(operation_type::div, divt.flux, divt.boundary, std::move(divt.coeff_))
   {}
   //! make a div term
   template<typename otherP>
   term_1d(term_div<otherP> divt)
-    : term_1d(operation_type::div, divt.flux, divt.boundary, nullptr, divt.const_coeff)
-  {
-    rassert(not divt.var_coeff, "type mismatch, variable coefficient is set for one "
-            "precision but it is loaded into another");
-  }
+    : term_1d(operation_type::div, divt.flux, divt.boundary, std::move(divt.coeff_))
+  {}
   //! make a penalty term
   term_1d(term_penalty<P> pent)
     : term_1d(operation_type::penalty, pent.flux, pent.boundary, nullptr, pent.const_coeff)
@@ -616,8 +602,6 @@ public:
 
   //! return true if the rhs coefficient is a constant
   bool has_rhs_const() const { return std::holds_alternative<P>(rhs_); }
-  //! returns true if any rhs function has been set
-  // bool has_rhs() const { return not std::holds_alternative<std::monostate>(rhs_); }
   //! returns true if rhs function with no field has been set
   bool has_rhs_nof() const { return std::holds_alternative<sfixed_func1d<P>>(rhs_); }
   //! returns true if rhs function with field has been set
@@ -653,8 +637,6 @@ public:
 
   //! (chain-mode only) number of chained terms
   int num_chain() const { return static_cast<int>(std::get<std::vector<term_1d<P>>>(extra_).size()); }
-  //! (chain-mode only) get the vector of the chain
-  // std::vector<term_1d<P>> const &chain() const { return chain_; }
   //! (chain-mode only) get the i-th term in the chain
   term_1d<P> const &operator[](int i) const { return chain_link(i); }
   //! (chain-mode only) get the last entry in the chain
@@ -729,6 +711,15 @@ public:
   friend struct term_manager<P>;
 
 private:
+  void flip_flux() {
+    // for construction purposes, flip the upwind/downwing flux for the grad term
+    if (optype_ == operation_type::grad) {
+      if (flux_ == flux_type::upwind)
+        flux_ = flux_type::downwind;
+      else if (flux_ == flux_type::downwind)
+        flux_ = flux_type::upwind;
+    }
+  }
   //! helper constructor
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
       : optype_(opt), flux_(flx), boundary_(bnd), coeffs_(crhs)
@@ -739,12 +730,33 @@ private:
     else
       rhs_ = crhs;
 
-    if (optype_ == operation_type::grad) {
-      if (flux_ == flux_type::upwind)
-        flux_ = flux_type::downwind;
-      else if (flux_ == flux_type::downwind)
-        flux_ = flux_type::upwind;
-    }
+    flip_flux();
+  }
+  //! helper constructor
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
+          std::variant<P, sfixed_func1d<P>> coeff)
+      : optype_(opt), flux_(flx), boundary_(bnd)
+  {
+    assert(optype_ != operation_type::identity);
+    if (std::holds_alternative<P>(coeff))
+      rhs_ = std::get<P>(coeff);
+    else
+      rhs_ = std::move(std::get<sfixed_func1d<P>>(coeff));
+
+    flip_flux();
+  }
+  //! helper constructor
+  template<typename OtherP>
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
+          std::variant<OtherP, sfixed_func1d<OtherP>> coeff)
+      : optype_(opt), flux_(flx), boundary_(bnd)
+  {
+    assert(optype_ != operation_type::identity);
+    rassert(std::holds_alternative<OtherP>(coeff),
+            "cannot construct term1d with incompatible precision and non-constant coefficient");
+    rhs_ = static_cast<P>(std::get<OtherP>(coeff));
+
+    flip_flux();
   }
 
   //! (chain-mode only) access the i-th term in the chain, allows mods
@@ -793,8 +805,6 @@ private:
 
     void set_left(P l) { vals[0] = l; }
     void set_right(P r) { vals[1] = r; }
-
-    // P value() const { return vals[0]; } // general coefficient
 
   private:
     std::array<P, 2> vals = {1, 0};
