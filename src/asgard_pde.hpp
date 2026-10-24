@@ -461,9 +461,9 @@ class term_1d
 {
 public:
   //! make an identity term
-  term_1d() = default;
+  term_1d() : rhs_(P{1}) {}
   //! make an identity term
-  term_1d(term_identity) {}
+  term_1d(term_identity) : rhs_(P{1}) {}
 
   //! make a volume term
   term_1d(term_volume<P> mt)
@@ -568,9 +568,13 @@ public:
   term_1d(term_chain) : optype_(operation_type::chain) {}
   //! make a term that depends on the electric field
   term_1d(volume_electric<P> elmass)
-    : optype_(operation_type::volume), change_(changes_with::time),
-      rhs_(std::move(elmass.right))
+    : optype_(operation_type::volume), change_(changes_with::time)
   {
+    if (std::holds_alternative<sfixed_func1d<P>>(elmass.right))
+      rhs_ = std::move(std::get<sfixed_func1d<P>>(elmass.right));
+    else if (std::holds_alternative<sfixed_func1d<P>>(elmass.right))
+      rhs_ = std::move(std::get<sfixed_func1d_f<P>>(elmass.right));
+
     bool const uses_field = std::holds_alternative<sfixed_func1d_f<P>>(rhs_);
     depends_ = (uses_field) ? term_dependence::electric_field
                             : term_dependence::electric_field_only;
@@ -579,14 +583,14 @@ public:
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), coeffs_(static_cast<P>(mover.scale)),
+      change_(changes_with::time), rhs_(static_cast<P>(mover.scale)),
       extra_(mover.mom)
   {}
   //! make a special term using the collision theta term
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), coeffs_(static_cast<P>(lbt.coeff))
+      change_(changes_with::time), rhs_(static_cast<P>(lbt.coeff))
   {}
 
   //! indicates whether this is an identity term
@@ -610,8 +614,10 @@ public:
   //! returns the flux type
   flux_type flux() const { return flux_; }
 
+  //! return true if the rhs coefficient is a constant
+  bool has_rhs_const() const { return std::holds_alternative<P>(rhs_); }
   //! returns true if any rhs function has been set
-  bool has_rhs() const { return not std::holds_alternative<std::monostate>(rhs_); }
+  // bool has_rhs() const { return not std::holds_alternative<std::monostate>(rhs_); }
   //! returns true if rhs function with no field has been set
   bool has_rhs_nof() const { return std::holds_alternative<sfixed_func1d<P>>(rhs_); }
   //! returns true if rhs function with field has been set
@@ -637,7 +643,7 @@ public:
   }
 
   //! returns the constant right-hand-side
-  P rhs_const() const { return coeffs_.value(); }
+  P rhs_const() const { return std::get<P>(rhs_); }
 
   //! can read the change option
   changes_with change() const { return change_; }
@@ -728,7 +734,10 @@ private:
       : optype_(opt), flux_(flx), boundary_(bnd), coeffs_(crhs)
   {
     assert(optype_ != operation_type::identity);
-    if (frhs) rhs_ = std::move(frhs);
+    if (frhs)
+      rhs_ = std::move(frhs);
+    else
+      rhs_ = crhs;
 
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
@@ -769,7 +778,8 @@ private:
 
   changes_with change_ = changes_with::none;
 
-  std::variant<std::monostate, sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
+  std::variant<std::monostate, P,
+               sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
   // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
   class two_coefficients {
@@ -784,7 +794,7 @@ private:
     void set_left(P l) { vals[0] = l; }
     void set_right(P r) { vals[1] = r; }
 
-    P value() const { return vals[0]; } // general coefficient
+    // P value() const { return vals[0]; } // general coefficient
 
   private:
     std::array<P, 2> vals = {1, 0};

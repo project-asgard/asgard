@@ -222,8 +222,9 @@ void test_bookkeeping() {
     tassert(ptM.is_diagonal());
     tassert(not ptM.is_tri_diag());
     tassert(ptM.rhs_const() == 3.5);
-    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs()); // loaded a function
-    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_nof()); // loaded a function
+    tassert(not term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_const());
+    tassert(not term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_f());
+    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_nof());
   }
   {
     current_test<TestType> name_("term div");
@@ -259,7 +260,8 @@ void test_bookkeeping() {
     tassert(ptP.is_tri_diag());
     tassert(not ptP.is_diagonal());
     tassert(ptP.flux() == flux_type::central);
-    tassert(not ptP.has_rhs());
+    tassert(ptP.has_rhs_const());
+    tassert(not ptP.has_rhs_f());
     tassert(not ptP.has_rhs_nof());
     tassert(ptP.rhs_const() == 11);
   }
@@ -270,7 +272,7 @@ void test_bookkeeping() {
     tassert(ptR.optype() == operation_type::robin);
     tassert(not ptR.is_tri_diag());
     tassert(ptR.is_diagonal());
-    tassert(not ptR.has_rhs());
+    // tassert(not ptR.has_rhs());
     tassert(ptR.left_robin() == 7);
     tassert(ptR.right_robin() == 9);
   }
