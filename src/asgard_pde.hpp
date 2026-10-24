@@ -466,14 +466,8 @@ public:
   //! make a volume term, hack around creating term_1d<float> from term_volume<double>
   template<typename otherP>
   term_1d(term_volume<otherP> mt)
-  {
-    rassert(std::holds_alternative<otherP>(mt.coeff_),
-            "type mismatch using term_volume to create term_1d, "
-            "see the type-safety documentation of term_1d");
-
-    optype_ = operation_type::volume;
-    rhs_ = static_cast<P>(std::get<otherP>(mt.coeff_));
-  }
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none, std::move(mt.coeff_))
+  {}
   //! make a grad term
   term_1d(term_grad<P> grd)
     : term_1d(operation_type::grad, grd.flux, grd.boundary, std::move(grd.coeff_))
@@ -505,11 +499,12 @@ public:
   //! make a Robin term
   term_1d(term_robin robin)
     : optype_(operation_type::robin),
-      coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
+      rhs_{robin_coefficients{static_cast<P>(robin.left_const),
+                              static_cast<P>(robin.right_const)}}
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), coeffs_(0), extra_(std::move(tvec))
+    : optype_(operation_type::chain), extra_(std::move(tvec))
   {
     // remove the identity terms in the chain
     int numid = 0;
@@ -606,6 +601,8 @@ public:
   bool has_rhs_nof() const { return std::holds_alternative<sfixed_func1d<P>>(rhs_); }
   //! returns true if rhs function with field has been set
   bool has_rhs_f() const { return std::holds_alternative<sfixed_func1d_f<P>>(rhs_); }
+  //! returns true if the term has robin boundary condition set (robin or chain term1d)
+  bool has_robin() const { return std::holds_alternative<robin_coefficients>(rhs_); }
   //! return the rhs function, no file dependence
   sfixed_func1d<P> const &get_rhs() const { return std::get<sfixed_func1d<P>>(rhs_); }
   //! calls the right-hand-side function
@@ -688,21 +685,27 @@ public:
             or optype_ == operation_type::penalty);
   }
   //! left Robin condition
-  P left_robin() const { return coeffs_.left(); }
+  P left_robin() const { return std::get<robin_coefficients>(rhs_).left; }
   //! right Robin condition
-  P right_robin() const { return coeffs_.right(); }
+  P right_robin() const { return std::get<robin_coefficients>(rhs_).right; }
 
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_left_robin(P left) {
-    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
-                        "or create a new term_robin");
-    coeffs_.set_left(left);
+    rassert(is_robin() or is_chain(), "robin boundary conditions can be set only for robin and chain terms");
+    rassert(std::holds_alternative<robin_coefficients>(rhs_) or std::holds_alternative<std::monostate>(rhs_),
+            "setting robin conditions but the coefficient has already beens set for another term type");
+    if (std::holds_alternative<std::monostate>(rhs_))
+      rhs_ = robin_coefficients{};
+    std::get<robin_coefficients>(rhs_).left = left;
   }
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_right_robin(P right) {
-    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
-                        "or create a new term_robin");
-    coeffs_.set_right(right);
+    rassert(is_robin() or is_chain(), "robin boundary conditions can be set only for robin and chain terms");
+    rassert(std::holds_alternative<robin_coefficients>(rhs_) or std::holds_alternative<std::monostate>(rhs_),
+            "setting robin conditions but the coefficient has already beens set for another term type");
+    if (std::holds_alternative<std::monostate>(rhs_))
+      rhs_ = robin_coefficients{};
+    std::get<robin_coefficients>(rhs_).right = right;
   }
 
   // both the pde_scheme and term_manager need access to the internal data
@@ -722,7 +725,7 @@ private:
   }
   //! helper constructor
   term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd), coeffs_(crhs)
+      : optype_(opt), flux_(flx), boundary_(bnd)
   {
     assert(optype_ != operation_type::identity);
     if (frhs)
@@ -790,27 +793,15 @@ private:
 
   changes_with change_ = changes_with::none;
 
-  std::variant<std::monostate, P,
-               sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
   // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
-  class two_coefficients {
-  public:
-    two_coefficients() = default;
-    two_coefficients(P c) : vals({c, 0}) {}
-    two_coefficients(P l, P r) : vals({l, r}) {}
-
-    P left() const { return vals[0]; } // left Robin BC
-    P right() const { return vals[1]; } // left Robin BC
-
-    void set_left(P l) { vals[0] = l; }
-    void set_right(P r) { vals[1] = r; }
-
-  private:
-    std::array<P, 2> vals = {1, 0};
+  struct robin_coefficients {
+    P left = 0;
+    P right = 0;
   };
 
-  two_coefficients coeffs_;
+  std::variant<std::monostate, P, robin_coefficients,
+               sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
 
   P penalty_ = 0;
 

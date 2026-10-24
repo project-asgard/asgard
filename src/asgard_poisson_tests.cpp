@@ -72,6 +72,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   options.poisson_precon = precon;
   pde_domain<P> domain(position_dims{2}, velocity_dims{0},
                        {{xleft[0], xright[0]}, {xleft[1], xright[1]}});
+
   pde_scheme<P> pde(options, domain);
   pde.set_initial([](P, vector2d<P>, std::vector<P>){}); // triggers has_interp = true
   term_manager<P> terms = term_manager<P>(options, domain, pde, sparse_grid(options));

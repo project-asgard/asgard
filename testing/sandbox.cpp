@@ -10,6 +10,9 @@ int main(int argc, char **argv)
 {
   std::ignore = argc;
   std::ignore = argv;
+
+  std::cout << " term1d size = " << sizeof(term_1d<double>) << '\n';
+
   // keep this file clean for each PR
   // allows someone to easily come here, dump code and start playing
   // this is good for prototyping and quick-testing features/behavior

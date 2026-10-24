@@ -1109,7 +1109,7 @@ void term_manager<P>::rebuld_chain(
     }
   }
 
-  if (t1d.left_robin() != 0 or t1d.right_robin() != 0) {
+  if (t1d.has_robin()) {
     if (bmass) {
       gen_robin_cmat<P>
         (basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), *diag0);
