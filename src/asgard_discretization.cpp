@@ -712,7 +712,8 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_local_gpu(
     group_id gid, precision const f[]) const
 {
-  terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork, f);
+  terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork,
+                             gpu::wrap_array<precision const>{f});
   terms.rebuild_moment_terms(gid);
 }
 

@@ -981,7 +981,7 @@ template<typename P>
 void moment_manager<P>::compute_moments(
     group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    kronmult::workspace<P> &kwork, P const state[]) const
+    kronmult::workspace<P> &kwork, gpu::wrap_array<P const> state) const
 {
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
@@ -1047,10 +1047,10 @@ void moment_manager<P>::compute_moments(
 
       if (allzero) {
         moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[g],
-                           itg, state, w1);
+                           itg, state(), w1);
       } else {
         moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
-                      lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1);
+                      lzero, grid.gpu_indexes(), reduce_ij[g], itg, state(), w1);
       }
 
       // at this point, the moment defined on the reduced grid is stored in w.vec

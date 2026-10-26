@@ -16,6 +16,8 @@ namespace asgard
 namespace gpu
 {
 
+template<typename T> struct wrap_array; // forward declaration to be used by gpu::vector
+
 /*!
  * \brief Simple container for GPU data, interoperable with std::vector
  *
@@ -135,6 +137,10 @@ public:
   }
   //! \brief Custom conversion, so we can assign to std::vector.
   operator std::vector<T>() const { return this->copy_to_host(); }
+  //! \brief Custom conversion, so we can use in place of a gpu::wrap_array
+  operator gpu::wrap_array<T>() { return gpu::wrap_array<T>{data_}; }
+  //! \brief Custom conversion, so we can use in place of a gpu::wrap_array
+  operator gpu::wrap_array<T const>() const { return gpu::wrap_array<T const>{data_}; }
 
   //! non-owning mode, no safeguards, make sure resize is not called with new size and release before destruct
   vector(T *d, int64_t s) : data_(d), size_(s) {}
@@ -150,22 +156,44 @@ private:
 };
 
 /*!
- * \brief wraps a raw-array into a non-owning container that can be used a gpu::vector
+ * \brief strong type for a raw-array located on the gpu
  *
- * Essentially, this provides a way to mix raw-arrays and gpu::vector.
- * This is intended for local use only, do not set as a member of a class.
+ * This allows for easier overloads and less ambiguity between the CPU and GPU arrays.
+ *
  */
-// template<typename T>
-// struct wrap_array {
-//   //! wrap the array
-//   wrap_array(T *data, int64_t num_entries) : vec(data, num_entries) {}
-//   //! destructor, does not delete the data
-//   ~wrap_array() { vec.release(); }
-//   //! can be passed in place of a vector-ref
-//   operator gpu::vector<T> &() { return vec; }
-//
-//   gpu::vector<T> vec;
-// };
+template<typename T>
+struct wrap_array {
+  //! wrap the array
+  explicit wrap_array(T *d) : data(d) {}
+  //! wrap an array from a gpu::vector
+  wrap_array(vector<T> &vec) : data(vec.data()) {}
+  //! copy constructor (aliases)
+  wrap_array(wrap_array const &) = default;
+  //! copy assignment (aliases)
+  wrap_array &operator =(wrap_array const &) = default;
+  //! convert from a non-const wrapper
+  template<typename OtherT>
+  wrap_array(wrap_array<OtherT> const &other) : data(nullptr) {
+    static_assert(std::is_same_v<std::remove_const_t<OtherT>, T>,
+                  "converting is allowed only from non-const wrap-array to const ones "
+                  "e.g., wrap_array<T const> const_x{ wrap_array<T>{x} };");
+    data = other.data;
+  }
+  // //! wrap an array from a gpu::vector
+  // template<typename OtherT>
+  // wrap_array(vector<OtherT> const &vec) : data(nullptr) {
+  //   static_assert(std::is_same_v<std::remove_const_t<T>, OtherT>,
+  //                 "constructing a wrap-array from a const vector must use a const type T "
+  //                 "e.g., wrap_array<T const> as opposed to wrap_array<T>");
+  //   data = vec.data();
+  // }
+  //! returns the data
+  T *operator() () { return data; }
+  //! returns the data, const
+  T const *operator() () const { return data; }
+  //! hols the data
+  T *data;
+};
 
 
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
