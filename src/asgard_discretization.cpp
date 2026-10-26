@@ -712,11 +712,7 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_local_gpu(
     group_id gid, precision const f[]) const
 {
-  {
-    // const-cast is safe here, since wf is only used as "const" in the call
-    gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork, wf.vec);
-  }
+  terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork, f);
   terms.rebuild_moment_terms(gid);
 }
 

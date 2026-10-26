@@ -52,6 +52,7 @@ P test_poisson_1d(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, 
 template<typename P>
 struct poisson_errors
 {
+  poisson_errors() = delete; // make sure the errors are always initialized
   P phi;
   P ex;
   P ey;

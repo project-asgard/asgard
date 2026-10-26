@@ -51,7 +51,7 @@ template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
                         std::array<P const *, max_mom_dims> const &integ,
-                        gpu::vector<P> const &state, gpu::vector<P> &vals);
+                        P const state[], P vals[]);
 
 /*!
  * \brief Computes the moments from the state into vals, assumes some dims don't use level 0
@@ -82,7 +82,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
                    std::array<bool, max_mom_dims> lzero, int const *indexes,
                    gpu::vector<int> const &rij,
                    std::array<P const *, max_mom_dims> const &integ,
-                   gpu::vector<P> const &state, gpu::vector<P> &vals);
+                   P const state[], P vals[]);
 
 /*!
  * \brief Expands the point-wise values of the moment to the full grid
@@ -197,7 +197,7 @@ void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &st
  */
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-                          gpu::vector<int> const &map, gpu::vector<P> const &con1d,
-                          gpu::vector<P> const &bnd, int pdof, P alpha, P y[]);
+                          gpu::vector<int> const &map, P const con1d[], P const bnd[],
+                          int pdof, P alpha, P y[]);
 
 }

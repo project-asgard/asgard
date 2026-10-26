@@ -171,16 +171,23 @@ public:
                                std::vector<std::vector<moment_id>> const &skip_interp);
   //! return the set of cached interpolation values, all relevant moments must be cached already
   momentset_gpu<P> const &get_cached_interps(gpu::device dev) const { return gpu_interps[dev.id]; }
-  //! load all moments into the data-structures
+  //! load all moments into the data-structures, state is passed in as a raw array
   void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
                        connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-                       kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const;
+                       kronmult::workspace<P> &kwork, P const state[]) const; // TODO: ensure state is a gpu-array
   //! load all moments into the data-structures
   void compute_moments(sparse_grid const &grid, interpolation_manager<P> const &interp,
                        connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
                        kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
   {
     compute_moments(group_id::all(), grid, interp, conn, hier, kwork, state);
+  }
+  //! load all moments into the data-structures
+  void compute_moments(group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
+                       connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
+                       kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
+  {
+    compute_moments(group, grid, interp, conn, hier, kwork, state.data());
   }
   //! load the given moments into the data-structures at device 0
   void compute_moments(std::vector<moment_id> const &mids, sparse_grid const &grid,
