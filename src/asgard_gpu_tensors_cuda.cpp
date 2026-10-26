@@ -482,7 +482,7 @@ __global__ void kernel_moment_expand(int pos_block, int vel_block,
 
 template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
-                   gpu::vector<P> const &pos_data, gpu::vector<P> &vals)
+                   P const pos_data[], P vals[])
 {
   int const pos_block = fm::ipow(pdof, num_pos);
   int const vel_block = fm::ipow(pdof, num_vel);
@@ -497,12 +497,12 @@ void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &r
     assert(pdof == 4 and num_pos == 3 and num_vel == 3);
     dim3 const launch_grid(max_threads, 1);
     kernel_moment_expand<P, 4, max_threads><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data, vals);
   } else {
     const int num_teams = max_threads / team_size;
     dim3 const launch_grid(team_size, num_teams);
     kernel_moment_expand<P><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data, vals);
   }
 }
 
@@ -954,8 +954,7 @@ template void moment_reduce(
     gpu::vector<int> const &, std::array<double const *, max_mom_dims> const &,
     gpu::vector<double> const &, gpu::vector<double> &);
 
-template void moment_expand(
-    int, int, int, gpu::vector<int> const &, gpu::vector<double> const &, gpu::vector<double> &);
+template void moment_expand(int, int, int, gpu::vector<int> const &, double const[], double[]);
 
 template void compute_l2_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
 template void compute_max_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
@@ -994,8 +993,7 @@ template void moment_reduce(
     gpu::vector<int> const &, std::array<float const *, max_mom_dims> const &,
     gpu::vector<float> const &, gpu::vector<float> &);
 
-template void moment_expand(
-    int, int, int, gpu::vector<int> const &, gpu::vector<float> const &, gpu::vector<float> &);
+template void moment_expand(int, int, int, gpu::vector<int> const &, float const[], float[]);
 
 template void compute_l2_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);
 template void compute_max_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);

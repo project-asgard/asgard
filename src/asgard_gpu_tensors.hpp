@@ -101,7 +101,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
  */
 template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
-                   gpu::vector<P> const &pos_data, gpu::vector<P> &vals);
+                   P const pos_data[], P vals[]);
 
 /*!
  * \brief Compute the l2-weights for each block in the given state

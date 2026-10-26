@@ -57,7 +57,13 @@ public:
 #ifdef ASGARD_USE_GPU
   //! solve for the given linear operator, right-hand-side and initial iterate, uses gpus
   int solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_lhs,
-            gpu::vector<P> const &rhs, gpu::vector<P> &x) const;
+            gpu::vector<P> const &rhs, gpu::vector<P> &x) const
+  {
+    return solve(rhs.size(), precon, apply_lhs, rhs.data(), x.data());
+  }
+  //! solve for the given linear operator, right-hand-side and initial iterate, uses gpus
+  int solve(int64_t n, operation_apply_precon<P> precon, operation_apply_lhs<P> apply_lhs,
+            P const rhs[], P x[]) const;
 #endif
 
   //! preconditioning requires three extra workspace vectors

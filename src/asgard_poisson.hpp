@@ -95,11 +95,11 @@ public:
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space, on gpu
   */
-  void solve(gpu::vector<P> &density, sparse_grid const &position_grid,
+  void solve(P density[], sparse_grid const &position_grid,
              connection_patterns const &conn, interpolate_func<P> interpolate,
              kronmult::workspace<P> &work, poisson_bc const bc);
   //! poisson solve using periodic boundary conditions
-  void solve_periodic(gpu::vector<P> &density, sparse_grid const &position_grid,
+  void solve_periodic(P density[], sparse_grid const &position_grid,
                       connection_patterns const &conn, interpolate_func<P> interpolate,
                       kronmult::workspace<P> &work)
   {
@@ -118,7 +118,7 @@ private:
   //! remaps a vector from the old grid to the new grid, used for warm starting the potential
   void remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const;
   // Solves for just the electric potential, used as a substep inside the solver
-  void solve_potential_(gpu::vector<P> &density, sparse_grid const &grid,
+  void solve_potential_(P density[], sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work,
                         poisson_bc const bc);
   #else

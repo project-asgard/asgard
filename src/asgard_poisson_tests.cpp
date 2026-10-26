@@ -50,7 +50,7 @@ P test_poisson_1d(std::function<P(P)> du_ref, std::function<P(P)> rhs, P xleft, 
 }
 
 template<typename P>
-struct PoissonErrors
+struct poisson_errors
 {
   P phi;
   P ex;
@@ -60,9 +60,9 @@ struct PoissonErrors
 // solves u_xx = rhs over (xleft, xright), if bc is Dirichlet, dleft/dright are the boundary cond
 // returns the result from comparison against the du_ref, which should be u_x
 template<typename P>
-PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, std::array<P, 2> xright,
-                                 separable_func<P> phi, separable_func<P> ex, separable_func<P> ey,
-                                 int degree, int level, int max_iter, precon_method precon)
+poisson_errors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, std::array<P, 2> xright,
+                                  separable_func<P> phi, separable_func<P> ex, separable_func<P> ey,
+                                  int degree, int level, int max_iter, precon_method precon)
 {
   prog_opts options;
   options.degree = degree;
@@ -88,7 +88,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   poisson.update_preconditioner(terms.grid, terms.conn, poisson_bc::periodic);
 
   // fill vectors from functions
-  int n = terms.grid.num_dof();
+  int64_t const n = terms.grid.num_dof();
   std::vector<P> rhs_ref(n);
   std::vector<P> phi_ref(n);
   std::vector<P> ex_ref(n);
@@ -107,7 +107,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void {
     efield.copy_to_host(moms[mid]);
   };
-  poisson.solve_periodic(gpu_rhs_ref, terms.grid, terms.conn, interp_func, terms.kwork);
+  poisson.solve_periodic(gpu_rhs_ref.data(), terms.grid, terms.conn, interp_func, terms.kwork);
   gpu::vector<P> const &gpu_phi_wav = poisson.get_potential();
   std::vector<P> phi_wav(n);
   gpu_phi_wav.copy_to_host(phi_wav);
@@ -118,7 +118,7 @@ PoissonErrors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft, 
   std::vector<P> const &ex_wav = moms[mex];
   std::vector<P> const &ey_wav = moms[mey];
 
-  return PoissonErrors<P> ({diff_l2(n, phi_wav.data(), phi_ref.data()),
+  return poisson_errors<P>({diff_l2(n, phi_wav.data(), phi_ref.data()),
                             diff_l2(n, ex_wav.data(), ex_ref.data()),
                             diff_l2(n, ey_wav.data(), ey_ref.data())});
 }
@@ -216,7 +216,7 @@ void poisson_tests()
     separable_func<TestType> ex{{vectorize<TestType>(ex_x), vectorize<TestType>(one)}};
     separable_func<TestType> ey{{vectorize<TestType>(zero), vectorize<TestType>(zero)}};
 
-    PoissonErrors<TestType> errs = test_poisson_md<TestType>(
+    poisson_errors<TestType> errs = test_poisson_md<TestType>(
         rhs, {-1, -1}, {1, 1}, phi, ex, ey, degree, level, max_iter, precon_method::none);
 
     tassert(errs.phi < poisson_md_tol);
@@ -248,7 +248,7 @@ void poisson_tests()
     separable_func<TestType> ex{{vectorize<TestType>(ex_x), vectorize<TestType>(ex_y)}};
     separable_func<TestType> ey{{vectorize<TestType>(ey_x), vectorize<TestType>(ey_y)}};
 
-    PoissonErrors<TestType> errs = test_poisson_md<TestType>(
+    poisson_errors<TestType> errs = test_poisson_md<TestType>(
         rhs, {0, 0}, {2*pi, 2*pi}, phi, ex, ey, degree, level, max_iter, precon_method::jacobi);
 
     tassert(errs.phi < poisson_md_tol);
