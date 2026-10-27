@@ -87,7 +87,7 @@ int cg<P>::solve(operation_apply_precon<P> precon, operation_apply_lhs<P> apply_
 #ifdef ASGARD_USE_GPU
 template<typename P>
 int cg<P>::solve(int64_t n, operation_apply_precon<P> precon, operation_apply_lhs<P> apply_lhs,
-                 P const rhs[], P x[]) const
+                 gpu::wrap_array<P const> rhs, gpu::wrap_array<P> x) const
 {
   tools::time_event timing_("cg::solve-gpu");
 
@@ -96,9 +96,9 @@ int cg<P>::solve(int64_t n, operation_apply_precon<P> precon, operation_apply_lh
     gr.resize(n);
   }
 
-  gpu::memcopy_dev2dev(n, rhs, gr.data());
+  gpu::memcopy_dev2dev(n, rhs(), gr.data());
   int num_apply = 1;
-  apply_lhs(-1.0, x, 1.0, gr.data());
+  apply_lhs(-1.0, x(), 1.0, gr.data());
   compute->dot1_device(n, gr.data(), grho.data());
 
   if (precon) {
@@ -116,7 +116,7 @@ int cg<P>::solve(int64_t n, operation_apply_precon<P> precon, operation_apply_lh
     apply_lhs(1.0, gp.data(), 0.0, gq.data());
 
     compute->dot_device(n, gp.data(), gq.data(), gp_dot_gq.data());
-    gpu::cg_update_x_r(n, grho.data(), gp_dot_gq.data(), gp.data(), gq.data(), x, gr.data());
+    gpu::cg_update_x_r(n, grho.data(), gp_dot_gq.data(), gp.data(), gq.data(), x(), gr.data());
     compute->dot1_device(n, gr.data(), grho_new.data());
 
     if (i % 10 == 0) {

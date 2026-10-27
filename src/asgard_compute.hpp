@@ -166,7 +166,7 @@ struct wrap_array {
   //! wrap the array
   explicit wrap_array(T *d) : data(d) {}
   //! wrap an array from a gpu::vector
-  wrap_array(vector<T> &vec) : data(vec.data()) {}
+  // wrap_array(vector<T> &vec) : data(vec.data()) {}
   //! copy constructor (aliases)
   wrap_array(wrap_array const &) = default;
   //! copy assignment (aliases)
@@ -174,19 +174,11 @@ struct wrap_array {
   //! convert from a non-const wrapper
   template<typename OtherT>
   wrap_array(wrap_array<OtherT> const &other) : data(nullptr) {
-    static_assert(std::is_same_v<std::remove_const_t<OtherT>, T>,
+    static_assert(std::is_same_v<std::remove_const_t<T>, OtherT>,
                   "converting is allowed only from non-const wrap-array to const ones "
                   "e.g., wrap_array<T const> const_x{ wrap_array<T>{x} };");
     data = other.data;
   }
-  // //! wrap an array from a gpu::vector
-  // template<typename OtherT>
-  // wrap_array(vector<OtherT> const &vec) : data(nullptr) {
-  //   static_assert(std::is_same_v<std::remove_const_t<T>, OtherT>,
-  //                 "constructing a wrap-array from a const vector must use a const type T "
-  //                 "e.g., wrap_array<T const> as opposed to wrap_array<T>");
-  //   data = vec.data();
-  // }
   //! returns the data
   T *operator() () { return data; }
   //! returns the data, const

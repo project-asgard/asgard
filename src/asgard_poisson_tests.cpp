@@ -53,6 +53,7 @@ template<typename P>
 struct poisson_errors
 {
   poisson_errors() = delete; // make sure the errors are always initialized
+  poisson_errors(P p, P x, P y) : phi(p), ex(x), ey(y) {}
   P phi;
   P ex;
   P ey;
@@ -108,7 +109,7 @@ poisson_errors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft,
   auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void {
     efield.copy_to_host(moms[mid]);
   };
-  poisson.solve_periodic(gpu_rhs_ref.data(), terms.grid, terms.conn, interp_func, terms.kwork);
+  poisson.solve_periodic(gpu_rhs_ref, terms.grid, terms.conn, interp_func, terms.kwork);
   gpu::vector<P> const &gpu_phi_wav = poisson.get_potential();
   std::vector<P> phi_wav(n);
   gpu_phi_wav.copy_to_host(phi_wav);
@@ -119,9 +120,9 @@ poisson_errors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft,
   std::vector<P> const &ex_wav = moms[mex];
   std::vector<P> const &ey_wav = moms[mey];
 
-  return poisson_errors<P>({diff_l2(n, phi_wav.data(), phi_ref.data()),
-                            diff_l2(n, ex_wav.data(), ex_ref.data()),
-                            diff_l2(n, ey_wav.data(), ey_ref.data())});
+  return poisson_errors<P>{diff_l2(n, phi_wav.data(), phi_ref.data()),
+                           diff_l2(n, ex_wav.data(), ex_ref.data()),
+                           diff_l2(n, ey_wav.data(), ey_ref.data())};
 }
 
 template<typename TestType>

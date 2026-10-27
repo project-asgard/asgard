@@ -166,7 +166,7 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void poisson_md<P>::solve(P density[], sparse_grid const &position_grid,
+void poisson_md<P>::solve(gpu::wrap_array<P> density, sparse_grid const &position_grid,
                           connection_patterns const &conn, interpolate_func<P> interpolate,
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
@@ -248,7 +248,7 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
 }
 
 template<typename P>
-void poisson_md<P>::solve_potential_(P density[], sparse_grid const &position_grid,
+void poisson_md<P>::solve_potential_(gpu::wrap_array<P> density, sparse_grid const &position_grid,
                                      connection_patterns const &conn, kronmult::workspace<P> &work,
                                      poisson_bc const bc)
 {
@@ -262,8 +262,8 @@ void poisson_md<P>::solve_potential_(P density[], sparse_grid const &position_gr
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
   if (bc == poisson_bc::periodic) {
-    gpu::memcopy_dev2dev(1, density, gpu_density0.data());
-    gpu::fill_zeros(1, density);
+    gpu::memcopy_dev2dev(1, density(), gpu_density0.data());
+    gpu::fill_zeros(1, density());
   }
 
   // Define the Matrix-Vector Product (The LHS)
@@ -288,17 +288,17 @@ void poisson_md<P>::solve_potential_(P density[], sparse_grid const &position_gr
       {
         tools::time_event timing_("poisson_md jacobi preconditioner");
         gpu::jacobi_apply(precon.gpu_jacobi(), y);
-      }, apply_lhs, density, gpu_potential.data());
+      }, apply_lhs, density, gpu_potential);
   } else {
     num_iter = cg_solver.solve(position_grid.num_dof(), nullptr, apply_lhs, density,
-                               gpu_potential.data());
+                               gpu_potential);
   }
   // std::cout << num_iter << " iterations\n";
   std::ignore = num_iter;
 
   // Restore the density
   if (bc == poisson_bc::periodic)
-    gpu::memcopy_dev2dev(1, gpu_density0.data(), density);
+    gpu::memcopy_dev2dev(1, gpu_density0.data(), density());
 }
 #endif
 

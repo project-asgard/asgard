@@ -672,7 +672,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       gpu::memcopy_host2dev(num_entries, raw_vals[p.moment0()].data(), w1);
 
       // solve
-      p.solve_periodic(w1, pos_grid, conn, interp_func, work);
+      p.solve_periodic(gpu::wrap_array<P>{w1}, pos_grid, conn, interp_func, work);
       #else
       std::ignore = interp;
       std::ignore = grid;
@@ -746,7 +746,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       };
 
       // solve
-      p.solve_periodic(w1, pos_grid, conn, interp_func, work);
+      p.solve_periodic(gpu::wrap_array<P>{w1}, pos_grid, conn, interp_func, work);
     }
   }, poisson_solver);
 }
