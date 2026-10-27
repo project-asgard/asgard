@@ -166,7 +166,7 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
-void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_grid,
+void poisson_md<P>::solve(gpu::wrap_array<P> density, sparse_grid const &position_grid,
                           connection_patterns const &conn, interpolate_func<P> interpolate,
                           kronmult::workspace<P> &work, poisson_bc const bc)
 {
@@ -177,7 +177,7 @@ void poisson_md<P>::solve(gpu::vector<P> &density, sparse_grid const &position_g
   solve_potential_(density, position_grid, conn, work, bc);
 
   // get the electric field from the potential
-  gpu_efield.resize(density.size());
+  gpu_efield.resize(position_grid.num_dof());
   for (int const d : iindexof(num_dims))
   {
     moment_id const mid = moms_electric[d];
@@ -241,15 +241,16 @@ void poisson_md<P>::remap_(indexset const& iset_old, indexset const &iset_new, g
     }
   }
 
-  // Peform copy on GPU
+  // Perform copy on GPU
   gpu::vector<int64_t> gpu_transfers(transfers);
   gpu::flagged_memcopy_dev2dev(block_size, gpu_transfers, x, x_new);
   std::swap(x, x_new);
 }
 
 template<typename P>
-void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const &position_grid,
-                                     connection_patterns const &conn, kronmult::workspace<P> &work, poisson_bc const bc)
+void poisson_md<P>::solve_potential_(gpu::wrap_array<P> density, sparse_grid const &position_grid,
+                                     connection_patterns const &conn, kronmult::workspace<P> &work,
+                                     poisson_bc const bc)
 {
   // Remap the previous potential to the new grid if needed to use as a warm start
   if (generation != position_grid.generation()) {
@@ -261,8 +262,8 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
   // For periodic boundaries, the solution is only unique up to a constant.
   // We must force the mean of the RHS to 0 so the iterative solver doesn't blow up.
   if (bc == poisson_bc::periodic) {
-    gpu::memcopy_dev2dev(1, density.data(), gpu_density0.data());
-    gpu::fill_zeros(1, density.data());
+    gpu::memcopy_dev2dev(1, density(), gpu_density0.data());
+    gpu::fill_zeros(1, density());
   }
 
   // Define the Matrix-Vector Product (The LHS)
@@ -283,20 +284,21 @@ void poisson_md<P>::solve_potential_(gpu::vector<P> &density, sparse_grid const 
   compute->set_device(gpu::device{0});
   int num_iter = 0;
   if (precon.method() == precon_method::jacobi) {
-    num_iter = cg_solver.solve([&](P y[]) -> void
+    num_iter = cg_solver.solve(position_grid.num_dof(), [&](P y[]) -> void
       {
         tools::time_event timing_("poisson_md jacobi preconditioner");
         gpu::jacobi_apply(precon.gpu_jacobi(), y);
       }, apply_lhs, density, gpu_potential);
   } else {
-    num_iter = cg_solver.solve(nullptr, apply_lhs, density, gpu_potential);
+    num_iter = cg_solver.solve(position_grid.num_dof(), nullptr, apply_lhs, density,
+                               gpu_potential);
   }
   // std::cout << num_iter << " iterations\n";
   std::ignore = num_iter;
 
   // Restore the density
   if (bc == poisson_bc::periodic)
-    gpu::memcopy_dev2dev(1, gpu_density0.data(), density.data());
+    density.copy_from_device(1, gpu_density0);
 }
 #endif
 

@@ -535,7 +535,7 @@ void discretization_manager<precision>::ode_rhs_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs terms", flops);
     #else
     tools::time_event performance_("ode-rhs terms");
@@ -611,10 +611,10 @@ void discretization_manager<precision>::ode_euler_base(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
-    tools::time_event performance_("ode-rhs kronmult", flops);
+    int64_t const flops = terms.flop_count(group);
+    tools::time_event performance_("ode-rhs terms", flops);
     #else
-    tools::time_event performance_("ode-rhs kronmult");
+    tools::time_event performance_("ode-rhs terms");
     #endif
     if (is_leader())
       out = in;
@@ -712,11 +712,8 @@ template<typename precision>
 void discretization_manager<precision>::compute_moments_local_gpu(
     group_id gid, precision const f[]) const
 {
-  {
-    // const-cast is safe here, since wf is only used as "const" in the call
-    gpu::wrap_array<precision> wf(const_cast<precision *>(f), num_dof());
-    terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork, wf.vec);
-  }
+  terms.moms.compute_moments(gid, terms.grid, terms.interp, terms.conn, terms.hier, terms.kwork,
+                             gpu::wrap_array<precision const>{f});
   terms.rebuild_moment_terms(gid);
 }
 
@@ -768,7 +765,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, grid, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
     tools::time_event performance_("ode-rhs-gpu terms");
@@ -841,7 +838,7 @@ void discretization_manager<precision>::ode_euler_base_gpu(
 
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
-    int64_t const flops = terms.flop_count(group, conn);
+    int64_t const flops = terms.flop_count(group);
     tools::time_event performance_("ode-rhs-gpu terms", flops);
     #else
     tools::time_event performance_("ode-rhs-gpu terms");

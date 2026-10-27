@@ -654,24 +654,25 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
       gpu::vector<P> &work2 = interp.gpu_it2[0];
       assert(work1.size() >= num_entries);
       assert(work2.size() >= num_entries);
-      gpu::wrap_array<P> w1(work1.data(), num_entries);
-      gpu::wrap_array<P> w2(work2.data(), num_entries);
+      P *w1 = work1.data();
+      P *w2 = work2.data();
       auto interp_func = [&](gpu::vector<P> const &efield, moment_id mid) -> void
       {
         efield.copy_to_host(this->raw_vals[mid]);
         this->full_level.get(mid).resize(0);
-        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), w2.vec.data(), work);
+        interp.pos2nodal(gpu::device{0}, this->pos_grid, efield.data(), w2, work);
         gpu::vector<P> &res = this->gpu_interps[0][mid];
-        res.resize(this->full_block * grid.num_indexes());
-        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+        res.resize(grid.num_dof());
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2, res.data());
         res.copy_to_host(interps[mid]);
       };
 
       // transfer density to GPU
-      w1.vec = raw_vals[p.moment0()];
+      assert(static_cast<int64_t>(raw_vals[p.moment0()].size()) == num_entries);
+      gpu::memcopy_host2dev(num_entries, raw_vals[p.moment0()].data(), w1);
 
       // solve
-      p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
+      p.solve_periodic(gpu::wrap_array<P>{w1}, pos_grid, conn, interp_func, work);
       #else
       std::ignore = interp;
       std::ignore = grid;
@@ -693,15 +694,16 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
   std::array<gpu::vector<P>, max_num_gpus> &work2 = interp.gpu_it2;
   assert(work1[dev.id].size() >= num_entries);
   assert(work2[dev.id].size() >= num_entries);
-  gpu::wrap_array<P> w1(work1[dev.id].data(), num_entries);
-  gpu::wrap_array<P> w2(work2[dev.id].data(), num_entries);
+  P *w1 = work1[dev.id].data();
+  P *w2 = work2[dev.id].data();
 
   std::visit([&](auto &p) {
     if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_1d<P>>) {
       // transfer density to CPU
       moment_id const m0 = p.moment0();
       moment_id const melectric = p.moment_electric();
-      w1.vec.copy_to_host(raw_vals[m0]);
+      raw_vals[m0].resize(num_entries);
+      gpu::memcopy_dev2host(num_entries, w1, raw_vals[m0].data());
 
       // solve
       p.solve_periodic(get_cached_level(m0, hier), full_level.get(melectric));
@@ -709,11 +711,12 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
       // interpolate
       if constexpr (always_interp) {
         cache_raw_from_level(melectric, hier);
-        w1.vec = raw_vals[melectric];
-        interp.pos2nodal(dev, pos_grid, w1.vec.data(), w2.vec.data(), work);
+        assert(num_entries == static_cast<int64_t>(raw_vals[melectric].size()));
+        gpu::memcopy_host2dev(num_entries, raw_vals[melectric].data(), w1);
+        interp.pos2nodal(dev, pos_grid, w1, w2, work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
-        moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
+        moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2, res.data());
         if (result_to_cpu) res.copy_to_host(interps[melectric]);
       }
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
@@ -734,16 +737,16 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
           efield.copy_to_host(this->raw_vals[mid]);
           this->full_level.get(mid).resize(0);
         }
-        interp.pos2nodal(dev, this->pos_grid, efield.data(), w2.vec.data(), work);
+        interp.pos2nodal(dev, this->pos_grid, efield.data(), w2, work);
         gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
         res.resize(this->full_block * grid.num_indexes());
-        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2.vec, res);
+        moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2, res.data());
         if (result_to_cpu or mom.interp_on_cpu())
           res.copy_to_host(interps[mid]);
       };
 
       // solve
-      p.solve_periodic(w1.vec, pos_grid, conn, interp_func, work);
+      p.solve_periodic(gpu::wrap_array<P>{w1}, pos_grid, conn, interp_func, work);
     }
   }, poisson_solver);
 }
@@ -978,7 +981,7 @@ template<typename P>
 void moment_manager<P>::compute_moments(
     group_id group, sparse_grid const &grid, interpolation_manager<P> const &interp,
     connection_patterns const &conn, hierarchy_manipulator<P> const &hier,
-    kronmult::workspace<P> &kwork, gpu::vector<P> const &state) const
+    kronmult::workspace<P> &kwork, gpu::wrap_array<P const> state) const
 {
   static_assert(max_num_gpus == 1, "if multiple GPUs, state has to be an array of vectors");
   // when doing multiple GPUs, spread the state before computing moments
@@ -1003,7 +1006,7 @@ void moment_manager<P>::compute_moments(
 
     // using work[g] as workspace without resizing
     assert(work1[g].size() >= num_entries);
-    gpu::wrap_array<P> w1(work1[g].data(), num_entries);
+    P *w1 = work1[g].data();
 
     // find the begin/end iterators to the moments in the group
     auto im = gpu_moments[g].begin();
@@ -1026,7 +1029,7 @@ void moment_manager<P>::compute_moments(
 
       gpu::vector<P> &res = gpu_interps[g][im->mid];
       if (not im->skip_interp()) {
-        res.resize(full_block * grid.num_indexes());
+        res.resize(grid.num_dof());
       }
 
       std::array<P const *, max_mom_dims> itg =
@@ -1044,16 +1047,17 @@ void moment_manager<P>::compute_moments(
 
       if (allzero) {
         moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[g],
-                           itg, state, w1.vec);
+                           itg, state(), w1);
       } else {
         moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
-                      lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1.vec);
+                      lzero, grid.gpu_indexes(), reduce_ij[g], itg, state(), w1);
       }
 
       // at this point, the moment defined on the reduced grid is stored in w.vec
 
       if (im->raw_on_cpu()) {
-        w1.vec.copy_to_host(raw_vals[im->mid]);
+        raw_vals[im->mid].resize(num_entries);
+        gpu::memcopy_dev2host(num_entries, w1, raw_vals[im->mid].data());
         full_level.get(im->mid).resize(0);
       }
 
@@ -1065,11 +1069,11 @@ void moment_manager<P>::compute_moments(
 
       // now we have to compute the interpolation
       assert(work2[g].size() >= num_entries);
-      gpu::wrap_array<P> w2(work2[g].data(), num_entries);
+      P *w2 = work2[g].data();
 
-      interp.pos2nodal(gpu::device{g}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
+      interp.pos2nodal(gpu::device{g}, pos_grid, w1, w2, kwork);
 
-      moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2.vec, res);
+      moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2, res.data());
 
       if (im->interp_on_cpu()) res.copy_to_host(interps[im->mid]);
     }
@@ -1100,7 +1104,7 @@ void moment_manager<P>::compute_moments(
   // using work[0] as workspace without resizing
   compute->set_device(gpu::device{0});
   assert(work1[0].size() >= num_entries);
-  gpu::wrap_array<P> w1(work1[0].data(), num_entries);
+  P *w1 = work1[0].data();
 
   bool has_electric = false;
   for (auto im : mids)
@@ -1137,19 +1141,19 @@ void moment_manager<P>::compute_moments(
 
     if (allzero) {
       moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[0],
-                         itg, state, w1.vec);
+                         itg, state.data(), w1);
     } else {
       moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
-                    lzero, grid.gpu_indexes(), reduce_ij[0], itg, state, w1.vec);
+                    lzero, grid.gpu_indexes(), reduce_ij[0], itg, state.data(), w1);
     }
 
     // now we have to compute the interpolation
     assert(work2[0].size() >= num_entries);
-    gpu::wrap_array<P> w2(work2[0].data(), num_entries);
+    P *w2 = work2[0].data();
 
-    interp.pos2nodal(gpu::device{0}, pos_grid, w1.vec.data(), w2.vec.data(), kwork);
+    interp.pos2nodal(gpu::device{0}, pos_grid, w1, w2, kwork);
 
-    moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2.vec, res);
+    moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2, res.data());
 
     if (result_to_cpu) {
       res.copy_to_host(interps[im]);

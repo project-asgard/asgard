@@ -435,9 +435,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
 
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
-            auto const &mids = tentry.tmd.dim(d).mids_;
-            insert(mids, gpu_moms[tentry.rec.device][gid]);
-            insert(mids, cpu_raw[gid]);
+            if (tentry.tmd.dim(d).has_moment_ids()) {
+              auto const &mids = tentry.tmd.dim(d).moment_ids();
+              insert(mids, gpu_moms[tentry.rec.device][gid]);
+              insert(mids, cpu_raw[gid]);
+            }
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tentry.tmd.mids_;
@@ -500,9 +502,11 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
           has_poisson |= (resources.is_leader() and moms.get_by_id(mid).is_electric());
         if (tentry.is_separable()) { // only separable terms can have 1D moment deps
           for (int d : iindexof(num_dims)) {
-            auto const &mids = tmd.dim(d).mids_;
-            insert(mids, regular[gid]);
-            has_sep_mom = has_sep_mom or not mids.empty();
+            if (tmd.dim(d).has_moment_ids()) {
+              auto const &mids = std::get<std::vector<moment_id>>(tmd.dim(d).extra_);
+              insert(mids, regular[gid]);
+              has_sep_mom = has_sep_mom or not mids.empty();
+            }
           }
         } else if (tentry.interplan.uses_moments()) {
           auto const &mids = tmd.mids_;
@@ -757,7 +761,7 @@ void term_manager<P>::build_raw_mat(
     block_diag_matrix<P> const *bmass,
     block_diag_matrix<P> &raw_diag, block_tri_matrix<P> &raw_tri)
 {
-  term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_[clink] : tentry.tmd.dim(d);
+  term_1d<P> &t1d = (tentry.tmd.dim(d).is_chain()) ? tentry.tmd.dim(d).chain_link(clink) : tentry.tmd.dim(d);
   assert(not t1d.is_chain());
 
   switch (t1d.optype())
@@ -767,14 +771,15 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::electric_field_only:
         {
           moment_id mid_electric = moms.find_id(moment::electric(dimension_id(d), moms.num_pos()));
-          if (t1d.rhs()) {
+          if (t1d.has_rhs_const()) {
+            gen_diag_cmat_pwc<P>(basis, level, moms.get_cached_level(mid_electric), raw_diag);
+          } else {
+            assert(t1d.has_rhs_nof());
             // using w1 as workspaces, it probably has enough space already
             size_t const n = kwork.w1.size();
             t1d.rhs(moms.get_cached_level(mid_electric), kwork.w1);
             gen_diag_cmat_pwc<P>(basis, level, kwork.w1, raw_diag);
             kwork.w1.resize(n);
-          } else {
-            gen_diag_cmat_pwc<P>(basis, level, moms.get_cached_level(mid_electric), raw_diag);
           }
           break;
         }
@@ -790,21 +795,21 @@ void term_manager<P>::build_raw_mat(
         case term_dependence::lenard_bernstein_coll_theta:
           switch (moms.num_vel()) {
           case 1:
-            moms.cache_levels(3, hier, t1d.mids_);
+            moms.cache_levels(3, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 1>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 2:
-            moms.cache_levels(5, hier, t1d.mids_);
+            moms.cache_levels(5, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 2>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           case 3:
-            moms.cache_levels(7, hier, t1d.mids_);
+            moms.cache_levels(7, hier, t1d.moment_ids());
             gen_diag_lenard_bernstein_theta<P, 3>(basis, level, t1d.rhs_const(),
-                                                  t1d.mids_, moms.get_cached_levels(),
+                                                  t1d.moment_ids(), moms.get_cached_levels(),
                                                   raw_diag);
             break;
           default:
@@ -813,21 +818,22 @@ void term_manager<P>::build_raw_mat(
           };
           break;
         default:
-          if (t1d.rhs()) {
-            gen_volume_mat<P>(basis, xleft[d], xright[d], level, t1d.rhs(), raw_rhs, raw_diag);
-          } else {
+          if (t1d.has_rhs_const()) {
             gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
+          } else {
+            assert(t1d.has_rhs_nof());
+            gen_volume_mat<P>(basis, xleft[d], xright[d], level, t1d.get_rhs(), raw_rhs, raw_diag);
           }
           break;
       }
       break;
     case operation_type::div:
-      if (t1d.rhs()) {
-        gen_tri_cmat<P, operation_type::div, rhs_type::is_func>
-          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
-      } else {
+      if (t1d.has_rhs_const()) {
         gen_tri_cmat<P, operation_type::div, rhs_type::is_const>
           (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+      } else {
+        gen_tri_cmat<P, operation_type::div, rhs_type::is_func>
+          (basis, xleft[d], xright[d], level, t1d.get_rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
@@ -835,12 +841,12 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     case operation_type::grad:
-      if (t1d.rhs()) {
-        gen_tri_cmat<P, operation_type::grad, rhs_type::is_func>
-          (basis, xleft[d], xright[d], level, t1d.rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
-      } else {
+      if (t1d.has_rhs_const()) {
         gen_tri_cmat<P, operation_type::grad, rhs_type::is_const>
           (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
+      } else {
+        gen_tri_cmat<P, operation_type::grad, rhs_type::is_func>
+          (basis, xleft[d], xright[d], level, t1d.get_rhs(), 0, t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       }
       if (t1d.penalty() != 0) {
         gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
@@ -848,12 +854,12 @@ void term_manager<P>::build_raw_mat(
       }
       break;
     case operation_type::penalty:
-      assert(not t1d.rhs());
+      assert(t1d.has_rhs_const());
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
         (basis, xleft[d], xright[d], level, nullptr, t1d.rhs_const(), t1d.flux(), t1d.boundary(), raw_rhs, raw_tri);
       break;
     case operation_type::robin:
-      assert(not t1d.rhs());
+      // assert(not t1d.has_rhs());
       gen_robin_cmat<P>(basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), raw_diag);
       break;
     default: // case operation_type::identity:
@@ -897,7 +903,7 @@ void term_manager<P>::build_raw_mat(
           scale = -scale;
 
         if (bentry.flux.is_left()) {
-          P rhs_left  = (t1d.rhs()) ? raw_rhs.vals.front() : t1d.rhs_const();
+          P rhs_left  = (t1d.has_rhs_const()) ? t1d.rhs_const() : raw_rhs.vals.front();
           if (t1d.penalty() != 0)
             rhs_left *= P{1} + t1d.penalty();
 
@@ -911,7 +917,7 @@ void term_manager<P>::build_raw_mat(
         }
 
         if (bentry.flux.is_right()) {
-          P rhs_right = (t1d.rhs()) ? raw_rhs.vals.back()  : t1d.rhs_const();
+          P rhs_right = (t1d.has_rhs_const()) ? t1d.rhs_const() : raw_rhs.vals.back();
 
           if (t1d.penalty() != 0)
             rhs_right *= P{1} - t1d.penalty();
@@ -938,26 +944,26 @@ void term_manager<P>::build_raw_mat(
         P const dsqr = std::sqrt(xright[d] - xleft[d]);
 
         if (bentry.flux.func().is_const(dimension_id{d})) {
-          if (t1d.rhs()) { // constant times spatially variable
-            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
-                                             bentry.flux.func().const_at(dimension_id{d}), raw_rhs.vals);
-          } else { // constant times a constant
+          if (t1d.has_rhs_const()) { // constant times spatially variable
             P const rconst = (t1d.is_identity()) ? 1 : t1d.rhs_const();
             bentry.consts[d] = basis.project(level, dsqr,
                                              bentry.flux.func().const_at(dimension_id{d}) * rconst);
+          } else { // constant times a constant
+            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr,
+                                             bentry.flux.func().const_at(dimension_id{d}), raw_rhs.vals);
           }
         } else {
-          if (t1d.rhs()) { // product of non-consts
-            std::vector<P> f(raw_rhs.pnts.size());
-            bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, f);
-            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
-          } else {
+          if (t1d.has_rhs_const()) { // product of non-consts
             // need function values, rhs is a constant
             basis.interior_quad(xleft[d], xright[d], level, raw_rhs.pnts);
             raw_rhs.vals.resize(raw_rhs.pnts.size());
             bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, raw_rhs.vals);
             bool constexpr use_interior = true;
             bentry.consts[d] = basis.project(use_interior, level, dsqr, t1d.rhs_const(), raw_rhs.vals);
+          } else {
+            std::vector<P> f(raw_rhs.pnts.size());
+            bentry.flux.func().fixed_at(dimension_id{d})(raw_rhs.pnts, f);
+            bentry.consts[d] = basis.project(t1d.is_diagonal(), level, dsqr, f, raw_rhs.vals);
           }
         }
 
@@ -975,10 +981,10 @@ void term_manager<P>::build_raw_mass(int dim, term_1d<P> const &t1d, int level,
   assert(t1d.is_diagonal());
   assert(t1d.depends() == term_dependence::none);
 
-  if (t1d.rhs()) {
-    gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.rhs(), raw_rhs, raw_diag);
-  } else {
+  if (t1d.has_rhs_const()) {
     gen_volume_mat<P>(basis, level, t1d.rhs_const(), raw_diag);
+  } else {
+    gen_volume_mat<P>(basis, xleft[dim], xright[dim], level, t1d.get_rhs(), raw_rhs, raw_diag);
   }
 }
 
@@ -1036,7 +1042,7 @@ void term_manager<P>::rebuld_chain(
   // and at each stage we multiply by diag/tri-matrix
   // if we start with a diagonal, we will switch to tri at some point
 
-  fill current = (t1d.chain_.back().is_diagonal()) ? fill::diag : fill::tri;
+  fill current = (t1d.chain_back().is_diagonal()) ? fill::diag : fill::tri;
   build_raw_mat(tentry, d, num_chain - 1, level, bmass, *diag0, *tri0);
 
   for (int i = num_chain - 2; i > 0; i--)
@@ -1091,19 +1097,19 @@ void term_manager<P>::rebuld_chain(
   if (t1d.penalty() != 0) {
     if (bmass) {
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const>
-        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-          t1d.chain_.back().boundary(), raw_rhs, *tri0);
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_back().flux(),
+          t1d.chain_back().boundary(), raw_rhs, *tri0);
       bmass->solve(basis.pdof, *tri0);
       raw_tri += *tri0;
     } else {
       // no need to worry about the mass, just add the penalty to the raw-tri
       gen_tri_cmat<P, operation_type::penalty, rhs_type::is_const, data_mode::increment>
-        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_.back().flux(),
-          t1d.chain_.back().boundary(), raw_rhs, raw_tri);
+        (basis, xleft[d], xright[d], level, nullptr, t1d.penalty(), t1d.chain_back().flux(),
+          t1d.chain_back().boundary(), raw_rhs, raw_tri);
     }
   }
 
-  if (t1d.left_robin() != 0 or t1d.right_robin() != 0) {
+  if (t1d.has_robin()) {
     if (bmass) {
       gen_robin_cmat<P>
         (basis, xleft[d], xright[d], level, t1d.left_robin(), t1d.right_robin(), *diag0);

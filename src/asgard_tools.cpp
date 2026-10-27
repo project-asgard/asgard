@@ -158,7 +158,8 @@ std::string simple_timer::report()
   std::string const gf =  "-- Gflops/s --  ";
   max_key = std::max(max_key, gf.size());
 
-  report << pad_left(max_key, gf) << pad_left<double_block>("-- average")
+  report << pad_left(max_key, gf) << pad_left<double_block + 2>("")
+         << pad_left<double_block>("-- average")
          << pad_left<double_block>("-- min") << pad_left<double_block>("-- max")
          << '\n';
 
@@ -169,7 +170,11 @@ std::string simple_timer::report()
       double const min = *std::min_element(gflops.begin(), gflops.end());
       double const max = *std::max_element(gflops.begin(), gflops.end());
 
+      double const esum = events_sum[id] + ((event.started) ? event.intervals.back() : 0);
+
       report << pad_left(max_key, id);
+
+      report << pad_string(esum) << "ms";
 
       report << pad_string(fsum / gflops.size()) << pad_string(min)
              << pad_string(max) << '\n';

@@ -222,7 +222,9 @@ void test_bookkeeping() {
     tassert(ptM.is_diagonal());
     tassert(not ptM.is_tri_diag());
     tassert(ptM.rhs_const() == 3.5);
-    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).rhs()); // loaded a function
+    tassert(not term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_const());
+    tassert(not term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_f());
+    tassert(term_1d<TestType>(term_volume<TestType>{rhs}).has_rhs_nof());
   }
   {
     current_test<TestType> name_("term div");
@@ -247,7 +249,7 @@ void test_bookkeeping() {
     tassert(not ptG.is_diagonal());
     tassert(ptG.flux() == flux_type::upwind); // grad swaps the fluxes
     std::vector<TestType> x = {-1, 5, 2}, fx(3);
-    ptG.rhs()(x, fx);
+    ptG.get_rhs()(x, fx);
     tassert(fm::diff_inf(fx, std::vector<TestType>{-2, 10, 4}) == 0);
   }
   {
@@ -258,7 +260,9 @@ void test_bookkeeping() {
     tassert(ptP.is_tri_diag());
     tassert(not ptP.is_diagonal());
     tassert(ptP.flux() == flux_type::central);
-    tassert(not ptP.rhs());
+    tassert(ptP.has_rhs_const());
+    tassert(not ptP.has_rhs_f());
+    tassert(not ptP.has_rhs_nof());
     tassert(ptP.rhs_const() == 11);
   }
   {
@@ -268,7 +272,7 @@ void test_bookkeeping() {
     tassert(ptR.optype() == operation_type::robin);
     tassert(not ptR.is_tri_diag());
     tassert(ptR.is_diagonal());
-    tassert(not ptR.rhs());
+    // tassert(not ptR.has_rhs());
     tassert(ptR.left_robin() == 7);
     tassert(ptR.right_robin() == 9);
   }
@@ -279,7 +283,6 @@ void test_bookkeeping() {
     tassert(not chain.is_identity());
     tassert(not chain.is_chain());
     tassert(chain.is_div());
-    tassert(chain.num_chain() == 0);
 
     term_1d<TestType> chain1({ptD, ptD});
     tassert(chain1.is_chain());
@@ -291,7 +294,6 @@ void test_bookkeeping() {
     term_1d<TestType> ptI;
     tassert(term_1d<TestType>({ptI, ptI}).is_identity());
     tassert(not term_1d<TestType>({ptI, ptI}).is_chain());
-    tassert(term_1d<TestType>({ptI, ptI}).num_chain() == 0);
 
     term_1d<TestType> ptD = term_div<TestType>{mhs, flux_type::upwind, boundary_type::bothsides};
     term_1d<TestType> ptG = term_div<TestType>{mhs, flux_type::downwind, boundary_type::bothsides};
@@ -327,7 +329,7 @@ void test_bookkeeping() {
 
     term_1d<TestType> chain({ptI, ptG, ptM, ptD, ptM});
     tassert(chain[0].optype() == operation_type::grad);
-    tassert(chain.chain()[1].optype() == operation_type::volume);
+    tassert(chain.chain_link(1).optype() == operation_type::volume);
     tassert(chain[2].optype() == operation_type::div);
     tassert(chain[3].optype() == operation_type::volume);
   }

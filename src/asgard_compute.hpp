@@ -15,6 +15,147 @@ namespace asgard
 #ifdef ASGARD_USE_GPU
 namespace gpu
 {
+/*!
+ * \brief strong type for a raw-array located on the gpu
+ *
+ * This allows for easier overloads and less ambiguity between the CPU and GPU arrays.
+ * A gpu::vector can be automatically converted to a gpu::wrap_array which is
+ * just a strong type around a pointer that has to sit in GPU memory.
+ * The wrap-array is just a pointer (non-owning) and should be passed by value, as opposed
+ * to an owning gpu::vector that should be passed by reference or const-reference.
+ *
+ * Allowed conversions:
+ * \code
+ *   // converts automatically with user defined functions
+ *   gpu::vector<T>       -> wrap_array<T>, wrap_array<const T>
+ *   const gpu::vector<T> -> wrap_array<const T>
+ *   wrap_array<T>        -> wrap_array<const T>
+ *
+ *   gpu::vector<T> x;
+ *   wrap_array<T> wrap_x = x;
+ *
+ *   gpu::vector<double> y = compute_some_gpu_vector(...);
+ *   assert(y.size() >= 1);
+ *   double first_entry = [&](wrap_array<T const> data) -> double {
+ *       double res = 0;
+ *       data.copy_to_host(1, &res);
+ *       return res;
+ *     } ( y );
+ *
+ *
+ *   // conversion using explicit constructor
+ *   T *       -> wrap_array<T>, wrap_array<const T>
+ *   const T * -> wrap_array<const T>
+ *
+ *   T *y = cudaMalloc(...);
+ *   compute_result_into(y, ... );
+ *   double first_entry = [&](wrap_array<T const> data) -> double {
+ *       double res = 0;
+ *       data.copy_to_host(1, &res);
+ *       return res;
+ *     } ( wrap_array<T const>{y} );
+ *
+ *   // retrieve the raw pointer using the call operator ()
+ *   T *y = cudaMalloc(...);
+ *   assert(wrap_array<T const>{y}() == y);
+ *
+ * \endcode
+ */
+template<typename T, typename = void>
+struct wrap_array {
+  //! wrap the array, d MUST point to data on the device (nullptr is OK)
+  explicit wrap_array(T *d) : data(d) {}
+  //! copy constructor (aliases)
+  wrap_array(wrap_array const &) = default;
+  //! copy assignment (aliases)
+  wrap_array &operator =(wrap_array const &) = default;
+  //! automatically convert non-const to const array
+  operator wrap_array<T const> () const { return wrap_array<T const>{data}; }
+  //! returns the data
+  T *operator() () { return data; }
+  //! returns the data, const
+  T const *operator() () const { return data; }
+  //! copy n-entries to host
+  void copy_to_host(int64_t num, T x[]) const {
+    gpu::memcopy_dev2host(num, data, x);
+  }
+  //! copy n-entries to host
+  void copy_to_host(int64_t num, std::vector<T> &x) const {
+    x.resize(num);
+    gpu::memcopy_dev2host(num, data, x.data());
+  }
+  //! copy n-entries to host
+  std::vector<T> copy_to_host(int64_t num) const {
+    std::vector<T> x;
+    this->copy_to_host(num, x);
+    return x;
+  }
+  //! copy n-entries from the host, no array bounds checked here
+  void copy_from_host(int64_t num, T const x[]) {
+    gpu::memcopy_host2dev(num, x, data);
+  }
+  //! copy n-entries from the host, no array bounds checked here
+  void copy_from_host(int64_t num, std::vector<T> const &x) {
+    gpu::memcopy_host2dev(num, x.data(), data);
+  }
+  //! copy the entire vector from the cpu, no array bounds checked here
+  void copy_from_host(std::vector<T> const &x) {
+    this->copy_from_host(static_cast<int64_t>(x.size()), x);
+  }
+  //! copy the entire vector from the cpu, no array bounds checked here
+  wrap_array &operator = (std::vector<T> const &x) { this->copy_from_host(x); }
+  //! copy device-to-device, making a fake template lowers the precedence and avoids a conflict
+  template<typename = void>
+  void copy_from_device(int64_t num, wrap_array<T> const other) {
+    gpu::memcopy_dev2dev(num, other(), data);
+  }
+  //! copy device-to-device
+  void copy_from_device(int64_t num, wrap_array<T const> const other) {
+    gpu::memcopy_dev2dev(num, other(), data);
+  }
+  //! hols the data
+  T *data = nullptr;
+};
+/*!
+ * \brief strong type for a raw-array located on the gpum const specialization
+ *
+ * This specialization wraps around an array that is const and helps ensure const-correctness
+ * at the compiler level.
+ */
+template<typename T>
+struct wrap_array<T, std::enable_if_t<std::is_const_v<T>>> {
+  explicit wrap_array(T *d) : data(d) {}
+  //! copy constructor (aliases)
+  wrap_array(wrap_array const &) = default;
+  //! copy assignment (aliases)
+  wrap_array &operator =(wrap_array const &) = default;
+  //! copy assignment from non-const wrap-array (aliases)
+  wrap_array &operator =(wrap_array<std::remove_const_t<T>> const &other) {
+    data = other();
+    return *this;
+  };
+  //! returns the data
+  T *operator() () { return data; }
+  //! returns the data, const
+  T *operator() () const { return data; }
+  //! copy n-entries to host
+  void copy_to_host(int64_t num, T x[]) const {
+    gpu::memcopy_dev2host(num, data, x);
+  }
+  //! copy n-entries to host
+  void copy_to_host(int64_t num, std::vector<T> &x) const {
+    x.resize(num);
+    gpu::memcopy_dev2host(num, data, x.data());
+  }
+  //! copy n-entries to host
+  std::vector<T> copy_to_host(int64_t num) const {
+    std::vector<T> x;
+    this->copy_to_host(num, x);
+    return x;
+  }
+  //! hols the data
+  T *data;
+};
 
 /*!
  * \brief Simple container for GPU data, interoperable with std::vector
@@ -133,8 +274,10 @@ public:
     assert(num <= size_);
     gpu::memcopy_host2dev(num, source, data_);
   }
-  //! \brief Custom conversion, so we can assign to std::vector.
-  operator std::vector<T>() const { return this->copy_to_host(); }
+  //! \brief Custom conversion, so we can use in place of a gpu::wrap_array
+  operator gpu::wrap_array<T>() { return gpu::wrap_array<T>{data_}; }
+  //! \brief Custom conversion, so we can use in place of a gpu::wrap_array
+  operator gpu::wrap_array<T const>() const { return gpu::wrap_array<T const>{data_}; }
 
   //! non-owning mode, no safeguards, make sure resize is not called with new size and release before destruct
   vector(T *d, int64_t s) : data_(d), size_(s) {}
@@ -149,23 +292,6 @@ private:
   int64_t size_ = 0;
 };
 
-/*!
- * \brief wraps a raw-array into a non-owning container that can be used a gpu::vector
- *
- * Essentially, this provides a way to mix raw-arrays and gpu::vector.
- * This is intended for local use only, do not set as a member of a class.
- */
-template<typename T>
-struct wrap_array {
-  //! wrap the array
-  wrap_array(T *data, int64_t num_entries) : vec(data, num_entries) {}
-  //! destructor, does not delete the data
-  ~wrap_array() { vec.release(); }
-  //! can be passed in place of a vector-ref
-  operator gpu::vector<T> &() { return vec; }
-
-  gpu::vector<T> vec;
-};
 
 
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)

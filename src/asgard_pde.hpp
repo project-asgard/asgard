@@ -79,16 +79,19 @@ enum class flux_type
  * \brief Indicates wither we need to recompute matrices based different conditions
  *
  * If a term has a fix coefficient, then there will not reason to update the matrices.
- * On ther other end of the spectrum, terms that depend on the PDE solution, e.g.,
+ * On the other end of the spectrum, terms that depend on the PDE solution, e.g.,
  * the moments or the electric field, have to be recomputed on every stage of
  * a time advance algorithm.
  * The penalty terms have to be updated when the mesh discretization level changes.
+ *
+ * Currently, terms with explicit time-dependence are not supported, moment dependence
+ * is supported and time-dependence is supported for sources and boundary conditions.
  */
 enum class changes_with
 {
   //! no need to update the operator matrices
   none,
-  //! assume we must always update on chnge in the time or the solution field
+  //! assume we must always update on change in the time or the solution field
   time
 };
 
@@ -155,14 +158,12 @@ struct term_identity {};
 template<typename P = default_precision>
 struct term_volume {
   //! make a volume term with constant coefficient
-  term_volume(no_deduce<P> cc) : const_coeff(cc) {}
+  term_volume(no_deduce<P> cc) : coeff_(cc) {}
   //! make a volume term with given right hand side coefficient
-  term_volume(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
+  term_volume(sfixed_func1d<P> rhs) : coeff_(std::move(rhs)) {}
 
-  //! constant coefficient, if left/right-hand-side functions are null
-  P const_coeff = 0;
-  //! right-hand-side function
-  sfixed_func1d<P> right;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 };
 
 /*!
@@ -173,33 +174,31 @@ template<typename P = default_precision>
 struct term_grad {
   //! make a grad term with given constant coefficient, upwind flux, and given boundary_type
   term_grad(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), boundary(bnd)
+    : coeff_(cc), boundary(bnd)
   {}
   //! make a grad term with given constant coefficient, flux_type and boundary_type
   term_grad(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given constant coefficient, boundary_type and flux_type
   term_grad(no_deduce<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given coefficient, upwind flux, and given boundary_type
   term_grad(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), var_coeff(std::move(cc)), boundary(bnd)
+    : coeff_(std::move(cc)), boundary(bnd)
   {}
   //! make a grad term with given coefficient, flux_type and boundary_type
   term_grad(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
   //! make a grad term with given coefficient, boundary_type and flux_type
   term_grad(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(0), var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, used if var_coeff is not set
-  P const_coeff = 1;
-  //! non-constant coefficient function
-  sfixed_func1d<P> var_coeff;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -215,33 +214,31 @@ template<typename P = default_precision>
 struct term_div {
   //! make a div term with given constant coefficient, upwind flux, and given boundary_type
   term_div(no_deduce<P> cc, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), boundary(bnd)
+    : coeff_(cc), boundary(bnd)
   {}
   //! make a div term with given constant coefficient, flux_type and boundary_type
   term_div(no_deduce<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a div term with given constant coefficient, boundary_type and flux_type
   term_div(no_deduce<P> cc, boundary_type bnd, flux_type flx)
-    : const_coeff(cc), flux(flx), boundary(bnd)
+    : coeff_(cc), flux(flx), boundary(bnd)
   {}
   //! make a div term with given coefficient, upwind flux, and given boundary_type
   term_div(sfixed_func1d<P> cc, boundary_type bnd = boundary_type::none)
-    : var_coeff(std::move(cc)), boundary(bnd)
+    : coeff_(std::move(cc)), boundary(bnd)
   {}
   //! make a div term with given coefficient, flux_type and boundary_type
   term_div(sfixed_func1d<P> cc, flux_type flx, boundary_type bnd = boundary_type::none)
-    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
   //! make a div term with given coefficient, boundary_type and flux_type
   term_div(sfixed_func1d<P> cc, boundary_type bnd, flux_type flx)
-    : var_coeff(std::move(cc)), flux(flx), boundary(bnd)
+    : coeff_(std::move(cc)), flux(flx), boundary(bnd)
   {}
 
-  //! constant coefficient, used if var_coeff is not set
-  P const_coeff = 1;
-  //! non-constant coefficient function
-  sfixed_func1d<P> var_coeff;
+  //! coefficient, constant or variable
+  std::variant<P, sfixed_func1d<P>> coeff_;
 
   //! flux type
   flux_type flux = flux_type::upwind;
@@ -328,12 +325,10 @@ struct volume_electric {
   //! right side depends only on the field
   volume_electric(sfixed_func1d<P> rhs) : right(std::move(rhs)) {}
   //! right side depends on the field and position
-  volume_electric(sfixed_func1d_f<P> rhs_f) : right_f(std::move(rhs_f)) {}
+  volume_electric(sfixed_func1d_f<P> rhs_f) : right(std::move(rhs_f)) {}
 
   //! right-hand-side function, field only no spatial dependence
-  sfixed_func1d<P> right;
-  //! right-hand-side function, depends on position and field
-  sfixed_func1d_f<P> right_f;
+  std::variant<std::monostate, sfixed_func1d<P>, sfixed_func1d_f<P>> right;
 };
 
 /*!
@@ -460,51 +455,37 @@ class term_1d
 {
 public:
   //! make an identity term
-  term_1d() = default;
+  term_1d() : rhs_(P{1}) {}
   //! make an identity term
-  term_1d(term_identity) {}
+  term_1d(term_identity) : rhs_(P{1}) {}
 
   //! make a volume term
   term_1d(term_volume<P> mt)
-    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
-              std::move(mt.right), mt.const_coeff)
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none, std::move(mt.coeff_))
   {}
-  //! make a volume term, hack around creating term_1d<float> from term_mass<double>
+  //! make a volume term, hack around creating term_1d<float> from term_volume<double>
   template<typename otherP>
   term_1d(term_volume<otherP> mt)
-    : term_1d(operation_type::volume, flux_type::central, boundary_type::none,
-              nullptr, static_cast<P>(mt.const_coeff))
-  {
-    rassert(not mt.right, "type mismatch using term_mass to create term_1d, "
-                          "see the type-safety documentation of term_1d");
-  }
+    : term_1d(operation_type::volume, flux_type::central, boundary_type::none, std::move(mt.coeff_))
+  {}
   //! make a grad term
   term_1d(term_grad<P> grd)
-    : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              std::move(grd.var_coeff), grd.const_coeff)
+    : term_1d(operation_type::grad, grd.flux, grd.boundary, std::move(grd.coeff_))
   {}
   //! make a grad term
   template<typename otherP>
   term_1d(term_grad<otherP> grd)
-    : term_1d(operation_type::grad, grd.flux, grd.boundary,
-              nullptr, grd.const_coeff)
-  {
-    rassert(not grd.var_coeff, "type mismatch, variable coefficient is set for one "
-            "precision but it is loaded into another");
-  }
+    : term_1d(operation_type::grad, grd.flux, grd.boundary, std::move(grd.coeff_))
+  {}
   //! make a div term
   term_1d(term_div<P> divt)
-    : term_1d(operation_type::div, divt.flux, divt.boundary,
-              std::move(divt.var_coeff), divt.const_coeff)
+    : term_1d(operation_type::div, divt.flux, divt.boundary, std::move(divt.coeff_))
   {}
   //! make a div term
   template<typename otherP>
   term_1d(term_div<otherP> divt)
-    : term_1d(operation_type::div, divt.flux, divt.boundary, nullptr, divt.const_coeff)
-  {
-    rassert(not divt.var_coeff, "type mismatch, variable coefficient is set for one "
-            "precision but it is loaded into another");
-  }
+    : term_1d(operation_type::div, divt.flux, divt.boundary, std::move(divt.coeff_))
+  {}
   //! make a penalty term
   term_1d(term_penalty<P> pent)
     : term_1d(operation_type::penalty, pent.flux, pent.boundary, nullptr, pent.const_coeff)
@@ -518,14 +499,16 @@ public:
   //! make a Robin term
   term_1d(term_robin robin)
     : optype_(operation_type::robin),
-      coeffs_{static_cast<P>(robin.left_const), static_cast<P>(robin.right_const)}
+      rhs_{robin_coefficients{static_cast<P>(robin.left_const),
+                              static_cast<P>(robin.right_const)}}
   {}
   //! make a chain term
   term_1d(std::vector<term_1d<P>> tvec)
-    : optype_(operation_type::chain), coeffs_{0, 0}, chain_(std::move(tvec))
+    : optype_(operation_type::chain), extra_(std::move(tvec))
   {
     // remove the identity terms in the chain
     int numid = 0;
+    std::vector<term_1d<P>> &chain_ = std::get<std::vector<term_1d<P>>>(extra_);
     for (auto const &c : chain_) {
       if (c.is_identity())
         numid += 1;
@@ -537,16 +520,19 @@ public:
     if (num_chain == numid) {
       // all identities, nothing to chain
       optype_ = operation_type::identity;
-      chain_.resize(0);
+      extra_ = std::monostate{};
     } else if (num_chain - numid == 1) {
       // chain has only one non-identity term
-      for (auto &c : chain_) {
-        if (not c.is_identity()) {
-          term_1d<P> temp = std::move(c);
-          *this = std::move(temp);
-          break;
+      term_1d<P> temp = [&]() -> auto {
+        for (auto &c : chain_) {
+          if (not c.is_identity()) {
+            return std::move(c);
+          }
         }
-      }
+        return term_1d<P>{}; // unreachable, already checked there is 1 non-identity term
+      }();
+      extra_ = std::monostate{};
+      *this = std::move(temp);
     } else if (numid > 0) {
       std::vector<term_1d<P>> vec = std::move(chain_);
       chain_ = std::vector<term_1d<P>>();
@@ -563,24 +549,29 @@ public:
   term_1d(term_chain) : optype_(operation_type::chain) {}
   //! make a term that depends on the electric field
   term_1d(volume_electric<P> elmass)
-    : optype_(operation_type::volume), change_(changes_with::time),
-      rhs_(std::move(elmass.right)), field_f_(std::move(elmass.right_f))
+    : optype_(operation_type::volume), change_(changes_with::time)
   {
-    depends_ = (field_f_) ? term_dependence::electric_field
-                          : term_dependence::electric_field_only;
+    if (std::holds_alternative<sfixed_func1d<P>>(elmass.right))
+      rhs_ = std::move(std::get<sfixed_func1d<P>>(elmass.right));
+    else if (std::holds_alternative<sfixed_func1d<P>>(elmass.right))
+      rhs_ = std::move(std::get<sfixed_func1d_f<P>>(elmass.right));
+
+    bool const uses_field = std::holds_alternative<sfixed_func1d_f<P>>(rhs_);
+    depends_ = (uses_field) ? term_dependence::electric_field
+                            : term_dependence::electric_field_only;
   }
   //! make moment over density, moment dependence term
   term_1d(term_moment_over_density mover)
     : optype_(operation_type::volume),
       depends_(term_dependence::moment_divided_by_density),
-      change_(changes_with::time), coeffs_{static_cast<P>(mover.scale), 0},
-      smom_(mover.mom)
+      change_(changes_with::time), rhs_(static_cast<P>(mover.scale)),
+      extra_(mover.mom)
   {}
   //! make a special term using the collision theta term
   term_1d(term_lenard_bernstein_coll_theta lbt)
     : optype_(operation_type::volume),
       depends_(term_dependence::lenard_bernstein_coll_theta),
-      change_(changes_with::time), coeffs_{static_cast<P>(lbt.coeff), 0}
+      change_(changes_with::time), rhs_(static_cast<P>(lbt.coeff))
   {}
 
   //! indicates whether this is an identity term
@@ -604,33 +595,37 @@ public:
   //! returns the flux type
   flux_type flux() const { return flux_; }
 
-  //! returns the right-hand-side function
-  sfixed_func1d<P> const &rhs() const { return rhs_; }
+  //! return true if the rhs coefficient is a constant
+  bool has_rhs_const() const { return std::holds_alternative<P>(rhs_); }
+  //! returns true if rhs function with no field has been set
+  bool has_rhs_nof() const { return std::holds_alternative<sfixed_func1d<P>>(rhs_); }
+  //! returns true if rhs function with field has been set
+  bool has_rhs_f() const { return std::holds_alternative<sfixed_func1d_f<P>>(rhs_); }
+  //! returns true if the term has robin boundary condition set (robin or chain term1d)
+  bool has_robin() const { return std::holds_alternative<robin_coefficients>(rhs_); }
+  //! return the rhs function, no file dependence
+  sfixed_func1d<P> const &get_rhs() const { return std::get<sfixed_func1d<P>>(rhs_); }
   //! calls the right-hand-side function
   void rhs(std::vector<P> const &x, std::vector<P> &fx) const {
-    return rhs_(x, fx);
+    std::get<sfixed_func1d<P>>(rhs_)(x, fx);
   }
 
-  //! returns the required moment, if any
-  int get_moment() const { return mom; }
-
   //! get the moment that is in the denominator, only for moment over density case
-  moment const &moment_over() const { return smom_; }
-  //! get the ids of all moments needed by this 1d term
-  std::vector<moment_id> const &moment_ids() const { return mids_; }
+  moment const &moment_over() const { return std::get<moment>(extra_); }
 
-  //! returns the rhs function that calls the field
-  sfixed_func1d_f<P> const &field() const { return field_f_; }
+  //! returns true if the term has a vector of moments
+  bool has_moment_ids() const { return std::holds_alternative<std::vector<moment_id>>(extra_); }
+  //! get the ids of all moments needed by this 1d term
+  std::vector<moment_id> const &moment_ids() const { return std::get<std::vector<moment_id>>(extra_); }
+
   //! calls the rhs function that depends on the field
   void field(std::vector<P> const &x, std::vector<P> const &f, std::vector<P> &fx) const {
-    return field_f_(x, f, fx);
+    std::get<sfixed_func1d_f<P>>(x, f, fx);
   }
 
   //! returns the constant right-hand-side
-  P rhs_const() const { return coeffs_[0]; }
+  P rhs_const() const { return std::get<P>(rhs_); }
 
-  //! can read or set the the change option
-  changes_with &change() { return change_; }
   //! can read the change option
   changes_with change() const { return change_; }
 
@@ -638,14 +633,18 @@ public:
   term_dependence depends() const { return depends_; }
 
   //! (chain-mode only) number of chained terms
-  int num_chain() const { return static_cast<int>(chain_.size()); }
-  //! (chain-mode only) get the vector of the chain
-  std::vector<term_1d<P>> const &chain() const { return chain_; }
+  int num_chain() const { return static_cast<int>(std::get<std::vector<term_1d<P>>>(extra_).size()); }
   //! (chain-mode only) get the i-th term in the chain
-  term_1d<P> const &operator[](int i) const { return chain_[i]; }
+  term_1d<P> const &operator[](int i) const { return chain_link(i); }
+  //! (chain-mode only) get the last entry in the chain
+  term_1d<P> const &chain_back() const { return std::get<std::vector<term_1d<P>>>(extra_).back(); };
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> const &chain_link(int i) const { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
+  //! (chain-mode only) get the i-th term in the chain
+  term_1d<P> &chain_link(int i) { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
   //! (chain-mode only) add one more term to the chain
   void add_term(term_1d<P> tm) {
-    chain_.emplace_back(std::move(tm));
+    std::get<std::vector<term_1d<P>>>(extra_).emplace_back(std::move(tm));
     check_chain();
   }
   //! (chain-mode only) add one more term to the chain
@@ -656,7 +655,7 @@ public:
   //! returns true if the term has a flux
   bool has_flux() const {
     if (optype_ == operation_type::chain) {
-      for (auto const &cc : chain_)
+      for (auto const &cc : std::get<std::vector<term_1d<P>>>(extra_))
         if (not cc.is_identity() and not cc.is_volume())
           return true;
       return false;
@@ -686,21 +685,27 @@ public:
             or optype_ == operation_type::penalty);
   }
   //! left Robin condition
-  P left_robin() const { return coeffs_[0]; }
+  P left_robin() const { return std::get<robin_coefficients>(rhs_).left; }
   //! right Robin condition
-  P right_robin() const { return coeffs_[1]; }
+  P right_robin() const { return std::get<robin_coefficients>(rhs_).right; }
 
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_left_robin(P left) {
-    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
-                        "or create a new term_robin");
-    coeffs_[0] = left;
+    rassert(is_robin() or is_chain(), "robin boundary conditions can be set only for robin and chain terms");
+    rassert(std::holds_alternative<robin_coefficients>(rhs_) or std::holds_alternative<std::monostate>(rhs_),
+            "setting robin conditions but the coefficient has already beens set for another term type");
+    if (std::holds_alternative<std::monostate>(rhs_))
+      rhs_ = robin_coefficients{};
+    std::get<robin_coefficients>(rhs_).left = left;
   }
   //! add a robin boundary condition to a chain term, more efficient than adding additional terms
   void set_right_robin(P right) {
-    rassert(is_chain(), "Robin boundary condition can only be set for a chain term_1d, "
-                        "or create a new term_robin");
-    coeffs_[1] = right;
+    rassert(is_robin() or is_chain(), "robin boundary conditions can be set only for robin and chain terms");
+    rassert(std::holds_alternative<robin_coefficients>(rhs_) or std::holds_alternative<std::monostate>(rhs_),
+            "setting robin conditions but the coefficient has already beens set for another term type");
+    if (std::holds_alternative<std::monostate>(rhs_))
+      rhs_ = robin_coefficients{};
+    std::get<robin_coefficients>(rhs_).right = right;
   }
 
   // both the pde_scheme and term_manager need access to the internal data
@@ -709,13 +714,8 @@ public:
   friend struct term_manager<P>;
 
 private:
-  //! helper constructor
-  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
-      : optype_(opt), flux_(flx), boundary_(bnd),
-        rhs_(std::move(frhs)), coeffs_{crhs, 0}
-  {
-    assert(optype_ != operation_type::identity);
-
+  void flip_flux() {
+    // for construction purposes, flip the upwind/downwing flux for the grad term
     if (optype_ == operation_type::grad) {
       if (flux_ == flux_type::upwind)
         flux_ = flux_type::downwind;
@@ -723,13 +723,54 @@ private:
         flux_ = flux_type::upwind;
     }
   }
+  //! helper constructor
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd, sfixed_func1d<P> frhs, P crhs)
+      : optype_(opt), flux_(flx), boundary_(bnd)
+  {
+    assert(optype_ != operation_type::identity);
+    if (frhs)
+      rhs_ = std::move(frhs);
+    else
+      rhs_ = crhs;
+
+    flip_flux();
+  }
+  //! helper constructor
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
+          std::variant<P, sfixed_func1d<P>> coeff)
+      : optype_(opt), flux_(flx), boundary_(bnd)
+  {
+    assert(optype_ != operation_type::identity);
+    if (std::holds_alternative<P>(coeff))
+      rhs_ = std::get<P>(coeff);
+    else
+      rhs_ = std::move(std::get<sfixed_func1d<P>>(coeff));
+
+    flip_flux();
+  }
+  //! helper constructor
+  template<typename OtherP>
+  term_1d(operation_type opt, flux_type flx, boundary_type bnd,
+          std::variant<OtherP, sfixed_func1d<OtherP>> coeff)
+      : optype_(opt), flux_(flx), boundary_(bnd)
+  {
+    assert(optype_ != operation_type::identity);
+    rassert(std::holds_alternative<OtherP>(coeff),
+            "cannot construct term1d with incompatible precision and non-constant coefficient");
+    rhs_ = static_cast<P>(std::get<OtherP>(coeff));
+
+    flip_flux();
+  }
 
   //! (chain-mode only) access the i-th term in the chain, allows mods
-  term_1d<P> &chain(int i) { return chain_[i]; }
+  term_1d<P> &chain(int i) { return std::get<std::vector<term_1d<P>>>(extra_)[i]; }
   //! check if the chain has wrong set of fluxes
   void check_chain() {
+    if (not std::holds_alternative<std::vector<term_1d<P>>>(extra_))
+      return; // not actually a chain
     int side = 0;
     int central = 0;
+    std::vector<term_1d<P>> const &chain_ = std::get<std::vector<term_1d<P>>>(extra_);
     for (int i : iindexof(chain_)) {
       if (chain_[i].is_volume())
         continue;
@@ -752,19 +793,21 @@ private:
 
   changes_with change_ = changes_with::none;
 
-  sfixed_func1d<P> rhs_;
   // holds coefficients, either constant coefficient
   // or left/right coefficient for constant Robin conditions
-  std::array<P, 2> coeffs_ = {1, 0};
+  struct robin_coefficients {
+    P left = 0;
+    P right = 0;
+  };
+
+  std::variant<std::monostate, P, robin_coefficients,
+               sfixed_func1d<P>, sfixed_func1d_f<P>> rhs_ = std::monostate{};
 
   P penalty_ = 0;
 
-  int mom = 0;
-  moment smom_;
-  std::vector<moment_id> mids_; // separable LB or interpolatory
-  sfixed_func1d_f<P> field_f_;
-
-  std::vector<term_1d<P>> chain_;
+  // extra meta-data for the term1d, could use a moment for moment over density
+  // could use a list of moments for LB or list of term_1d for a chain
+  std::variant<std::monostate, moment, std::vector<moment_id>, std::vector<term_1d<P>>> extra_;
 };
 
 /*!

@@ -737,7 +737,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   static_assert(single_matrix or
               std::is_same_v<coeff_type, std::array<gpu::vector<precision *>, max_num_dimensions>>);
 
-  tools::time_event performance_("block_gpu");
+  tools::time_event performance_("kronecker block-gpu");
 
   int64_t const num_entries = grid.num_dof();
 

@@ -334,7 +334,7 @@ template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
                         std::array<P const *, max_mom_dims> const &integ,
-                        gpu::vector<P> const &state, gpu::vector<P> &vals)
+                        P const state[], P vals[])
 {
   static_assert(max_mom_dims == 3, "making assumptions here");
   constexpr int max_threads = 1024;
@@ -348,17 +348,17 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
   case 1:
     kernel_moment_l0<P, 1><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, num_rij, rij.data(),
-        integ[0], nullptr, nullptr, state.data(), vals.data());
+        integ[0], nullptr, nullptr, state, vals);
     break;
   case 2:
     kernel_moment_l0<P, 2><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, num_rij, rij.data(),
-        integ[0], integ[1], nullptr, state.data(), vals.data());
+        integ[0], integ[1], nullptr, state, vals);
     break;
   case 3:
     kernel_moment_l0<P, 3><<<launch_blocks, launch_grid>>>(
         pdof, pos_block, full_block, num_rij, rij.data(),
-        integ[0], integ[1], integ[2], state.data(), vals.data());
+        integ[0], integ[1], integ[2], state, vals);
     break;
   default:
     break; // unreachable
@@ -370,7 +370,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
                    std::array<bool, max_mom_dims> lzero, int const *indexes,
                    gpu::vector<int> const &rij,
                    std::array<P const *, max_mom_dims> const &integ,
-                   gpu::vector<P> const &state, gpu::vector<P> &vals)
+                   P const state[], P vals[])
 {
   unsigned int const zeros = [&]() -> unsigned int {
       unsigned int res = 0;
@@ -393,17 +393,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 1, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state, vals);
       break;
     case 2:
       kernel_moment<P, 1, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state, vals);
       break;
     case 3:
       kernel_moment<P, 1, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], integ[2], state.data(), vals.data());
+          integ[0], integ[1], integ[2], state, vals);
       break;
     default:
       break; // unreachable
@@ -414,17 +414,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 2, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state, vals);
       break;
     case 2:
       kernel_moment<P, 2, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state, vals);
       break;
     case 3:
       kernel_moment<P, 2, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], integ[2], state.data(), vals.data());
+          integ[0], integ[1], integ[2], state, vals);
       break;
     default:
       break; // unreachable
@@ -435,17 +435,17 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
     case 1:
       kernel_moment<P, 3, 1><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], nullptr, nullptr, state.data(), vals.data());
+          integ[0], nullptr, nullptr, state, vals);
       break;
     case 2:
       kernel_moment<P, 3, 2><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], nullptr, state.data(), vals.data());
+          integ[0], integ[1], nullptr, state, vals);
       break;
     case 3:
       kernel_moment<P, 3, 3><<<launch_blocks, launch_grid>>>(
           pdof, pos_block, full_block, zeros, indexes, num_rij, rij.data(),
-          integ[0], integ[1], integ[2], state.data(), vals.data());
+          integ[0], integ[1], integ[2], state, vals);
       break;
     default:
       break; // unreachable
@@ -482,7 +482,7 @@ __global__ void kernel_moment_expand(int pos_block, int vel_block,
 
 template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
-                   gpu::vector<P> const &pos_data, gpu::vector<P> &vals)
+                   P const pos_data[], P vals[])
 {
   int const pos_block = fm::ipow(pdof, num_pos);
   int const vel_block = fm::ipow(pdof, num_vel);
@@ -497,12 +497,12 @@ void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &r
     assert(pdof == 4 and num_pos == 3 and num_vel == 3);
     dim3 const launch_grid(max_threads, 1);
     kernel_moment_expand<P, 4, max_threads><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data, vals);
   } else {
     const int num_teams = max_threads / team_size;
     dim3 const launch_grid(team_size, num_teams);
     kernel_moment_expand<P><<<launch_blocks, launch_grid>>>(
-        pos_block, vel_block, num_rij, rij.data(), pos_data.data(), vals.data());
+        pos_block, vel_block, num_rij, rij.data(), pos_data, vals);
   }
 }
 
@@ -824,8 +824,8 @@ __global__ void kernel_merge_boundary_grids_6d_4(int num_indexes, int const inde
 
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-                          gpu::vector<int> const &map, gpu::vector<P> const &con1d,
-                          gpu::vector<P> const &bnd, int pdof, P alpha, P y[])
+                          gpu::vector<int> const &map, P const con1d[], P const bnd[],
+                          int pdof, P alpha, P y[])
 {
   int const num_dims = grid.num_dims();
   int const num_indexes = grid.num_indexes();
@@ -847,7 +847,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 1024;
         kernel_merge_boundary_grids_6d_4<P, dmode, 0, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -855,7 +855,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 256;
         kernel_merge_boundary_grids_6d_4<P, dmode, 1, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -863,7 +863,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 64;
         kernel_merge_boundary_grids_6d_4<P, dmode, 2, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -871,7 +871,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 16;
         kernel_merge_boundary_grids_6d_4<P, dmode, 3, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -879,7 +879,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 4;
         kernel_merge_boundary_grids_6d_4<P, dmode, 4, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -887,7 +887,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
       {
         constexpr int ib_stride = 1;
         kernel_merge_boundary_grids_6d_4<P, dmode, 5, ib_stride><<<launch_blocks, launch_grid>>>(
-            num_indexes, grid.gpu_indexes(), map.data(), con1d.data(), bnd.data(),
+            num_indexes, grid.gpu_indexes(), map.data(), con1d, bnd,
             alpha, subgrid_block_size, y);
         break;
       }
@@ -907,33 +907,33 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
     {
       case 0:
         kernel_merge_boundary_grids<P, dmode, 0><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       case 1:
         kernel_merge_boundary_grids<P, dmode, 1><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       case 2:
         kernel_merge_boundary_grids<P, dmode, 2><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       case 3:
         kernel_merge_boundary_grids<P, dmode, 3><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       case 4:
         kernel_merge_boundary_grids<P, dmode, 4><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       case 5:
         kernel_merge_boundary_grids<P, dmode, 5><<<launch_blocks, launch_grid>>>(
-            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d.data(),
-            bnd.data(), pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
+            num_dims, num_indexes, grid.gpu_indexes(), map.data(), con1d,
+            bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       default:
         break; // unreachable
@@ -947,15 +947,14 @@ template void tensor_by_index(int, int, int, int const[], double const[], double
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<double const *, max_mom_dims> const &,
-                                 gpu::vector<double> const &, gpu::vector<double> &);
+                                 double const[], double[]);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, std::array<double const *, max_mom_dims> const &,
-    gpu::vector<double> const &, gpu::vector<double> &);
+    double const[], double[]);
 
-template void moment_expand(
-    int, int, int, gpu::vector<int> const &, gpu::vector<double> const &, gpu::vector<double> &);
+template void moment_expand(int, int, int, gpu::vector<int> const &, double const[], double[]);
 
 template void compute_l2_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
 template void compute_max_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
@@ -964,21 +963,17 @@ template void set_istatus(int, double, gpu::vector<double> const &, gpu::vector<
 template void update_istatus(int, double, gpu::vector<double> const &, gpu::vector<sparse_grid::istatus> &);
 
 template void merge_boundary_grids<double, data_mode::replace>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
-    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    double const[], double const[], int, double, double[]);
 template void merge_boundary_grids<double, data_mode::scal_rep>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
-    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    double const[], double const[], int, double, double[]);
 template void merge_boundary_grids<double, data_mode::increment>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
-    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    double const[], double const[], int, double, double[]);
 template void merge_boundary_grids<double, data_mode::scal_inc>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<double> const &con1d,
-    gpu::vector<double> const &bnd, int pdof, double alpha, double y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    double const[], double const[], int, double, double[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
@@ -987,15 +982,14 @@ template void tensor_by_index(int, int, int, int const[], float const[], float c
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<float const *, max_mom_dims> const &,
-                                 gpu::vector<float> const &, gpu::vector<float> &);
+                                 float const[], float[]);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, std::array<float const *, max_mom_dims> const &,
-    gpu::vector<float> const &, gpu::vector<float> &);
+    float const[], float[]);
 
-template void moment_expand(
-    int, int, int, gpu::vector<int> const &, gpu::vector<float> const &, gpu::vector<float> &);
+template void moment_expand(int, int, int, gpu::vector<int> const &, float const[], float[]);
 
 template void compute_l2_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);
 template void compute_max_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);
@@ -1004,21 +998,17 @@ template void set_istatus(int, float, gpu::vector<float> const &, gpu::vector<sp
 template void update_istatus(int, float, gpu::vector<float> const &, gpu::vector<sparse_grid::istatus> &);
 
 template void merge_boundary_grids<float, data_mode::replace>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
-    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    float const[], float const[], int, float, float[]);
 template void merge_boundary_grids<float, data_mode::scal_rep>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
-    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    float const[], float const[], int, float, float[]);
 template void merge_boundary_grids<float, data_mode::increment>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
-    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    float const[], float const[], int, float, float[]);
 template void merge_boundary_grids<float, data_mode::scal_inc>(
-    sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-    gpu::vector<int> const &map, gpu::vector<float> const &con1d,
-    gpu::vector<float> const &bnd, int pdof, float alpha, float y[]);
+    sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
+    float const[], float const[], int, float, float[]);
 #endif
 
 // compiling both cases, doesn't take long and no need to #ifdef guard in the indexset

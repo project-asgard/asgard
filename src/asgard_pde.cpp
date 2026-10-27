@@ -804,7 +804,7 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
       case term_dependence::electric_field_only:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
                 "electric field dependence requires moments which in turn require 1 - 3 velocity dimensions");
-        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())), this->register_electric_moment(dimension_id(d))};
+        t1d.extra_ = std::vector<moment_id>{this->register_moment(moment::zero(domain_.num_vel())), this->register_electric_moment(dimension_id(d))};
         break;
       case term_dependence::moment_divided_by_density:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
@@ -813,8 +813,8 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
                 "moment-over-density work only for one position dimension");
         rassert(t1d.moment_over().num_dims() == domain_.num_vel(),
                 "moment-over-density requires moment with dimension matching the number of velocity dimensions");
-        t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())),
-                     this->register_moment(t1d.moment_over())};
+        t1d.extra_ = std::vector<moment_id>{this->register_moment(moment::zero(domain_.num_vel())),
+                                            this->register_moment(t1d.moment_over())};
         break;
       case term_dependence::lenard_bernstein_coll_theta:
         rassert(1 <= domain_.num_vel() and domain_.num_vel() <= 3,
@@ -824,25 +824,28 @@ void pde_scheme<P>:: update_deps(term_md<P> &tmd) {
         // the zero-th moment is always needed, the others are set based on the dimensions
         switch (domain_.num_vel()) {
         case 1:
-          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())),
-                       this->register_moment(moment(1)),
-                       this->register_moment(moment(2)), };
+          t1d.extra_ = std::vector<moment_id>{
+                          this->register_moment(moment::zero(domain_.num_vel())),
+                          this->register_moment(moment(1)),
+                          this->register_moment(moment(2)), };
           break;
         case 2:
-          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())),
-                       this->register_moment(moment(1, 0)),
-                       this->register_moment(moment(0, 1)),
-                       this->register_moment(moment(2, 0)),
-                       this->register_moment(moment(0, 2)), };
+          t1d.extra_ = std::vector<moment_id>{
+                          this->register_moment(moment::zero(domain_.num_vel())),
+                          this->register_moment(moment(1, 0)),
+                          this->register_moment(moment(0, 1)),
+                          this->register_moment(moment(2, 0)),
+                          this->register_moment(moment(0, 2)), };
           break;
         case 3:
-          t1d.mids_ = {this->register_moment(moment::zero(domain_.num_vel())),
-                       this->register_moment(moment(1, 0, 0)),
-                       this->register_moment(moment(0, 1, 0)),
-                       this->register_moment(moment(0, 0, 1)),
-                       this->register_moment(moment(2, 0, 0)),
-                       this->register_moment(moment(0, 2, 0)),
-                       this->register_moment(moment(0, 0, 2)), };
+          t1d.extra_ = std::vector<moment_id>{
+                          this->register_moment(moment::zero(domain_.num_vel())),
+                          this->register_moment(moment(1, 0, 0)),
+                          this->register_moment(moment(0, 1, 0)),
+                          this->register_moment(moment(0, 0, 1)),
+                          this->register_moment(moment(2, 0, 0)),
+                          this->register_moment(moment(0, 2, 0)),
+                          this->register_moment(moment(0, 0, 2)), };
           break;
         default:
           // unreachable due to the assertion above
