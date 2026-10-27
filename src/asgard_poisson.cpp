@@ -298,7 +298,7 @@ void poisson_md<P>::solve_potential_(gpu::wrap_array<P> density, sparse_grid con
 
   // Restore the density
   if (bc == poisson_bc::periodic)
-    gpu::memcopy_dev2dev(1, gpu_density0.data(), density());
+    density.copy_from_device(1, gpu_density0);
 }
 #endif
 
