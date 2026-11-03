@@ -166,6 +166,18 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                coeff_type const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
                workspace<precision> &work, backup_type const &);
+/*!
+ * \brief Overload directly accepting gpu::wrap_array
+ */
+template<typename precision, typename coeff_type, typename backup_type>
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm, coeff_type const &coeffs,
+               precision alpha, gpu::wrap_array<precision const> x, precision beta,
+               gpu::wrap_array<precision> y, workspace<precision> &work, backup_type const &back)
+{
+  block_gpu<precision, coeff_type, backup_type>
+    (dev, n, grid, conns, perm, coeffs, alpha, x(), beta, y(), work, back);
+}
 
 #ifdef ASGARD_GPU_MEMGREEDY
 /*!

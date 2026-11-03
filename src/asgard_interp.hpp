@@ -172,7 +172,7 @@ public:
     #else
     // tools::time_event performance_(op_name<method::wav2nodal, imode>(), flops);
     #endif
-    block_cpu(pdof, grid, conn_reduced, ip, wav2nodal_, scale, f, P{0}, vals, work);
+    kronmult::block_cpu(pdof, grid, conn_reduced, ip, wav2nodal_, scale, f, P{0}, vals, work);
   }
 
   void wav2nodal(interp_dims imode, sparse_grid const &grid, P const f[], P vals[],
@@ -200,7 +200,7 @@ public:
     #else
     // tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(), flops);
     #endif
-    block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, pos_wav_scale, f, P{0}, vals, work);
+    kronmult::block_cpu(pdof, grid, conn_reduced, perm_pos, wav2nodal_, pos_wav_scale, f, P{0}, vals, work);
   }
   //! converts interpolated nodal values to hierarchical coefficients
   template<interp_dims imode = interp_dims::full>
@@ -222,7 +222,7 @@ public:
     #else
     // tools::time_event performance_(op_name<method::nodal2hier, imode>(), flops);
     #endif
-    block_cpu(pdof, grid, conn, ip, nodal2hier_, P{1}, f, P{0}, hier, work);
+    kronmult::block_cpu(pdof, grid, conn, ip, nodal2hier_, P{1}, f, P{0}, hier, work);
   }
 
   //! converts interpolated nodal values to hierarchical coefficients
@@ -258,8 +258,8 @@ public:
     #else
     // tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #endif
-    block_cpu(pdof, grid, conn, ip_low, nodal2hier_, P{1}, f, P{0}, t1.data(), work);
-    block_cpu(pdof, grid, conn, ip_up, hier2wav_, alpha * scale, t1.data(), beta, vals, work);
+    kronmult::block_cpu(pdof, grid, conn, ip_low, nodal2hier_, P{1}, f, P{0}, t1.data(), work);
+    kronmult::block_cpu(pdof, grid, conn, ip_up, hier2wav_, alpha * scale, t1.data(), beta, vals, work);
   }
   //! compute nodal values for the field
   void nodal2wav(interp_dims imode, sparse_grid const &grid, connection_patterns const &conn,
@@ -416,8 +416,8 @@ public:
     // tools::time_event performance_(op_name<method::wav2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f(),
-              P{0}, vals(), work, wav2nodal_);
+    kronmult::block_gpu<P>(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id],
+                           P{wav_scale}, f, P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
   //! compute nodal values for the moment
@@ -438,14 +438,14 @@ public:
     // tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f(),
-              P{0}, vals(), work, wav2nodal_);
+    kronmult::block_gpu<P>(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id],
+                           pos_wav_scale, f, P{0}, vals, work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
   //! compute hirarchical coefficients from nodal values
   void nodal2hier(gpu::device dev, sparse_grid const &grid,
                  connection_patterns const &conn,
-                 P const f[], P vals[],
+                 gpu::wrap_array<P const> f, gpu::wrap_array<P> vals,
                  kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
@@ -461,14 +461,15 @@ public:
     #else
     // tools::time_event performance_(op_name<method::nodal2hier, interp_dims::full>(dev), flops);
     #endif
-    block_gpu(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
-              P{1}, f, P{0}, vals, work, nodal2hier_);
+    kronmult::block_gpu<P>(dev, pdof, grid, conn, perm_low, gpu_nodal2hier_[dev.id],
+                           P{1}, f, P{0}, vals, work, nodal2hier_);
   }
   //! compute wavelet coefficients from nodal values
   template<interp_dims imode = interp_dims::full>
   void nodal2wav(gpu::device dev, sparse_grid const &grid,
                  connection_patterns const &conn,
-                 P alpha, P const f[], P beta, P vals[],
+                 P alpha, gpu::wrap_array<P const> f, P beta,
+                 gpu::wrap_array<P> vals,
                  kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
     kronmult::permutes const &ip_low = (imode == interp_dims::full) ? perm_low : perm_low_pos;
@@ -489,16 +490,16 @@ public:
     #else
     // tools::time_event performance_(op_name<method::nodal2wav, imode>(), flops);
     #endif
-    block_gpu(dev, pdof, grid, conn, ip_low, gpu_nodal2hier_[dev.id],
-              P{1}, f, P{0}, t1.data(), work, nodal2hier_);
-    block_gpu(dev, pdof, grid, conn, ip_up, gpu_hier2wav_[dev.id],
-              alpha * scale, t1.data(), beta, vals, work, hier2wav_);
+    kronmult::block_gpu<P>(dev, pdof, grid, conn, ip_low, gpu_nodal2hier_[dev.id],
+                           P{1}, f, P{0}, t1, work, nodal2hier_);
+    kronmult::block_gpu<P>(dev, pdof, grid, conn, ip_up, gpu_hier2wav_[dev.id],
+                           alpha * scale, t1, beta, vals, work, hier2wav_);
   }
 
  //! compute nodal values for the field on the gpu
   void nodal2wav(gpu::device dev, interp_dims imode, sparse_grid const &grid,
                  connection_patterns const &conn,
-                 P alpha, P const f[], P beta, P vals[],
+                 P alpha, gpu::wrap_array<P const> f, P beta, gpu::wrap_array<P> vals,
                  kronmult::workspace<P> &work, gpu::vector<P> &t1) const
   {
     if (imode == interp_dims::full)
@@ -551,12 +552,12 @@ public:
         // if (plan.uses_hybrid())
         //   pos2hier(dev, grid, conn, gpu_t2.data(), y, work);
         // else
-          nodal2hier(dev, grid, conn, gpu_t2.data(), y, work);
+          nodal2hier(dev, grid, conn, gpu_t2, y, work);
       } else {
         // if (plan.uses_hybrid())
         //   pos2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
         // else
-          nodal2wav(dev, grid, conn, alpha, gpu_t2.data(), beta, y, work, gpu_t1);
+          nodal2wav(dev, grid, conn, alpha, gpu_t2, beta, y, work, gpu_t1);
       }
     } else {
       std::vector<P> const &nodal = [&]() -> std::vector<P> const &
@@ -586,12 +587,12 @@ public:
         // if (plan.uses_hybrid())
         //   pos2hier(dev, grid, conn, gpu_t1.data(), y, work);
         // else
-          nodal2hier(dev, grid, conn, gpu_t1.data(), y, work);
+          nodal2hier(dev, grid, conn, gpu_t1, y, work);
       } else {
         // if (plan.uses_hybrid())
         //   pos2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
         // else
-          nodal2wav(dev, grid, conn, alpha, gpu_t1.data(), beta, y, work, gpu_t2);
+          nodal2wav(dev, grid, conn, alpha, gpu_t1, beta, y, work, gpu_t2);
       }
     }
   }
@@ -605,7 +606,7 @@ public:
   void operator ()
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset<P> const &moments, P time,
-       P alpha, tmd_type const &func, P beta, P y[],
+       P alpha, tmd_type const &func, P beta, gpu::wrap_array<P> y,
        kronmult::workspace<P> &work) const
   {
     tools::time_event perf_("interpolation source-gpu");
@@ -617,7 +618,7 @@ public:
 
     interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
 
-    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()], beta, y, work, gpu_it2[dev()]);
   }
   /*!
    * \brief Computes the interpolation function on the GPU
@@ -628,7 +629,7 @@ public:
   void operator ()
       (gpu::device dev, sparse_grid const &grid,
        connection_patterns const &conn, momentset_gpu<P> const &moments, P time,
-       P alpha, tmd_type const &func, P beta, P y[],
+       P alpha, tmd_type const &func, P beta, gpu::wrap_array<P> y,
        kronmult::workspace<P> &work) const
   {
     tools::time_event perf_("interpolation source-gpu");
@@ -639,7 +640,7 @@ public:
 
     interp_dims const idim = (func.is_hybrid()) ? interp_dims::hybrid_pos : interp_dims::full;
 
-    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()].data(), beta, y, work, gpu_it2[dev()]);
+    nodal2wav(dev, idim, grid, conn, alpha, gpu_it1[dev()], beta, y, work, gpu_it2[dev()]);
   }
 
   //! field value sitting on the GPU
