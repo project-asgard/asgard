@@ -890,7 +890,7 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
       gpu::memcopy_dev2dev(num_entries, src, terms.gpumpi_work.data());
     }
     if (is_leader()) {
-      terms.template apply_sources_gpu<mode>(group, time, alpha, terms.gpumpi_work.data());
+      terms.template apply_sources_gpu<mode>(group, time, alpha, terms.gpumpi_work);
       terms.resources.reduce_add_gpu(num_entries, terms.gpumpi_work.data(), src);
     } else {
       data_mode constexpr mm = [=]()-> data_mode {
