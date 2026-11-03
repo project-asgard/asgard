@@ -59,10 +59,6 @@ if (ASGARD_USE_MPI)
   endif()
 endif()
 
-if (ASGARD_GPUMPI_DIRECT AND NOT ASGARD_USE_MPI) # maybe ASGARD_GPUMPI_DIRECT is set by an external script
-  set(ASGARD_GPUMPI_DIRECT OFF BOOL "disabling MPI-GPU-Direct (missing MPI)" CACHE FORCE)
-endif()
-
 option (ASGARD_USE_PYTHON "Optional Python tool for post-processing, plotting and quick prototyping" OFF)
 option (ASGARD_USE_HIGHFIVE "Use the HighFive HDF5 header library for I/O" OFF)
 
@@ -89,7 +85,7 @@ if (ASGARD_USE_TIMER)
   option (ASGARD_USE_FLOPCOUNTER "Counts flops as part of the timing process" OFF)
 endif()
 
-if (ASGARD_RECOMMENDED_FLAGS)
+if (ASGARD_FAST_FLAGS)
   # add compiler flags we always want to use, mostly for CI purposes
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native -mfma")
 endif ()
@@ -111,6 +107,10 @@ else()
   if (ASGARD_GPUMPI_DIRECT) # if set by a script or by mistake
     set(ASGARD_GPUMPI_DIRECT OFF CACHE BOOL "disabling MPI-GPU-Direct (missing MPI)" FORCE)
   endif()
+endif()
+
+if (ASGARD_GPUMPI_DIRECT AND NOT ASGARD_USE_MPI) # maybe ASGARD_GPUMPI_DIRECT is set by an external script
+  set(ASGARD_GPUMPI_DIRECT OFF BOOL "disabling MPI-GPU-Direct (missing MPI)" CACHE FORCE)
 endif()
 
 #Enable HighFive IO if any of the following variables are defined
@@ -371,8 +371,6 @@ if (ASGARD_USE_ROCM)
     set (ASGARD_NUM_GPU_THREADS "1024" CACHE STRING "Number of threads for GPU launch kernels")
     set (ASGARD_NUM_GPU_BLOCKS "2000" CACHE STRING "Number of blocks for GPU launch kernels")
 endif()
-
-set (ASGARD_NUM_QUADRATURE "10" CACHE STRING "Minimum number of quadrature points to be used transformations.")
 
 #-------------------------------------------------------------------------------
 #  Define the asgard library.

@@ -75,7 +75,8 @@ legendre_weights(int const degree, double const lower_bound, double const upper_
   assert(degree >= 0);
   assert(lower_bound < upper_bound);
 
-  int const default_num_quad = std::max(ASGARD_NUM_QUADRATURE, degree + 2);
+  int constexpr min_quad_points = 10;
+  int const default_num_quad = std::max(min_quad_points, degree + 2);
 
   int const num_points = (quad_mode == quadrature_mode::use_degree)
                         ? degree + 1
