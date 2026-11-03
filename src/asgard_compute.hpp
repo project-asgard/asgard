@@ -98,7 +98,7 @@ struct wrap_array {
     this->copy_to_host(num, x);
     return x;
   }
-  //! copy n-entries from the host, no array bounds checked here
+  //! copy n-entries from the host, no array bounds checked here, no resizing
   void copy_from_host(int64_t num, T const x[]) {
     gpu::memcopy_host2dev(num, x, data);
   }
