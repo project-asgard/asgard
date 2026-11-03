@@ -326,6 +326,25 @@ void dump(int n, P const x[], std::string message = "") {
   tools::dump(cpu, message);
 }
 
+template<typename T>
+inline void memcopy_dev2dev(int64_t num, wrap_array<T const> src, wrap_array<T> dest) {
+  memcopy_dev2dev(num, src(), dest());
+}
+
+template<typename T>
+inline void memcopy_host2dev(int64_t num, T const *src, wrap_array<T> dest) {
+  memcopy_host2dev(num, src, dest());
+}
+
+template<typename T>
+inline void memcopy_dev2host(int64_t num, wrap_array<T const> src, T *dest) {
+  memcopy_dev2host(num, src(), dest);
+}
+template<typename T>
+inline void memcopy_dev2host(int64_t num, wrap_array<T> src, T *dest) {
+  memcopy_dev2host(num, src(), dest);
+}
+
 } // namespace gpu
 #endif
 

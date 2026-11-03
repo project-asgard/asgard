@@ -663,7 +663,7 @@ void moment_manager<P>::solve_poisson(sparse_grid const &grid, connection_patter
         interp.pos2nodal(gpu::device{0}, this->pos_grid, efield, w2, work);
         gpu::vector<P> &res = this->gpu_interps[0][mid];
         res.resize(grid.num_dof());
-        gpu::moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2(), res.data());
+        gpu::moment_expand<P>(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[0], w2, res);
         res.copy_to_host(interps[mid]);
       };
 
@@ -716,7 +716,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
         interp.pos2nodal(dev, pos_grid, w1, w2, work);
         gpu::vector<P> &res = gpu_interps[dev.id][melectric];
         res.resize(full_block * grid.num_indexes());
-        gpu::moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2(), res.data());
+        gpu::moment_expand<P>(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2, res);
         if (result_to_cpu) res.copy_to_host(interps[melectric]);
       }
     } else if constexpr (std::is_same_v<std::decay_t<decltype(p)>, poisson_md<P>>) {
@@ -740,7 +740,7 @@ void moment_manager<P>::solve_poisson_gpu(gpu::device dev, sparse_grid const &gr
         interp.pos2nodal(dev, this->pos_grid, efield, w2, work);
         gpu::vector<P> &res = this->gpu_interps[dev.id][mid];
         res.resize(this->full_block * grid.num_indexes());
-        gpu::moment_expand(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2(), res.data());
+        gpu::moment_expand<P>(pdof, this->pos_grid.num_dims(), num_vel_, reduce_ij[dev.id], w2, res);
         if (result_to_cpu or mom.interp_on_cpu())
           res.copy_to_host(interps[mid]);
       };
@@ -1047,17 +1047,17 @@ void moment_manager<P>::compute_moments(
 
       if (allzero) {
         gpu::moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[g],
-                                itg, state(), w1());
+                                itg, state, w1);
       } else {
         gpu::moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
-                           lzero, grid.gpu_indexes(), reduce_ij[g], itg, state(), w1());
+                           lzero, grid.gpu_indexes(), reduce_ij[g], itg, state, w1);
       }
 
       // at this point, the moment defined on the reduced grid is stored in w.vec
 
       if (im->raw_on_cpu()) {
         raw_vals[im->mid].resize(num_entries);
-        gpu::memcopy_dev2host(num_entries, w1(), raw_vals[im->mid].data());
+        gpu::memcopy_dev2host(num_entries, w1, raw_vals[im->mid].data());
         full_level.get(im->mid).resize(0);
       }
 
@@ -1073,7 +1073,7 @@ void moment_manager<P>::compute_moments(
 
       interp.pos2nodal(gpu::device{g}, pos_grid, w1, w2, kwork);
 
-      gpu::moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2(), res.data());
+      gpu::moment_expand<P>(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[g], w2, res);
 
       if (im->interp_on_cpu()) res.copy_to_host(interps[im->mid]);
     }
@@ -1140,11 +1140,11 @@ void moment_manager<P>::compute_moments(
     }
 
     if (allzero) {
-      gpu::moment_reduce_zero(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[0],
-                              itg, state.data(), w1());
+      gpu::moment_reduce_zero<P>(pdof, pos_block, full_block, num_vel_, reduce_ij_allzero[0],
+                                 itg, state, w1);
     } else {
-      gpu::moment_reduce(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
-                         lzero, grid.gpu_indexes(), reduce_ij[0], itg, state.data(), w1());
+      gpu::moment_reduce<P>(pdof, pos_block, full_block, pos_grid.num_dims(), num_vel_,
+                            lzero, grid.gpu_indexes(), reduce_ij[0], itg, state, w1);
     }
 
     // now we have to compute the interpolation
@@ -1153,7 +1153,7 @@ void moment_manager<P>::compute_moments(
 
     interp.pos2nodal(gpu::device{0}, pos_grid, w1, w2, kwork);
 
-    moment_expand(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2(), res.data());
+    gpu::moment_expand<P>(pdof, pos_grid.num_dims(), num_vel_, reduce_ij[0], w2, res);
 
     if (result_to_cpu) {
       res.copy_to_host(interps[im]);

@@ -51,7 +51,7 @@ template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
                         std::array<P const *, max_mom_dims> const &integ,
-                        P const state[], P vals[]);
+                        wrap_array<P const> state, wrap_array<P> vals);
 
 /*!
  * \brief Computes the moments from the state into vals, assumes some dims don't use level 0
@@ -82,7 +82,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
                    std::array<bool, max_mom_dims> lzero, int const *indexes,
                    gpu::vector<int> const &rij,
                    std::array<P const *, max_mom_dims> const &integ,
-                   P const state[], P vals[]);
+                   wrap_array<P const> state, wrap_array<P> vals);
 
 /*!
  * \brief Expands the point-wise values of the moment to the full grid
@@ -101,7 +101,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
  */
 template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
-                   P const pos_data[], P vals[]);
+                   wrap_array<P const> pos_data, wrap_array<P> vals);
 
 /*!
  * \brief Compute the l2-weights for each block in the given state

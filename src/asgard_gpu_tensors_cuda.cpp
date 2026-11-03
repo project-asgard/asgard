@@ -334,7 +334,7 @@ template<typename P>
 void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
                         gpu::vector<int> const &rij,
                         std::array<P const *, max_mom_dims> const &integ,
-                        P const state[], P vals[])
+                        wrap_array<P const> state, wrap_array<P> vals)
 {
   static_assert(max_mom_dims == 3, "making assumptions here");
   constexpr int max_threads = 1024;
@@ -370,7 +370,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
                    std::array<bool, max_mom_dims> lzero, int const *indexes,
                    gpu::vector<int> const &rij,
                    std::array<P const *, max_mom_dims> const &integ,
-                   P const state[], P vals[])
+                   gpu::wrap_array<P const> state, gpu::wrap_array<P> vals)
 {
   unsigned int const zeros = [&]() -> unsigned int {
       unsigned int res = 0;
@@ -482,7 +482,7 @@ __global__ void kernel_moment_expand(int pos_block, int vel_block,
 
 template<typename P>
 void moment_expand(int pdof, int num_pos, int num_vel, gpu::vector<int> const &rij,
-                   P const pos_data[], P vals[])
+                   wrap_array<P const> pos_data, wrap_array<P> vals)
 {
   int const pos_block = fm::ipow(pdof, num_pos);
   int const vel_block = fm::ipow(pdof, num_vel);
@@ -947,14 +947,14 @@ template void tensor_by_index(int, int, int, int const[], double const[], double
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<double const *, max_mom_dims> const &,
-                                 double const[], double[]);
+                                 wrap_array<double const>, wrap_array<double>);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, std::array<double const *, max_mom_dims> const &,
-    double const[], double[]);
+    wrap_array<double const>, wrap_array<double>);
 
-template void moment_expand(int, int, int, gpu::vector<int> const &, double const[], double[]);
+template void moment_expand(int, int, int, gpu::vector<int> const &, wrap_array<double const>, wrap_array<double>);
 
 template void compute_l2_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
 template void compute_max_weights(int, int, gpu::vector<double> const &, gpu::vector<double> &, double &);
@@ -982,14 +982,14 @@ template void tensor_by_index(int, int, int, int const[], float const[], float c
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<float const *, max_mom_dims> const &,
-                                 float const[], float[]);
+                                 wrap_array<float const>, wrap_array<float>);
 
 template void moment_reduce(
     int, int, int, int, int, std::array<bool, max_mom_dims>, int const[],
     gpu::vector<int> const &, std::array<float const *, max_mom_dims> const &,
-    float const[], float[]);
+    wrap_array<float const>, wrap_array<float>);
 
-template void moment_expand(int, int, int, gpu::vector<int> const &, float const[], float[]);
+template void moment_expand(int, int, int, gpu::vector<int> const &, wrap_array<float const>, wrap_array<float>);
 
 template void compute_l2_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);
 template void compute_max_weights(int, int, gpu::vector<float> const &, gpu::vector<float> &, float &);
