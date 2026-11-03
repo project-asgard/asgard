@@ -482,7 +482,6 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wr
     {
       int tid = bc.term_index - 1;
       while (terms[tid].is_chain_link()) {
-        // TODO: move this to the GPU with the rest of the sources/bc terms
         kron_term(g, terms[tid], 1, x, 0, w);
         std::swap(x, w);
 
@@ -512,9 +511,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wr
         }
 
         gpu::tensor_by_index(pdof, grid.num_dims(), grid.num_indexes(), grid.gpu_indexes(),
-            entry.gpu_consts[0].data(), entry.gpu_consts[1].data(), entry.gpu_consts[2].data(),
-            entry.gpu_consts[3].data(), entry.gpu_consts[4].data(), entry.gpu_consts[5].data(),
-            data);
+                             entry.gpu_consts, gpu::wrap_array<P>{data});
       };
 
     // update the constant components
@@ -648,8 +645,8 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wr
       int64_t const ndof = subgrid.num_dof();
       assert(work1.size() >= ndof);
       assert(work2.size() >= ndof);
-      P *w1 = work1.data();
-      P *w2 = work2.data();
+      gpu::wrap_array<P> w1 = work1;
+      gpu::wrap_array<P> w2 = work2;
 
       // 3. call the interpolated function on the nodes
       std::visit([&](auto const &func) {
@@ -660,25 +657,25 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wr
             gpu::memcopy_host2dev(ndof, interp.it1.data(), w1);
             interp.it1.resize(grid.num_dof());
           } else if constexpr (std::is_same_v<std::decay_t<decltype(func)>, md_gpu_func<P>>) {
-            func(subgrid.num_dof(), time, ibc_gpu_nodes[flux_dim].data(), w1);
+            func(subgrid.num_dof(), time, ibc_gpu_nodes[flux_dim].data(), w1());
           }
         }, bc.flux.var_func());
 
       // 4. construct hierarchical basis and project back on the interpolation nodes
       block_gpu(dev, basis.pdof, subgrid, conn, ibc_perm_low,
-                interp.matrix_gpu_nodal2hier(dev), P{1}, w1, P{0}, w2, kwork,
+                interp.matrix_gpu_nodal2hier(dev), P{1}, w1(), P{0}, w2(), kwork,
                 interp.matrix_nodal2hier());
 
       block_gpu(dev, basis.pdof, subgrid, conn, ibc_perm_up,
                 interp.matrix_gpu_hier2wav(dev),
-                ibc_iwavscale[flux_dim], w2, P{0}, w1, kwork,
+                ibc_iwavscale[flux_dim], w2(), P{0}, w1(), kwork,
                 interp.matrix_hier2wav());
 
       if (terms[bc.term_index].is_chain_link())
       {
         gpu::merge_boundary_grids<P, data_mode::replace>
-            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim].data(),
-             w1, basis.pdof, 1, gpu_t1[dev()].data());
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim],
+             w1, basis.pdof, 1, gpu_t1[dev()]);
 
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
           rechain(dev, bc, P{-1}, gpu_t1[dev()], P{1}, y, gpu_t2[dev()]);
@@ -695,7 +692,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wr
         }();
 
         gpu::merge_boundary_grids<P, effective_mode>
-            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim].data(),
+            (grid, ibc_grid[flux_dim], flux_dim, ibc_gpu_map[flux_dim], bc.gpu_consts[flux_dim],
              w1, basis.pdof, -alpha, y);
       }
 

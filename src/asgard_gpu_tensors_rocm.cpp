@@ -151,7 +151,7 @@ __global__ void kernel_tensor6d_4(int n, int num_indexes, int const indexes[],
 
 template<typename P>
 void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
-    P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[], P x[])
+    std::array<gpu::vector<P>, max_num_dimensions> const &gpu_consts, gpu::wrap_array<P> x)
 {
   constexpr int max_threads = 1024;
   const int team_size = (num_dims == 6 and n == 4) ? 1024 : fm::ipow(n, num_dims);
@@ -161,25 +161,35 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
 
   switch (num_dims) {
   case 1:
-    kernel_tensor1d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, x);
+    kernel_tensor1d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+        gpu_consts[0].data(), x);
     break;
   case 2:
-    kernel_tensor2d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, x);
+    kernel_tensor2d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+        gpu_consts[0].data(), gpu_consts[1].data(), x);
     break;
   case 3:
-    kernel_tensor3d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, c3, x);
+    kernel_tensor3d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+        gpu_consts[0].data(), gpu_consts[1].data(), gpu_consts[2].data(), x);
     break;
   case 4:
-    kernel_tensor4d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, c3, c4, x);
+    kernel_tensor4d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+        gpu_consts[0].data(), gpu_consts[1].data(), gpu_consts[2].data(), gpu_consts[3].data(), x);
     break;
   case 5:
-    kernel_tensor5d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, c3, c4, c5, x);
+    kernel_tensor5d<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+        gpu_consts[0].data(), gpu_consts[1].data(), gpu_consts[2].data(), gpu_consts[3].data(),
+        gpu_consts[4].data(), x);
     break;
   case 6:
     if (num_dims == 6 and n == 4)
-      kernel_tensor6d_4<P, max_threads><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, c3, c4, c5, c6, x);
+      kernel_tensor6d_4<P, max_threads><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+            gpu_consts[0].data(), gpu_consts[1].data(), gpu_consts[2].data(), gpu_consts[3].data(),
+            gpu_consts[4].data(), gpu_consts[5].data(), x);
     else
-      kernel_tensor6d_1<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes, c1, c2, c3, c4, c5, c6, x);
+      kernel_tensor6d_1<P><<<launch_blocks, launch_grid>>>(n, num_indexes, indexes,
+            gpu_consts[0].data(), gpu_consts[1].data(), gpu_consts[2].data(), gpu_consts[3].data(),
+            gpu_consts[4].data(), gpu_consts[5].data(), x);
     break;
   default:
     break; // unreachable
@@ -827,8 +837,8 @@ __global__ void kernel_merge_boundary_grids_6d_4(int num_indexes, int const inde
 
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-                          gpu::vector<int> const &map, P const con1d[], P const bnd[],
-                          int pdof, P alpha, P y[])
+                          gpu::vector<int> const &map, wrap_array<P const> con1d,
+                          wrap_array<P const> bnd, int pdof, P alpha, wrap_array<P> y)
 {
   int const num_dims = grid.num_dims();
   int const num_indexes = grid.num_indexes();
@@ -945,8 +955,9 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template void tensor_by_index(int, int, int, int const[], double const[], double const[], double const[],
-                              double const[], double const[], double const[], double[]);
+template void tensor_by_index(int, int, int, int const[],
+                              std::array<gpu::vector<double>, max_num_dimensions> const &,
+                              gpu::wrap_array<double>);
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<double const *, max_mom_dims> const &,
@@ -967,21 +978,22 @@ template void update_istatus(int, double, gpu::vector<double> const &, gpu::vect
 
 template void merge_boundary_grids<double, data_mode::replace>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    double const[], double const[], int, double, double[]);
+    wrap_array<double const>, wrap_array<double const>, int, double, wrap_array<double>);
 template void merge_boundary_grids<double, data_mode::scal_rep>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    double const[], double const[], int, double, double[]);
+    wrap_array<double const>, wrap_array<double const>, int, double, wrap_array<double>);
 template void merge_boundary_grids<double, data_mode::increment>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    double const[], double const[], int, double, double[]);
+    wrap_array<double const>, wrap_array<double const>, int, double, wrap_array<double>);
 template void merge_boundary_grids<double, data_mode::scal_inc>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    double const[], double const[], int, double, double[]);
+    wrap_array<double const>, wrap_array<double const>, int, double, wrap_array<double>);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template void tensor_by_index(int, int, int, int const[], float const[], float const[], float const[],
-                              float const[], float const[], float const[], float[]);
+template void tensor_by_index(int, int, int, int const[],
+                              std::array<gpu::vector<float>, max_num_dimensions> const &,
+                              gpu::wrap_array<float>);
 
 template void moment_reduce_zero(int, int, int, int, gpu::vector<int> const &,
                                  std::array<float const *, max_mom_dims> const &,
@@ -1002,16 +1014,16 @@ template void update_istatus(int, float, gpu::vector<float> const &, gpu::vector
 
 template void merge_boundary_grids<float, data_mode::replace>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    float const[], float const[], int, float, float[]);
+    wrap_array<float const>, wrap_array<float const>, int, float, wrap_array<float>);
 template void merge_boundary_grids<float, data_mode::scal_rep>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    float const[], float const[], int, float, float[]);
+    wrap_array<float const>, wrap_array<float const>, int, float, wrap_array<float>);
 template void merge_boundary_grids<float, data_mode::increment>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    float const[], float const[], int, float, float[]);
+    wrap_array<float const>, wrap_array<float const>, int, float, wrap_array<float>);
 template void merge_boundary_grids<float, data_mode::scal_inc>(
     sparse_grid const &, sparse_grid const &, int, gpu::vector<int> const &,
-    float const[], float const[], int, float, float[]);
+    wrap_array<float const>, wrap_array<float const>, int, float, wrap_array<float>);
 #endif
 
 // compiling both cases, doesn't take long and no need to #ifdef guard in the indexset

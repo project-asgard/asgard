@@ -23,8 +23,8 @@ namespace asgard::gpu
  */
 template<typename P>
 void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
-                     P const c1[], P const c2[], P const c3[], P const c4[], P const c5[], P const c6[],
-                     P x[]);
+                     std::array<gpu::vector<P>, max_num_dimensions> const &gpu_consts,
+                     gpu::wrap_array<P> x);
 
 /*!
  * \brief Computes the moments from the state into vals, assumes level-zero is sufficient
@@ -197,7 +197,7 @@ void remap_state(int block_size, gpu::vector<int> const &map, gpu::vector<P> &st
  */
 template<typename P, data_mode dmode>
 void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, int flux_dim,
-                          gpu::vector<int> const &map, P const con1d[], P const bnd[],
-                          int pdof, P alpha, P y[]);
+                          gpu::vector<int> const &map, wrap_array<P const> con1d,
+                          wrap_array<P const> bnd, int pdof, P alpha, wrap_array<P> y);
 
 }
