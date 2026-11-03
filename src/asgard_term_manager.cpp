@@ -254,14 +254,15 @@ void term_manager<P>::apply_tmpl_gpu(
 
   assert(-1 <= gid() and gid() < static_cast<int>(term_groups.size()));
 
-  auto kterm = [this](gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
+  auto kterm = [this](gpu::device dev, term_entry<P> const &tme, P al, gpu::wrap_array<P const> in,
+                      P be, gpu::wrap_array<P> out)
     -> void {
       if (tme.is_interpolatory()) {
         interp(dev, tme.interplan, grid, conn, moms,
                0, in, al, tme.tmd, be, out, kwork);
       } else {
         block_gpu(dev, basis.pdof, grid, conn, tme.perm, tme.gpu_coeffs,
-                  al, in, be, out, kwork, tme.coeffs);
+                  al, in(), be, out(), kwork, tme.coeffs);
       }
     };
 
@@ -290,20 +291,20 @@ void term_manager<P>::apply_tmpl_gpu(
     compute->set_device(gpu::device{g});
 
     // effective x/y, either x or gpu_x[id]
-    P const *xpntr = nullptr;
-    P *ypntr = nullptr;
+    gpu::wrap_array<P const> xpntr{nullptr};
+    gpu::wrap_array<P> ypntr{nullptr};
 
     if (g == 0) {
       if constexpr (mode == compute_mode::cpu) {
-        xpntr = gpu_x[0].data();
-        ypntr = gpu_y[0].data();
+        xpntr = gpu_x[0];
+        ypntr = gpu_y[0];
       } else {
         if constexpr (using_vectors) {
-          xpntr = x.data();
-          ypntr = y.data();
-        } else {
           xpntr = x;
           ypntr = y;
+        } else {
+          xpntr = gpu::wrap_array<P const>{x};
+          ypntr = gpu::wrap_array<P>{y};
         }
       }
     } else {
@@ -316,8 +317,8 @@ void term_manager<P>::apply_tmpl_gpu(
         gpu::mcopy(gpu::device{0}, x, gpu::device{g}, gpu_x[g]);
         gpu::mcopy(gpu::device{0}, y, gpu::device{g}, gpu_y[g]);
       }
-      xpntr = gpu_x[g].data();
-      ypntr = gpu_y[g].data();
+      xpntr = gpu_x[g];
+      ypntr = gpu_y[g];
     }
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
@@ -325,18 +326,13 @@ void term_manager<P>::apply_tmpl_gpu(
     if (not interp.gpu_ifield.empty()) {
       // TODO: multi-GPU logic here
       interp.gpu_ifield.resize(interp.gpu_it1[0].size());
-      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_ifield.data(), kwork);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_ifield, kwork);
       if (not interp.ifield.empty())
         interp.gpu_ifield.copy_to_host(interp.ifield);
     } else if (not interp.ifield.empty()) {
-      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0], kwork);
       interp.gpu_it1[0].copy_to_host(interp.ifield);
     }
-    // if (not interp.hybrid_ifield.empty()) {
-    //   interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
-    //   interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
-    //   interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
-    // }
 
     bool term_found = false; // does this GPU have at least 1 term
 
@@ -359,12 +355,12 @@ void term_manager<P>::apply_tmpl_gpu(
         // dealing with a chain
         int const num_chain = it->num_chain;
 
-        kterm(gpu::device{g}, *(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
+        kterm(gpu::device{g}, *(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g]);
         for (int i = num_chain - 2; i > 0; --i) {
-          kterm(gpu::device{g}, *(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
+          kterm(gpu::device{g}, *(it + i), 1, gpu_t1[g], 0, gpu_t2[g]);
           std::swap(gpu_t1[g], gpu_t2[g]);
         }
-        kterm(gpu::device{g}, *it, alpha, gpu_t1[g].data(), b, ypntr);
+        kterm(gpu::device{g}, *it, alpha, gpu_t1[g], b, ypntr);
       }
 
       icurrent += it->num_chain;

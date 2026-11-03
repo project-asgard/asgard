@@ -776,7 +776,7 @@ void discretization_manager<precision>::ode_rhs_base_gpu(
       compute->fill_zeros(num_entries, out);
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
-    terms.template apply_sources_gpu<data_mode::increment>(group, time, 1, out);
+    terms.template apply_sources_gpu<data_mode::increment>(group, time, 1, gpu::wrap_array<precision>{out});
   }
 
   #ifdef ASGARD_USE_MPI
@@ -858,9 +858,11 @@ void discretization_manager<precision>::ode_euler_base_gpu(
   }{
     tools::time_event performance_("ode-rhs-gpu sources");
     if (source_scal.value == 1)
-      terms.template apply_sources_gpu<data_mode::increment>(group, time, 1, out);
+      terms.template apply_sources_gpu<data_mode::increment>(group, time, 1,
+                                                             gpu::wrap_array<precision>{out});
     else
-      terms.template apply_sources_gpu<data_mode::scal_inc>(group, time, source_scal.value, out);
+      terms.template apply_sources_gpu<data_mode::scal_inc>(group, time, source_scal.value,
+                                                            gpu::wrap_array<precision>{out});
   }
 
   #ifdef ASGARD_USE_MPI
@@ -899,12 +901,12 @@ void discretization_manager<precision>::ode_rhs_sources_gpu(
           else
             return mode;
         }();
-      terms.template apply_sources_gpu<mm>(group, time, alpha, src);
+      terms.template apply_sources_gpu<mm>(group, time, alpha, gpu::wrap_array<precision>{src});
       terms.resources.reduce_add_gpu(num_entries, src);
     }
   } else {
   #endif
-    terms.template apply_sources_gpu<mode>(group, time, alpha, src);
+    terms.template apply_sources_gpu<mode>(group, time, alpha, gpu::wrap_array<precision>{src});
   #ifdef ASGARD_USE_MPI
   }
   #endif

@@ -15,6 +15,10 @@ namespace asgard
 #ifdef ASGARD_USE_GPU
 namespace gpu
 {
+
+// forward declaration used by the const-version of wrap-array
+template<typename T> class vector;
+
 /*!
  * \brief strong type for a raw-array located on the gpu
  *
@@ -75,6 +79,10 @@ struct wrap_array {
   T *operator() () { return data; }
   //! returns the data, const
   T const *operator() () const { return data; }
+  //! returns the data
+  operator T *() { return data; }
+  //! returns the data, const
+  operator T const *() const { return data; }
   //! copy n-entries to host
   void copy_to_host(int64_t num, T x[]) const {
     gpu::memcopy_dev2host(num, data, x);
@@ -134,10 +142,15 @@ struct wrap_array<T, std::enable_if_t<std::is_const_v<T>>> {
     data = other();
     return *this;
   };
-  //! returns the data
-  T *operator() () { return data; }
+  //! copy assignment from gpu::vector
+  wrap_array &operator =(vector<std::remove_const_t<T>> const &other) {
+    data = other.data();
+    return *this;
+  };
   //! returns the data, const
   T *operator() () const { return data; }
+  //! returns the data, const
+  operator T *() const { return data; }
   //! copy n-entries to host
   void copy_to_host(int64_t num, T x[]) const {
     gpu::memcopy_dev2host(num, data, x);
@@ -390,6 +403,9 @@ public:
   //! fill a gpu array with zeros
   template<typename P>
   void fill_zeros(int64_t num, P x[]) const { gpu::fill_zeros<P>(num, x); }
+  //! fill a gpu array with zeros
+  template<typename P>
+  void fill_zeros(int64_t num, gpu::wrap_array<P> x) const { this->fill_zeros<P>(num, x()); }
   //! increment add, assuming contiguous gpu arrays
   template<typename P>
   void axpy(int num, no_deduce<P> alpha, P const x[], P y[]) const {
@@ -400,11 +416,19 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     blas_.axpy(num, x, y);
   }
+  //! increment add, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, no_deduce<P> alpha,  gpu::wrap_array<P const> x, gpu::wrap_array<P> y) const {
+    blas_.axpy(num, alpha, x(), y());
+  }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>
   void scal(int num, no_deduce<P> alpha, P x[]) const {
     blas_.scal(num, alpha, x);
   }
+  //! sale an array, assuming contiguous gpu arrays
+  template<typename P>
+  void scal(int num, no_deduce<P> alpha, gpu::wrap_array<P> x) const { scal(num, alpha, x()); }
   //! dot product between two vectors
   template<typename P>
   P dot(int num, P const x[], P const y[]) const {

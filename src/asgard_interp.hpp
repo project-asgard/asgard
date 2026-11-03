@@ -399,8 +399,8 @@ public:
   //! returns the nodes corresponding to the grid
   P const *gpu_nodes(gpu::device dev, sparse_grid const &grid) const;
   //! compute nodal values for the field
-  void wav2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
-                 kronmult::workspace<P> &work) const
+  void wav2nodal(gpu::device dev, sparse_grid const &grid, gpu::wrap_array<P const> f,
+                 gpu::wrap_array<P> vals, kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = flop_id<method::wav2nodal, interp_dims::full>();
@@ -416,13 +416,13 @@ public:
     // tools::time_event performance_(op_name<method::wav2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f,
-              P{0}, vals, work, wav2nodal_);
+    block_gpu(dev, pdof, grid, conn_reduced, perm, gpu_wav2nodal_[dev.id], P{wav_scale}, f(),
+              P{0}, vals(), work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
   //! compute nodal values for the moment
-  void pos2nodal(gpu::device dev, sparse_grid const &grid, P const f[], P vals[],
-                 kronmult::workspace<P> &work) const
+  void pos2nodal(gpu::device dev, sparse_grid const &grid, gpu::wrap_array<P const> f,
+                 gpu::wrap_array<P> vals, kronmult::workspace<P> &work) const
   {
     #ifdef ASGARD_USE_FLOPCOUNTER
     int constexpr id = flop_id<method::pos2nodal, interp_dims::full>();
@@ -438,8 +438,8 @@ public:
     // tools::time_event performance_(op_name<method::pos2nodal, interp_dims::full>(dev), flops);
     #endif
     grid.use_gpu_reduced_xy();
-    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f,
-              P{0}, vals, work, wav2nodal_);
+    block_gpu(dev, pdof, grid, conn_reduced, perm_pos, gpu_wav2nodal_[dev.id], pos_wav_scale, f(),
+              P{0}, vals(), work, wav2nodal_);
     grid.use_gpu_default_xy();
   }
   //! compute hirarchical coefficients from nodal values
@@ -513,8 +513,8 @@ public:
   template<typename tmd_type, typename mom_type>
   void operator ()
       (gpu::device dev, interpolation_plan const &plan, sparse_grid const &grid,
-       connection_patterns const &conn, mom_type const &moms, P time, P const state[],
-       P alpha, tmd_type const &tmd, P beta, P y[],
+       connection_patterns const &conn, mom_type const &moms, P time, gpu::wrap_array<P const> state,
+       P alpha, tmd_type const &tmd, P beta, gpu::wrap_array<P> y,
        kronmult::workspace<P> &work) const
   {
     tools::time_event perf_("interpolation term-gpu");
@@ -534,7 +534,7 @@ public:
             // if (plan.uses_hybrid())
             //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
             // else
-              wav2nodal(dev, grid, state, gpu_t1.data(), work);
+              wav2nodal(dev, grid, state, gpu_t1, work);
             return gpu_t1;
           }
         }();
@@ -568,7 +568,7 @@ public:
             // if (plan.uses_hybrid())
             //   pos2nodal(dev, grid, state, gpu_t1.data(), work);
             // else
-              wav2nodal(dev, grid, state, gpu_t1.data(), work);
+              wav2nodal(dev, grid, state, gpu_t1, work);
             gpu_t1.copy_to_host(t1);
             return t1;
           }

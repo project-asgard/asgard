@@ -461,7 +461,7 @@ void term_manager<P>::apply_sources(group_id group, P time, P alpha, P y[])
 #ifdef ASGARD_USE_GPU
 template<typename P>
 template<data_mode dmode>
-void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
+void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, gpu::wrap_array<P> y)
 {
   // make all sources/bc lumped, except the time-dependent ones
   // if lumped size is small, use the addition for-loop
@@ -477,7 +477,8 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
   // if a boundary entry is at a lower link of a chain, go back and apply the previous links
   // see the CPU case
   auto rechain = [&, this](gpu::device g, boundary_entry<P> &bc,
-                           P al, P x[], P beta, P out[], P w[]) -> void
+                           P al, gpu::wrap_array<P> x, P beta, gpu::wrap_array<P> out,
+                           gpu::wrap_array<P> w) -> void
     {
       int tid = bc.term_index - 1;
       while (terms[tid].is_chain_link()) {
@@ -543,8 +544,9 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
       if (terms[bc.term_index].is_chain_link()) { // if chain (not top link)
         // tensor into a temp, rechain and put the final result into swork
         tensor_consts(bc, gpu_t1[dev()].data());
-        rechain(dev, bc, P{1}, gpu_t1[dev()].data(),
-                P{0}, gpu_swork.data() + bc.ilump * num_entries, gpu_t2[dev()].data());
+        rechain(dev, bc, P{1}, gpu_t1[dev()],
+                P{0}, gpu::wrap_array<P>{gpu_swork.data() + bc.ilump * num_entries},
+                gpu_t2[dev()]);
       } else
         tensor_consts(bc);
     }
@@ -679,9 +681,9 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
              w1, basis.pdof, 1, gpu_t1[dev()].data());
 
         if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-          rechain(dev, bc, P{-1}, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+          rechain(dev, bc, P{-1}, gpu_t1[dev()], P{1}, y, gpu_t2[dev()]);
         else
-          rechain(dev, bc, -alpha, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+          rechain(dev, bc, -alpha, gpu_t1[dev()], P{1}, y, gpu_t2[dev()]);
       }
       else
       {
@@ -721,9 +723,9 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
               (bc.flux.func(), grid, lmass, time, 1, t2.data());
           gpu_t1[dev()] = t2;
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
-            rechain(dev, bc, P{-1}, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+            rechain(dev, bc, P{-1}, gpu_t1[dev()], P{1}, y, gpu_t2[dev()]);
           else
-            rechain(dev, bc, -alpha, gpu_t1[dev()].data(), P{1}, y, gpu_t2[dev()].data());
+            rechain(dev, bc, -alpha, gpu_t1[dev()], P{1}, y, gpu_t2[dev()]);
         } else {
           using_cpu_s1();
           if constexpr (dmode == data_mode::increment or dmode == data_mode::replace)
@@ -748,7 +750,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
     gpu_sweights = sweights;
     compute->gemv(num_entries, irng.size(), 1,
                   gpu_swork.data() + num_entries * irng.ibegin(),
-                  gpu_sweights.data(), 1, y);
+                  gpu_sweights.data(), 1, y());
   }
 
   auto interp_source = [&](source_entry_interp<P> const &src)
@@ -780,7 +782,7 @@ void term_manager<P>::apply_sources_gpu(group_id group, P time, P alpha, P y[])
 
   if (s1_initialized) {
     gpu_t1[dev()] = cpu_s1;
-    compute->axpy(num_entries, 1, gpu_t1[dev()].data(), y);
+    compute->axpy<P>(num_entries, 1, gpu_t1[dev()], y);
   }
 }
 #endif
@@ -797,13 +799,13 @@ template void term_manager<double>::apply_sources<data_mode::scal_rep>(
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<double>::apply_sources_gpu<data_mode::replace>(
-    group_id, double, double, double[]);
+    group_id, double, double, gpu::wrap_array<double>);
 template void term_manager<double>::apply_sources_gpu<data_mode::increment>(
-    group_id, double, double, double[]);
+    group_id, double, double, gpu::wrap_array<double>);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, double, double, double[]);
+    group_id, double, double, gpu::wrap_array<double>);
 template void term_manager<double>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, double, double, double[]);
+    group_id, double, double, gpu::wrap_array<double>);
 #endif
 
 #endif
@@ -820,13 +822,13 @@ template void term_manager<float>::apply_sources<data_mode::scal_rep>(
 
 #ifdef ASGARD_USE_GPU
 template void term_manager<float>::apply_sources_gpu<data_mode::replace>(
-    group_id, float, float, float[]);
+    group_id, float, float, gpu::wrap_array<float>);
 template void term_manager<float>::apply_sources_gpu<data_mode::increment>(
-    group_id, float, float, float[]);
+    group_id, float, float, gpu::wrap_array<float>);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_inc>(
-    group_id, float, float, float[]);
+    group_id, float, float, gpu::wrap_array<float>);
 template void term_manager<float>::apply_sources_gpu<data_mode::scal_rep>(
-    group_id, float, float, float[]);
+    group_id, float, float, gpu::wrap_array<float>);
 #endif
 
 #endif

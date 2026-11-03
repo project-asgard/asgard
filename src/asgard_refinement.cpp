@@ -183,8 +183,8 @@ void refinement_manager<P>::refine_(gpu::vector<P> const &state, strategy mode,
     iplan.use_gpu_func(iweights_.is_gpu());
 
     ghier.resize(state.size());
-    terms.interp(gpu::device{0}, iplan, terms.grid, terms.conn, terms.moms, 0, state.data(),
-                 1, iweights_, 0, ghier.data(), terms.kwork);
+    terms.interp(gpu::device{0}, iplan, terms.grid, terms.conn, terms.moms, 0, state,
+                 1, iweights_, 0, ghier, terms.kwork);
 
     wmax = 0;
     gpu::compute_max_weights<P>(block_size, num_indexes, ghier, gweight, wmax);
