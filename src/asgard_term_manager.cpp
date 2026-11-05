@@ -541,7 +541,6 @@ void term_manager<P>::kron_diag(
       }
     };
 
-
   if (tme.is_separable()) {
 
     form_diag(tme.coeffs, y, default_mode{}, use_standard_connections{});
