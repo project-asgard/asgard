@@ -446,6 +446,48 @@ void crank_nicolson<P>::next_step(
 
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
+    // debugging info, prints matrices and the jacobi preconditioner
+    // disc.terms.interp.matrix_wav2nodal().to_full(disc.terms.conn).print();
+    // std::cout << "using different conn\n";
+    // disc.terms.interp.matrix_wav2nodal().to_full(disc.terms.interp.reduced_connection()).print();
+
+    // the main thing that this code does is to compute the true diagonal of the matrix operator
+    // and the computed approximate jacobi, so the two can be compared
+    // at the bottom the code can also override the approximate jacobian for reference purposes
+    // if (true) {
+    //   next.resize(current.size());
+    //   std::vector<double> diag(next.size());
+    //   std::vector<double> res(next.size());
+    //   std::fill(next.begin(), next.end(), 0);
+    //   size_t num_process = next.size();
+    //   // num_process = 200;
+    //
+    //   for (size_t i = 0; i < num_process; i++) {
+    //     next[i] = 1;
+    //     disc.mpi_leader_apply(1, next.data(), 0, res.data());
+    //     diag[i] = res[i];
+    //     next[i] = 0;
+    //   }
+    //
+    //   std::cout << " printing diagonal and the approximate jacobi diagonal\n";
+    //   disc.terms.make_jacobi(group_id::all(), next);
+    //   for (size_t i = 0; i < num_process; i++) {
+    //     if (i % 81 == 0) {
+    //       int const *p = disc.terms.grid[i / 81];
+    //       for (int d : iindexof(4))
+    //         std::cout << p[d] << "  ";
+    //       std::cout << '\n';
+    //     }
+    //     std::cout << std::setw(25) << diag[i] << std::setw(25) << next[i] << "\n";
+    //   }
+    //   std::cout << '\n';
+    //
+    //   // auto &jacobi = precon.jacobi();
+    //   // ASGARD_OMP_PARFOR_SIMD
+    //   // for (size_t i = 0; i < jacobi.size(); i++)
+    //   //   jacobi[i] = P{1} / (P{1} + substep * dt * diag[i]);
+    // }
+
     next = current; // use the current step as the initial guess
 
     int64_t const n = static_cast<int64_t>(work.size());
