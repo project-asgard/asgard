@@ -415,7 +415,6 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
   kwork.w1.resize(num_entries);
 
   jac_w2n.clear();
-  jac_n2h.clear();
   jac_n2w.clear();
 
   auto sanitize = [](std::vector<P> &x)
@@ -474,32 +473,52 @@ void term_manager<P>::kron_diag(
   struct inc_mode{};
   struct mult_mode{};
 
+  struct use_standard_connections{};
+  struct use_reduced_connections{}; // wav2nodal case only
+
   int const num_dims = grid.num_dims();
 
-  auto form_diag = [&](auto const &coeffs, std::vector<P> &result, auto tag = default_mode{})
+  auto form_diag = [&](auto const &coeffs, std::vector<P> &result, auto tag, auto conn_tag)
     -> void {
-      bool constexpr def_tag = std::is_same_v<std::decay_t<decltype(tag)>, default_mode>;
-      bool constexpr inc_tag = std::is_same_v<std::decay_t<decltype(tag)>, inc_mode>;
-      bool constexpr mul_tag = std::is_same_v<std::decay_t<decltype(tag)>, mult_mode>;
+      using tag_type  = std::decay_t<decltype(tag)>;
+      using conn_type = std::decay_t<decltype(conn_tag)>;
+      static_assert(std::is_same_v<tag_type, default_mode> or
+                    std::is_same_v<tag_type, inc_mode> or
+                    std::is_same_v<tag_type, mult_mode>, "invalid tag mode");
+
+      static_assert(std::is_same_v<conn_type, use_standard_connections> or
+                    std::is_same_v<conn_type, use_reduced_connections>, "invalid conn_tag mode");
+
+      bool constexpr def_tag = std::is_same_v<tag_type, default_mode>;
+      bool constexpr inc_tag = std::is_same_v<tag_type, inc_mode>;
+      bool constexpr mul_tag = std::is_same_v<tag_type, mult_mode>;
+
+      bool constexpr reduced_tag = std::is_same_v<conn_type, use_reduced_connections>;
 
       #pragma omp parallel
       {
         std::array<P const *, max_num_dimensions> amats;
+        amats.fill(nullptr);
+
+        connection_patterns const &patterns = (reduced_tag) ? interp.reduced_connection() : conn;
 
         #pragma omp for
-        for (int i = 0; i < grid.num_indexes(); i++) {
+        for (int i = 0; i < grid.num_indexes(); i++)
+        {
+          int const *pnt = grid[i];
           if constexpr (std::is_same_v<std::decay_t<decltype(coeffs)>,
                                        std::array<block_sparse_matrix<P>, max_num_dimensions>>)
           { // multiple matrices case
-            for (int d : iindexof(num_dims))
-              if (coeffs[d].empty())
-                amats[d] = nullptr;
-              else
-                amats[d] = coeffs[d][conn[coeffs[d]].row_diag(grid[i][d])];
+            static_assert(not reduced_tag, "arrays of matrices do not use reduced connection patterns");
 
-          } else { // single matrix case
             for (int d : iindexof(num_dims))
-              amats[d] = coeffs[conn[coeffs].row_diag(grid[i][d])];
+              if (not coeffs[d].empty())
+                amats[d] = coeffs[d][patterns[coeffs[d]].row_diag(pnt[d])];
+
+          } else { // single matrix case, standard patterns
+            connect_1d const &cc = patterns[coeffs];
+            for (int d : iindexof(num_dims))
+              amats[d] = coeffs[cc.row_diag(pnt[d])];
           }
 
           for (int t : iindexof(block_size)) {
@@ -525,7 +544,7 @@ void term_manager<P>::kron_diag(
 
   if (tme.is_separable()) {
 
-    form_diag(tme.coeffs, y, default_mode{});
+    form_diag(tme.coeffs, y, default_mode{}, use_standard_connections{});
 
   } else {
     // non-separable case
@@ -547,6 +566,8 @@ void term_manager<P>::kron_diag(
         tme.tmd.interp(interp.gpu_it1[0].size(), 0, interp.gpu_nodes(gpu::device{0}, grid),
                        interp.gpu_it1[0].data(), interp.gpu_it2[0].data());
       }
+
+      interp.gpu_it2[0].copy_to_host(interp.it2);
     } else {
     #endif
 
@@ -562,18 +583,14 @@ void term_manager<P>::kron_diag(
 
     if (jac_w2n.empty()) { // cache the wav2nodal operation
       jac_w2n.resize(num_entries, P{0});
-      form_diag(interp.matrix_wav2nodal(), jac_w2n, inc_mode{});
+      form_diag(interp.matrix_wav2nodal(), jac_w2n, inc_mode{}, use_reduced_connections{});
     }
 
-    if (tme.interplan.uses_hier()) { // stops at hier
-      if (jac_n2h.empty()) {
-        jac_n2h.resize(num_entries, P{0});
-        form_diag(interp.matrix_nodal2hier(), jac_n2h, inc_mode{});
-      }
-
+    if (tme.interplan.uses_hier())
+    {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++) {
-        P const val = jac_w2n[i] * interp.it2[i] * jac_n2h[i];
+        P const val = jac_w2n[i] * interp.it2[i];
         if constexpr (mode == data_mode::increment) {
           y[i] += val;
         } else if constexpr (mode == data_mode::multiply) {
@@ -584,14 +601,8 @@ void term_manager<P>::kron_diag(
     } else {
 
       if (jac_n2w.empty()) { // convert back to wav
-        // if jac_n2h is set, we can reuse that, otherwise we have to compute
-        if (jac_n2h.empty()) {
-          jac_n2w.resize(num_entries, P{0});
-          form_diag(interp.matrix_nodal2hier(), jac_n2w, inc_mode{});
-        } else {
-          jac_n2w = jac_n2h; // reuse the first stage of the transition
-        }
-        form_diag(interp.matrix_hier2wav(), jac_n2w, mult_mode{});
+        jac_n2w.resize(num_entries, P{0});
+        form_diag(interp.matrix_hier2wav(), jac_n2w, inc_mode{}, use_standard_connections{});
       }
 
       ASGARD_OMP_PARFOR_SIMD

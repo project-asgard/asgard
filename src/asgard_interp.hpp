@@ -682,7 +682,7 @@ public:
   //! provides access to the permutations
   kronmult::permutes const &pos_permute_up() const { return perm_up_pos; }
 
-  //! reduced connection pattern
+  //! reduced connection pattern, used to construct preconditioners
   connection_patterns const &reduced_connection() const { return conn_reduced; }
 
 private:

@@ -50,7 +50,7 @@ asgard::pde_scheme<P> make_relaxation(int xdims, int vdims, asgard::prog_opts op
   options.default_isolver_iterations = 1000;
   options.default_isolver_inner_iterations = 50;
 
-  options.default_precon = precon_method::jacobi;
+  options.default_precon = precon_method::none;
 
   // using implicit backward Euler
   options.default_step_method = asgard::time_method::back_euler;

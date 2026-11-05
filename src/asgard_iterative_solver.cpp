@@ -325,7 +325,7 @@ int gmres<P>::solve(
   int num_apply = 0;
 
   int outer_iterations = 0;
-  int inner_iterations = 0;
+  int krylov_size = 0;
 
   P inner_res = 0.;
   P outer_res = tolerance_ + 1.0;
@@ -345,26 +345,26 @@ int gmres<P>::solve(
 
     krylov_sol[0] = inner_res;
 
-    inner_iterations = 0;
-    while (inner_res > tolerance_ and inner_iterations < max_inner_)
+    krylov_size = 1; // krylov basis size is already 1
+    while (inner_res > tolerance_ and krylov_size < max_inner_)
     {
-      P *r = basis.data() + static_cast<int64_t>(n) * (inner_iterations + 1);
-      apply_lhs(1, basis.data() + static_cast<int64_t>(n) * inner_iterations, 0, r);
+      P *r = basis.data() + static_cast<int64_t>(n) * krylov_size;
+      apply_lhs(1, basis.data() + static_cast<int64_t>(n) * (krylov_size - 1), 0, r);
       apply_precon(r);
       ++num_apply;
 
       // krylov projection coefficients for this iteration
-      P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
+      P *coeff = krylov_proj + (krylov_size * (krylov_size - 1)) / 2;
 
       if constexpr (use_asgard_blas)
       {
-        fm::gemv_omp('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
-        fm::gemv_omp('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+        fm::gemv_omp('T', n, krylov_size, P{1}, basis.data(), r, P{0}, coeff);
+        fm::gemv_omp('N', n, krylov_size, P{-1}, basis.data(), coeff, P{1}, r);
       }
       else
       {
-        fm::gemv('T', n, inner_iterations + 1, P{1}, basis.data(), r, P{0}, coeff);
-        fm::gemv('N', n, inner_iterations + 1, P{-1}, basis.data(), coeff, P{1}, r);
+        fm::gemv('T', n, krylov_size, P{1}, basis.data(), r, P{0}, coeff);
+        fm::gemv('N', n, krylov_size, P{-1}, basis.data(), coeff, P{1}, r);
       }
 
       P const nrm = fm::nrm2(n, r);
@@ -374,32 +374,32 @@ int gmres<P>::solve(
       else
         fm::scal(n, P{1} / nrm, r);
 
-      for (int k = 0; k < inner_iterations; k++)
+      for (int k = 0; k < krylov_size - 1; k++)
         fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
 
       // compute given's rotation
       P beta = nrm;
-      fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
+      fm::rotg(coeff + krylov_size - 1, &beta, cosines + krylov_size - 1, sines + krylov_size - 1);
 
-      inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+      inner_res = std::abs(sines[krylov_size - 1] * krylov_sol[krylov_size - 1]);
 
-      if (inner_res > tolerance_ and inner_iterations < max_inner_)
+      if (inner_res > tolerance_ and krylov_size < max_inner_)
       {
-        krylov_sol[inner_iterations + 1] = 0.;
-        fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
-                cosines[inner_iterations], sines[inner_iterations]);
+        krylov_sol[krylov_size] = 0.;
+        fm::rot(1, krylov_sol + krylov_size - 1, krylov_sol + krylov_size,
+                cosines[krylov_size - 1], sines[krylov_size - 1]);
       }
 
-      ++inner_iterations;
+      ++krylov_size;
     } // end of inner iteration loop
 
-    if (inner_iterations > 0)
+    if (krylov_size > 1)
     {
-      fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
+      fm::tpsv('U', 'N', 'N', krylov_size - 1, krylov_proj, krylov_sol);
       if constexpr (use_asgard_blas)
-        fm::gemv_omp('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+        fm::gemv_omp('N', n, krylov_size - 1, P{1}, basis.data(), krylov_sol, P{1}, x.data());
       else
-        fm::gemv('N', n, inner_iterations, P{1}, basis.data(), krylov_sol, P{1}, x.data());
+        fm::gemv('N', n, krylov_size - 1, P{1}, basis.data(), krylov_sol, P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;
@@ -429,7 +429,7 @@ int gmres<P>::solve(
   int num_apply = 0;
 
   int outer_iterations = 0;
-  int inner_iterations = 0;
+  int krylov_size = 0;
 
   P inner_res = 0.;
   P outer_res = tolerance_ + 1.0;
@@ -445,48 +445,48 @@ int gmres<P>::solve(
     compute->scal(n, P{1} / inner_res, gpu_basis.data());
     krylov_sol[0] = inner_res;
 
-    inner_iterations = 0;
-    while (inner_res > tolerance_ and inner_iterations < max_inner_)
+    krylov_size = 1;
+    while (inner_res > tolerance_ and krylov_size < max_inner_)
     {
-      P *r = gpu_basis.data() + static_cast<int64_t>(n) * (inner_iterations + 1);
-      apply_lhs(1, gpu_basis.data() + static_cast<int64_t>(n) * inner_iterations, 0, r);
+      P *r = gpu_basis.data() + static_cast<int64_t>(n) * krylov_size;
+      apply_lhs(1, gpu_basis.data() + static_cast<int64_t>(n) * (krylov_size - 1), 0, r);
       apply_precon(r);
       ++num_apply;
 
-      compute->gemtv(n, inner_iterations + 1, P{1}, gpu_basis.data(), r, P{0}, gpu_coeffs.data());
-      compute->gemv(n, inner_iterations + 1, P{-1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, r);
+      compute->gemtv(n, krylov_size, P{1}, gpu_basis.data(), r, P{0}, gpu_coeffs.data());
+      compute->gemv(n, krylov_size, P{-1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, r);
 
       P const nrm = compute->nrm2(n, r);
       compute->scal(n, P{1} / nrm, r);
 
       // krylov projection coefficients for this iteration
-      P *coeff = krylov_proj + (inner_iterations * (inner_iterations + 1)) / 2;
+      P *coeff = krylov_proj + (krylov_size * (krylov_size - 1)) / 2;
 
-      gpu_coeffs.copy_to_host(inner_iterations + 1, coeff);
+      gpu_coeffs.copy_to_host(krylov_size, coeff);
 
-      for (int k = 0; k < inner_iterations; k++)
+      for (int k = 0; k < krylov_size - 1; k++)
         fm::rot(1, coeff + k, coeff + k + 1, cosines[k], sines[k]);
 
       // compute given's rotation
       P beta = nrm;
-      fm::rotg(coeff + inner_iterations, &beta, cosines + inner_iterations, sines + inner_iterations);
+      fm::rotg(coeff + krylov_size - 1, &beta, cosines + krylov_size - 1, sines + krylov_size - 1);
 
-      inner_res = std::abs(sines[inner_iterations] * krylov_sol[inner_iterations]);
+      inner_res = std::abs(sines[krylov_size - 1] * krylov_sol[krylov_size - 1]);
 
-      if (inner_res > tolerance_ and inner_iterations < max_inner_)
+      if (inner_res > tolerance_ and krylov_size < max_inner_)
       {
-        krylov_sol[inner_iterations + 1] = 0.;
-        fm::rot(1, krylov_sol + inner_iterations, krylov_sol + inner_iterations + 1,
-                cosines[inner_iterations], sines[inner_iterations]);
+        krylov_sol[krylov_size] = 0.;
+        fm::rot(1, krylov_sol + krylov_size - 1, krylov_sol + krylov_size,
+                cosines[krylov_size - 1], sines[krylov_size - 1]);
       }
-      ++inner_iterations;
+      ++krylov_size;
     } // end of inner iteration loop
 
-    if (inner_iterations > 0)
+    if (krylov_size > 1)
     {
-      fm::tpsv('U', 'N', 'N', inner_iterations, krylov_proj, krylov_sol);
-      gpu_coeffs.copy_from_host(inner_iterations, krylov_sol);
-      compute->gemv(n, inner_iterations, P{1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, x.data());
+      fm::tpsv('U', 'N', 'N', krylov_size - 1, krylov_proj, krylov_sol);
+      gpu_coeffs.copy_from_host(krylov_size - 1, krylov_sol);
+      compute->gemv(n, krylov_size - 1, P{1}, gpu_basis.data(), gpu_coeffs.data(), P{1}, x.data());
     }
     ++outer_iterations;
     outer_res = inner_res;

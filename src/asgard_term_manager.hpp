@@ -150,7 +150,7 @@ struct term_manager
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
-  mutable std::vector<P> jac_w2n, jac_n2h, jac_n2w; // Jacobi building cache for interp terms
+  mutable std::vector<P> jac_w2n, jac_n2w; // Jacobi building cache for interp terms
 
   //! returns the degree used for all the terms
   int degree() const { return hier.degree(); }
