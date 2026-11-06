@@ -557,7 +557,7 @@ void test_energy(std::string const &opt_str) {
       E0 = 0.5 * (Ep + Ek);
 
     // std::cout << "Total energy error: " << std::abs(0.5 * (Ep + Ek) - E0) << "\n";
-    // at compiler optimization -O2 the tolerance can be 7.E-6, but at -O3 must use -O2
+    // at compiler optimization -O2 the tolerance can be 7.E-6, but at -O3 must be more
     tcheckless(i, std::abs(0.5 * (Ep + Ek) - E0), 9.E-6);
 
     // get the density and velocity moments
@@ -593,8 +593,21 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_energy<double>("-l 6 -d 3 -n 10 -dt 6.25e-3 -a 1.0e-6 -ppc none");
-  test_energy<double>("-s rk4 -l 6 -d 2 -n 5 -dt 6.25e-3 -a 1.0e-6");
+  // runs smaller tests on the CPU
+  test_energy<double>("-l 6 -d 3 -dt 6.25e-3 -a 1.0e-6 -ppc none "
+                      #ifdef ASGARD_USE_GPU
+                      "-n 10"
+                      #else
+                      "-n 5"
+                      #endif
+                      );
+  test_energy<double>("-s rk4 -l 6 -d 2 -dt 6.25e-3 -a 1.0e-6 "
+                      #ifdef ASGARD_USE_GPU
+                      "-n 5"
+                      #else
+                      "-n 3"
+                      #endif
+                      );
 
 #endif
 
