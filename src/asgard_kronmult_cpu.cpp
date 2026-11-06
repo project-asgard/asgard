@@ -748,18 +748,16 @@ int64_t block_cpu(
 #ifdef ASGARD_GPU_MEMGREEDY
 template<conn_fill fill, int dim>
 std::vector<int>
-connect_cpu(sparse_grid const &grid, connect_1d const &conn,
-            std::vector<int64_t> &xidx) noexcept
+connect_cpu(sparse_grid const &grid, connect_1d const &conn) noexcept
 {
   dimension_sort const &dsort = grid.dsort();
 
   int const num_vecs = dsort.num_vecs(dim);
 
   std::vector<int> res;
-  res.reserve(1024);
+  res.reserve(4096);
 
-  if (static_cast<int>(xidx.size()) < conn.num_rows())
-    xidx.resize(conn.num_rows(), -1);
+  std::vector<int64_t> xidx(conn.num_rows(), -1);
 
   for (int vec_id = 0; vec_id < num_vecs; vec_id++)
   {
@@ -801,41 +799,39 @@ connect_cpu(sparse_grid const &grid, connect_1d const &conn,
 
 template<conn_fill fill>
 std::vector<int>
-connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
-            std::vector<int64_t> &row_wspace) noexcept
+connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn) noexcept
 {
   switch (dim)
   {
   case 0:
-    return connect_cpu<fill, 0>(grid, conn, row_wspace);
+    return connect_cpu<fill, 0>(grid, conn);
   case 1:
-    return connect_cpu<fill, 1>(grid, conn, row_wspace);
+    return connect_cpu<fill, 1>(grid, conn);
   case 2:
-    return connect_cpu<fill, 2>(grid, conn, row_wspace);
+    return connect_cpu<fill, 2>(grid, conn);
   case 3:
-    return connect_cpu<fill, 3>(grid, conn, row_wspace);
+    return connect_cpu<fill, 3>(grid, conn);
   case 4:
-    return connect_cpu<fill, 4>(grid, conn, row_wspace);
+    return connect_cpu<fill, 4>(grid, conn);
   case 5:
-    return connect_cpu<fill, 5>(grid, conn, row_wspace);
+    return connect_cpu<fill, 5>(grid, conn);
   default:
     ASGARD_UNREACHANBLE
   };
 }
 
 std::vector<int>
-connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn,
-            std::vector<int64_t> &row_wspace)
+connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &conn) noexcept
 {
   assert(fill != conn_fill::lower_udiag); // udiag is handled as diag + axpy() operation
   switch (fill)
   {
   case conn_fill::lower:
-    return connect_cpu<conn_fill::lower>(grid, dim, conn, row_wspace);
+    return connect_cpu<conn_fill::lower>(grid, dim, conn);
   case conn_fill::upper:
-    return connect_cpu<conn_fill::upper>(grid, dim, conn, row_wspace);
+    return connect_cpu<conn_fill::upper>(grid, dim, conn);
   default: // case permutes::matrix_fill::both:
-    return connect_cpu<conn_fill::both>(grid, dim, conn, row_wspace);
+    return connect_cpu<conn_fill::both>(grid, dim, conn);
   }
 }
 
@@ -864,29 +860,22 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
   int const active_dims = perm.num_dimensions();
   assert(active_dims > 0);
 
-  for (int64_t i = 0; i < perm.size(); i++)
+  int64_t const num_work = active_dims * perm.size();
+
+  #pragma omp parallel for
+  for (int64_t w = 0; w < num_work; w++)
   {
-    int dir        = perm(i, 0).direction;
-    conn_fill fill = perm(i, 0).fill;
+    int const i = w / active_dims;
+    int const d = w % active_dims;
+
+    int dir        = perm(i, d).direction;
+    conn_fill fill = perm(i, d).fill;
     if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
 
-    gpu::vector<int> &xy0 = get_xy(dir, fill);
+    gpu::vector<int> &xy = get_xy(dir, fill);
 
-    if (xy0.empty()) {
-      xy0 = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map[dev.id]);
-    }
-
-    for (int d = 1; d < active_dims; d++)
-    {
-      dir  = perm(i, d).direction;
-      fill = perm(i, d).fill;
-      if (fill == conn_fill::lower_udiag) fill = conn_fill::lower;
-
-      gpu::vector<int> &xy = get_xy(dir, fill);
-
-      if (xy.empty()) {
-        xy = connect_cpu(grid, dir, fill, get_connect_1d(fill), work.row_map[dev.id]);
-      }
+    if (xy.empty()) {
+      xy = connect_cpu(grid, dir, fill, get_connect_1d(fill));
     }
   }
 }
