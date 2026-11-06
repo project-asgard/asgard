@@ -132,10 +132,6 @@ class pde_snapshot:
                     'grid' : fdata[f"aux_field_{i}_grid"][()]
                     }
 
-        # for plotting purposes, say aways from the domain edges
-        # rounding error at the edge may skew the plots
-        self.eps = 1.E-6 * np.min(self.dimension_max - self.dimension_min)
-
         if self.verbose:
             if self.state.dtype == np.float64:
                 print('using double precision data (double) - 64-bit')
@@ -226,8 +222,6 @@ class pde_snapshot:
 
         aux.aux_fields = []
 
-        aux.eps = self.eps
-
         if self.state.dtype == np.float64:
             aux.double_precision = True
 
@@ -307,7 +301,7 @@ class pde_snapshot:
 
         assert irange > -1, "there should be one dimension with a range in dims"
 
-        x = np.linspace(minmax[0] + self.eps, minmax[1] - self.eps, num_points)
+        x = np.linspace(minmax[0], minmax[1], num_points)
 
         pnts = np.zeros((x.size, self.num_dimensions))
         for i in range(self.num_dimensions):
@@ -343,7 +337,6 @@ class pde_snapshot:
           in-between the basis functions
         '''
         assert len(dims) == self.num_dimensions, "the length of dims must match num_dimensions"
-        assert num_points % 2 == 0, "num_points must be an even number"
 
         irange = []
         for i in range(self.num_dimensions):
@@ -367,8 +360,8 @@ class pde_snapshot:
                 mins.append(self.dimension_min[i])
                 maxs.append(self.dimension_max[i])
 
-        x = np.linspace(mins[0] + self.eps, maxs[0] - self.eps, num_points)
-        y = np.linspace(mins[1] + self.eps, maxs[1] - self.eps, num_points)
+        x = np.linspace(mins[0], maxs[0], num_points)
+        y = np.linspace(mins[1], maxs[1], num_points)
 
         XX, YY = np.meshgrid(x, y)
 
@@ -652,7 +645,7 @@ def plot_with_args(argv = None):
             if plotview is None:
                 plist = [(), ()]
                 for i in range(2, shot.num_dimensions):
-                    plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]) + shot.eps)
+                    plist.append(0.5 * (shot.dimension_max[i] + shot.dimension_min[i]))
             else:
                 num_dims = 0
                 ss = plotview.split(':')

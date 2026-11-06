@@ -134,17 +134,6 @@ inline int ipow2_log2(int x)
     result <<= 1;
   return result;
 }
-//! computes ipow2_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
-inline void intlog2_pow2pows2(int x, int &i2l2, double &is2l2)
-{
-  i2l2  = 1;
-  is2l2 = 1.0;
-  while (x >>= 1)
-  {
-    i2l2 <<= 1;
-    is2l2 *= 1.41421356237309505; // sqrt(2.0)
-  }
-}
 //! computes base^p where p is in integer
 template<typename P>
 P powi(P base, int p) {

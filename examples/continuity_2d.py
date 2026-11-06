@@ -59,7 +59,7 @@ if __name__ == '__main__':
     #    plot_data2d((0.01, (-1, 1), 0.3, ()), 128)
     #    meaning x0 = 0.01, x1 \in (-1, 1), x2 = 0.3, x3 \in (min, max)
     #  see also the 1d example below
-    z, x, y = snapshot.plot_data2d(((), ()), num_points = 128)
+    z, x, y = snapshot.plot_data2d(((), ()), num_points = 127)
 
     # the points are always taken strictly in the interior of the domain
     # putting points right on the boundary may lead to instability due

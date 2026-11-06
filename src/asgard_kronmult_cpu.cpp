@@ -604,7 +604,7 @@ void block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
     permutes const &perm, coeff_type const &cmats,
     precision alpha, precision const x[], precision beta, precision y[],
-    workspace<precision> &work)
+    workspace<precision> &work) noexcept
 {
   bool constexpr single_matrix = std::is_same_v<coeff_type, block_sparse_matrix<precision>>;
   static_assert(single_matrix or
@@ -701,7 +701,7 @@ void block_cpu(
 template<typename precision>
 int64_t block_cpu(
     int n, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm, workspace<precision> &work)
+    permutes const &perm, workspace<precision> &work) noexcept
 {
   auto get_connect_1d = [&](conn_fill const fill)
       -> connect_1d const & {
@@ -749,7 +749,7 @@ int64_t block_cpu(
 template<conn_fill fill, int dim>
 std::vector<int>
 connect_cpu(sparse_grid const &grid, connect_1d const &conn,
-            std::vector<int64_t> &xidx)
+            std::vector<int64_t> &xidx) noexcept
 {
   dimension_sort const &dsort = grid.dsort();
 
@@ -802,7 +802,7 @@ connect_cpu(sparse_grid const &grid, connect_1d const &conn,
 template<conn_fill fill>
 std::vector<int>
 connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
-            std::vector<int64_t> &row_wspace)
+            std::vector<int64_t> &row_wspace) noexcept
 {
   switch (dim)
   {
@@ -841,7 +841,7 @@ connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &
 
 template<typename precision>
 void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-                 permutes const &perm, workspace<precision> &work)
+                 permutes const &perm, workspace<precision> &work) noexcept
 {
   compute->set_device(dev);
 

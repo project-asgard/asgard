@@ -357,7 +357,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
                coeff_type const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work, backup_type const &)
+               workspace<precision> &work, backup_type const &) noexcept
 {
   bool constexpr single_matrix = std::is_same_v<coeff_type, gpu::vector<precision>>;
   static_assert(single_matrix or
