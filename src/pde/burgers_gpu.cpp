@@ -176,6 +176,7 @@ void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P 
 
   // the kernel will launch on a one-dimensional thread grid and 1 thread per point
 
+  #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
   // setting up the number of threads in a thead-block
   int constexpr num_threads = 1024;
 
@@ -184,8 +185,14 @@ void fsquared(int64_t const num_points, P time, P const nodes[], P const f[], P 
   int const num_blocks = (num_points + num_threads - 1) / num_threads;
 
   // call a CUDA/ROCM kernel
-  #if defined(ASGARD_USE_CUDA) || defined(ASGARD_USE_ROCM)
   fsquared_kernel<mode, P><<<num_blocks, num_threads>>>(num_points, time,nodes, f, vals, nu);
+  #else
+  std::ignore = num_points;
+  std::ignore = time;
+  std::ignore = nodes;
+  std::ignore = f;
+  std::ignore = vals;
+  std::ignore = nu;
   #endif
 
 #ifndef __ASGARD_DOXYGEN_SKIP
