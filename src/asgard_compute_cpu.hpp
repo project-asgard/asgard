@@ -28,6 +28,13 @@
 #define ASGARD_OMP_PARFOR_SIMD_EXTRA(clause) ASGARD_PRAGMA(omp parallel for simd clause)
 #endif
 
+#if defined(__GNUG__) || defined(__clang__)
+#define ASGARD_UNREACHANBLE __builtin_unreachable();
+#else
+// unknown compiler
+#define ASGARD_UNREACHANBLE
+#endif
+
 namespace asgard
 {
 

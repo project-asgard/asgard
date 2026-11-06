@@ -500,11 +500,10 @@ public:
       else
         os << std::setw(10) << s;
     }
-    os << "  grid size: " << std::setw(12) << tools::split_style(terms.grid.num_indexes());
     if (ndof >= 0) {
       os << "  dof: " << std::setw(14) << tools::split_style(ndof);
     } else {
-      os << "  dof: " << std::setw(14) << tools::split_style(state.size());
+      os << "  dof: " << std::setw(14) << tools::split_style(terms.grid.num_dof());
     }
 
     #ifdef ASGARD_USE_FLOPCOUNTER

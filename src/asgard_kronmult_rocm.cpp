@@ -276,7 +276,7 @@ void launch_block_gpu(
     launch_block_gpu<precision, num_dims, dim, 5>(num_conns, xy, vals, x, y);
     break;
   default:
-    throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
+    ASGARD_UNREACHANBLE
   };
 }
 
@@ -317,7 +317,7 @@ void launch_block_gpu(
       break;
     }
   default:
-    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
+    ASGARD_UNREACHANBLE
   }
   static_assert(1 <= num_dims and num_dims <= max_num_dimensions);
 }
@@ -348,7 +348,7 @@ void launch_block_gpu(
     launch_block_gpu<precision, 6>(n, dim, num_conns, xy, vals, x, y);
     break;
   default:
-    throw std::runtime_error("(kronmult-gpu) works with only up to 6 dimensions");
+    ASGARD_UNREACHANBLE
   }
 }
 
@@ -649,7 +649,7 @@ void launch_block_gpu(
     launch_block_gpu<precision, num_dims, dim, 5>(grid, conns, vals, x, y);
     break;
   default:
-    throw std::runtime_error("(kronmult-gpu) unimplemented n for given -degree");
+    ASGARD_UNREACHANBLE
   };
 }
 
@@ -690,7 +690,7 @@ void launch_block_gpu(
       break;
     }
   default:
-    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
+    ASGARD_UNREACHANBLE
   }
   static_assert(1 <= num_dims and num_dims <= max_num_dimensions);
 }
@@ -722,7 +722,7 @@ void launch_block_gpu(
     launch_block_gpu<precision, 6>(n, grid, dim, conns, vals, x, y);
     break;
   default:
-    throw std::runtime_error("(kronmult-gpu) works with only up to 6 dimensions");
+    ASGARD_UNREACHANBLE
   }
 }
 

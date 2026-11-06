@@ -308,13 +308,13 @@ reconstruct_solution::basis_value(int const p[], double const x[],
     if constexpr (degree == -1)
     {
       xn[d] = 2.0 * xn[d] - 1.0;
-      if (xn[d] < -1.0 or (xn[d] >= 1.0 and not_right_edge))
+      if (xn[d] < -1.0 or (not_right_edge and xn[d] >= 1.0))
         return unsupported_value{};
     }
     else
     {
       // if the normalized point is out of bounds, return no-value
-      if (xn[d] < 0.0 or (xn[d] >= 1.0 and not_right_edge))
+      if (xn[d] < 0.0 or (not_right_edge and xn[d] >= 1.0))
         return unsupported_value{};
     }
   }

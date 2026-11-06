@@ -192,7 +192,7 @@ void tensor_by_index(int n, int num_dims, int num_indexes, int const indexes[],
             gpu_consts[4].data(), gpu_consts[5].data(), x);
     break;
   default:
-    break; // unreachable
+    ASGARD_UNREACHANBLE
   };
 }
 
@@ -371,7 +371,7 @@ void moment_reduce_zero(int pdof, int pos_block, int full_block, int vdims,
         integ[0], integ[1], integ[2], state, vals);
     break;
   default:
-    break; // unreachable
+    ASGARD_UNREACHANBLE
   }
 }
 
@@ -416,7 +416,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
           integ[0], integ[1], integ[2], state, vals);
       break;
     default:
-      break; // unreachable
+      ASGARD_UNREACHANBLE
     }
     break;
   case 2:
@@ -437,7 +437,7 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
           integ[0], integ[1], integ[2], state, vals);
       break;
     default:
-      break; // unreachable
+      ASGARD_UNREACHANBLE
     }
     break;
   case 3:
@@ -458,11 +458,11 @@ void moment_reduce(int pdof, int pos_block, int full_block, int pdims, int vdims
           integ[0], integ[1], integ[2], state, vals);
       break;
     default:
-      break; // unreachable
+      ASGARD_UNREACHANBLE
     }
     break;
   default:
-    break;
+    ASGARD_UNREACHANBLE
   }
 }
 
@@ -902,7 +902,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
         break;
       }
       default:
-        break; // unreachable
+        ASGARD_UNREACHANBLE
     }
   } else {
     assert(block_size <= max_threads);
@@ -946,7 +946,7 @@ void merge_boundary_grids(sparse_grid const &grid, sparse_grid const &subgrid, i
             bnd, pdof, alpha, subgrid_block_size, block_size, ib_stride, y);
         break;
       default:
-        break; // unreachable
+        ASGARD_UNREACHANBLE
     }
   }
 }

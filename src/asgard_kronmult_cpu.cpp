@@ -495,7 +495,7 @@ void block_cpu(int n, sparse_grid const &grid,
     block_cpu<precision, fill, num_dimensions, dim, 4>(grid, conn, vals, x, y, row_wspace);
     break;
   default:
-    throw std::runtime_error("(kronmult) unimplemented n for given -degree");
+    ASGARD_UNREACHANBLE
   };
 }
 
@@ -536,7 +536,7 @@ void block_cpu(int n, sparse_grid const &grid, int dim, connect_1d const &conn,
       break;
     }
   default:
-    throw std::runtime_error("incorrect dim, incompatible with num_dimensions");
+    ASGARD_UNREACHANBLE
   }
   static_assert(1 <= num_dimensions and num_dimensions <= max_num_dimensions);
 }
@@ -568,7 +568,7 @@ void block_cpu(int num_dimensions, int n, sparse_grid const &grid,
     block_cpu<precision, fill, 6>(n, grid, dim, conn, vals, x, y, row_wspace);
     break;
   default:
-    throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
+    ASGARD_UNREACHANBLE
   };
 }
 
@@ -819,7 +819,7 @@ connect_cpu(sparse_grid const &grid, int dim, connect_1d const &conn,
   case 5:
     return connect_cpu<fill, 5>(grid, conn, row_wspace);
   default:
-    throw std::runtime_error("(kronmult) works with only up to 6 dimensions");
+    ASGARD_UNREACHANBLE
   };
 }
 
