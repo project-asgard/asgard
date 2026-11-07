@@ -366,7 +366,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
   // otherwise caches or and allows for reuse of the cache
   {
     tools::time_event performance_("count connect");
-    connect_cpu(dev, grid, conns, perm, work);
+    connect_cpu<precision>(dev, grid, conns, perm);
   }
 
   tools::time_event performance_("kronecker block-gpu");

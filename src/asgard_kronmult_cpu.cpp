@@ -837,7 +837,7 @@ connect_cpu(sparse_grid const &grid, int dim, conn_fill fill, connect_1d const &
 
 template<typename precision>
 void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-                 permutes const &perm, workspace<precision> &work) noexcept
+                 permutes const &perm) noexcept
 {
   compute->set_device(dev);
 
@@ -883,12 +883,12 @@ void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns c
 #ifdef ASGARD_ENABLE_DOUBLE
 template void connect_cpu<double>(
     gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm, workspace<double> &work);
+    permutes const &perm);
 #endif
 #ifdef ASGARD_ENABLE_FLOAT
 template void connect_cpu<float>(
     gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-    permutes const &perm, workspace<float> &work);
+    permutes const &perm);
 #endif
 #endif // ASGARD_GPU_MEMGREEDY
 #endif // ASGARD_USE_GPU
