@@ -254,14 +254,15 @@ void term_manager<P>::apply_tmpl_gpu(
 
   assert(-1 <= gid() and gid() < static_cast<int>(term_groups.size()));
 
-  auto kterm = [this](gpu::device dev, term_entry<P> const &tme, P al, P const in[], P be, P out[])
+  auto kterm = [this](gpu::device dev, term_entry<P> const &tme, P al, gpu::wrap_array<P const> in,
+                      P be, gpu::wrap_array<P> out)
     -> void {
       if (tme.is_interpolatory()) {
         interp(dev, tme.interplan, grid, conn, moms,
                0, in, al, tme.tmd, be, out, kwork);
       } else {
         block_gpu(dev, basis.pdof, grid, conn, tme.perm, tme.gpu_coeffs,
-                  al, in, be, out, kwork, tme.coeffs);
+                  al, in(), be, out(), kwork, tme.coeffs);
       }
     };
 
@@ -290,20 +291,20 @@ void term_manager<P>::apply_tmpl_gpu(
     compute->set_device(gpu::device{g});
 
     // effective x/y, either x or gpu_x[id]
-    P const *xpntr = nullptr;
-    P *ypntr = nullptr;
+    gpu::wrap_array<P const> xpntr{nullptr};
+    gpu::wrap_array<P> ypntr{nullptr};
 
     if (g == 0) {
       if constexpr (mode == compute_mode::cpu) {
-        xpntr = gpu_x[0].data();
-        ypntr = gpu_y[0].data();
+        xpntr = gpu_x[0];
+        ypntr = gpu_y[0];
       } else {
         if constexpr (using_vectors) {
-          xpntr = x.data();
-          ypntr = y.data();
-        } else {
           xpntr = x;
           ypntr = y;
+        } else {
+          xpntr = gpu::wrap_array<P const>{x};
+          ypntr = gpu::wrap_array<P>{y};
         }
       }
     } else {
@@ -316,8 +317,8 @@ void term_manager<P>::apply_tmpl_gpu(
         gpu::mcopy(gpu::device{0}, x, gpu::device{g}, gpu_x[g]);
         gpu::mcopy(gpu::device{0}, y, gpu::device{g}, gpu_y[g]);
       }
-      xpntr = gpu_x[g].data();
-      ypntr = gpu_y[g].data();
+      xpntr = gpu_x[g];
+      ypntr = gpu_y[g];
     }
 
     P b = (g == 0) ? beta : 0; // on first iteration, overwrite y
@@ -325,18 +326,13 @@ void term_manager<P>::apply_tmpl_gpu(
     if (not interp.gpu_ifield.empty()) {
       // TODO: multi-GPU logic here
       interp.gpu_ifield.resize(interp.gpu_it1[0].size());
-      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_ifield.data(), kwork);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_ifield, kwork);
       if (not interp.ifield.empty())
         interp.gpu_ifield.copy_to_host(interp.ifield);
     } else if (not interp.ifield.empty()) {
-      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
+      interp.wav2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0], kwork);
       interp.gpu_it1[0].copy_to_host(interp.ifield);
     }
-    // if (not interp.hybrid_ifield.empty()) {
-    //   interp.hybrid_ifield.resize(interp.gpu_it1[0].size());
-    //   interp.pos2nodal(gpu::device{0}, grid, xpntr, interp.gpu_it1[0].data(), kwork);
-    //   interp.gpu_it1[0].copy_to_host(interp.hybrid_ifield);
-    // }
 
     bool term_found = false; // does this GPU have at least 1 term
 
@@ -359,12 +355,12 @@ void term_manager<P>::apply_tmpl_gpu(
         // dealing with a chain
         int const num_chain = it->num_chain;
 
-        kterm(gpu::device{g}, *(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g].data());
+        kterm(gpu::device{g}, *(it + num_chain - 1), 1, xpntr, 0, gpu_t1[g]);
         for (int i = num_chain - 2; i > 0; --i) {
-          kterm(gpu::device{g}, *(it + i), 1, gpu_t1[g].data(), 0, gpu_t2[g].data());
+          kterm(gpu::device{g}, *(it + i), 1, gpu_t1[g], 0, gpu_t2[g]);
           std::swap(gpu_t1[g], gpu_t2[g]);
         }
-        kterm(gpu::device{g}, *it, alpha, gpu_t1[g].data(), b, ypntr);
+        kterm(gpu::device{g}, *it, alpha, gpu_t1[g], b, ypntr);
       }
 
       icurrent += it->num_chain;
@@ -419,7 +415,6 @@ void term_manager<P>::make_jacobi(group_id gid, std::vector<P> &y) const
   kwork.w1.resize(num_entries);
 
   jac_w2n.clear();
-  jac_n2h.clear();
   jac_n2w.clear();
 
   auto sanitize = [](std::vector<P> &x)
@@ -478,32 +473,52 @@ void term_manager<P>::kron_diag(
   struct inc_mode{};
   struct mult_mode{};
 
+  struct use_standard_connections{};
+  struct use_reduced_connections{}; // wav2nodal case only
+
   int const num_dims = grid.num_dims();
 
-  auto form_diag = [&](auto const &coeffs, std::vector<P> &result, auto tag = default_mode{})
+  auto form_diag = [&](auto const &coeffs, std::vector<P> &result, auto tag, auto conn_tag)
     -> void {
-      bool constexpr def_tag = std::is_same_v<std::decay_t<decltype(tag)>, default_mode>;
-      bool constexpr inc_tag = std::is_same_v<std::decay_t<decltype(tag)>, inc_mode>;
-      bool constexpr mul_tag = std::is_same_v<std::decay_t<decltype(tag)>, mult_mode>;
+      using tag_type  = std::decay_t<decltype(tag)>;
+      using conn_type = std::decay_t<decltype(conn_tag)>;
+      static_assert(std::is_same_v<tag_type, default_mode> or
+                    std::is_same_v<tag_type, inc_mode> or
+                    std::is_same_v<tag_type, mult_mode>, "invalid tag mode");
+
+      static_assert(std::is_same_v<conn_type, use_standard_connections> or
+                    std::is_same_v<conn_type, use_reduced_connections>, "invalid conn_tag mode");
+
+      bool constexpr def_tag = std::is_same_v<tag_type, default_mode>;
+      bool constexpr inc_tag = std::is_same_v<tag_type, inc_mode>;
+      bool constexpr mul_tag = std::is_same_v<tag_type, mult_mode>;
+
+      bool constexpr reduced_tag = std::is_same_v<conn_type, use_reduced_connections>;
 
       #pragma omp parallel
       {
         std::array<P const *, max_num_dimensions> amats;
+        amats.fill(nullptr);
+
+        connection_patterns const &patterns = (reduced_tag) ? interp.reduced_connection() : conn;
 
         #pragma omp for
-        for (int i = 0; i < grid.num_indexes(); i++) {
+        for (int i = 0; i < grid.num_indexes(); i++)
+        {
+          int const *pnt = grid[i];
           if constexpr (std::is_same_v<std::decay_t<decltype(coeffs)>,
                                        std::array<block_sparse_matrix<P>, max_num_dimensions>>)
           { // multiple matrices case
-            for (int d : iindexof(num_dims))
-              if (coeffs[d].empty())
-                amats[d] = nullptr;
-              else
-                amats[d] = coeffs[d][conn[coeffs[d]].row_diag(grid[i][d])];
+            static_assert(not reduced_tag, "arrays of matrices do not use reduced connection patterns");
 
-          } else { // single matrix case
             for (int d : iindexof(num_dims))
-              amats[d] = coeffs[conn[coeffs].row_diag(grid[i][d])];
+              if (not coeffs[d].empty())
+                amats[d] = coeffs[d][patterns[coeffs[d]].row_diag(pnt[d])];
+
+          } else { // single matrix case, standard patterns
+            connect_1d const &cc = patterns[coeffs];
+            for (int d : iindexof(num_dims))
+              amats[d] = coeffs[cc.row_diag(pnt[d])];
           }
 
           for (int t : iindexof(block_size)) {
@@ -526,10 +541,9 @@ void term_manager<P>::kron_diag(
       }
     };
 
-
   if (tme.is_separable()) {
 
-    form_diag(tme.coeffs, y, default_mode{});
+    form_diag(tme.coeffs, y, default_mode{}, use_standard_connections{});
 
   } else {
     // non-separable case
@@ -551,6 +565,8 @@ void term_manager<P>::kron_diag(
         tme.tmd.interp(interp.gpu_it1[0].size(), 0, interp.gpu_nodes(gpu::device{0}, grid),
                        interp.gpu_it1[0].data(), interp.gpu_it2[0].data());
       }
+
+      interp.gpu_it2[0].copy_to_host(interp.it2);
     } else {
     #endif
 
@@ -566,18 +582,14 @@ void term_manager<P>::kron_diag(
 
     if (jac_w2n.empty()) { // cache the wav2nodal operation
       jac_w2n.resize(num_entries, P{0});
-      form_diag(interp.matrix_wav2nodal(), jac_w2n, inc_mode{});
+      form_diag(interp.matrix_wav2nodal(), jac_w2n, inc_mode{}, use_reduced_connections{});
     }
 
-    if (tme.interplan.uses_hier()) { // stops at hier
-      if (jac_n2h.empty()) {
-        jac_n2h.resize(num_entries, P{0});
-        form_diag(interp.matrix_nodal2hier(), jac_n2h, inc_mode{});
-      }
-
+    if (tme.interplan.uses_hier())
+    {
       ASGARD_OMP_PARFOR_SIMD
       for (int64_t i = 0; i < num_entries; i++) {
-        P const val = jac_w2n[i] * interp.it2[i] * jac_n2h[i];
+        P const val = jac_w2n[i] * interp.it2[i];
         if constexpr (mode == data_mode::increment) {
           y[i] += val;
         } else if constexpr (mode == data_mode::multiply) {
@@ -588,14 +600,8 @@ void term_manager<P>::kron_diag(
     } else {
 
       if (jac_n2w.empty()) { // convert back to wav
-        // if jac_n2h is set, we can reuse that, otherwise we have to compute
-        if (jac_n2h.empty()) {
-          jac_n2w.resize(num_entries, P{0});
-          form_diag(interp.matrix_nodal2hier(), jac_n2w, inc_mode{});
-        } else {
-          jac_n2w = jac_n2h; // reuse the first stage of the transition
-        }
-        form_diag(interp.matrix_hier2wav(), jac_n2w, mult_mode{});
+        jac_n2w.resize(num_entries, P{0});
+        form_diag(interp.matrix_hier2wav(), jac_n2w, inc_mode{}, use_standard_connections{});
       }
 
       ASGARD_OMP_PARFOR_SIMD

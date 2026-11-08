@@ -137,15 +137,15 @@ public:
   //! empty hierarchy manipulator
   hierarchy_manipulator()
   {
-    std::fill(dmin.begin(), dmin.end(), 0);
-    std::fill(dmax.begin(), dmax.end(), 0);
+    dmin.fill(0);
+    dmax.fill(0);
   }
   //! set the degree and number of dimensions
   hierarchy_manipulator(int degree)
       : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
-    std::fill(dmin.begin(), dmin.end(), 0);
-    std::fill(dmax.begin(), dmax.end(), 1);
+    dmin.fill(0);
+    dmax.fill(1);
     setup_projection_matrices();
   }
   //! initialize with the given domain

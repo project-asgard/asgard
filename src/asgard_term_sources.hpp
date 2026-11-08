@@ -82,14 +82,6 @@ struct source_entry_interp
         else if constexpr (std::is_same_v<ftype, md_func<P>>)
           f(t, x, vals);
       }, func);
-
-    // if (std::holds_alternative<md_mom_idx_func<P>>(func)) {
-    //   std::get<md_mom_idx_func<P>>(func)(t, x, moments, indexes, vals);
-    // } else if (std::holds_alternative<md_mom_func<P>>(func)) {
-    //   std::get<md_mom_func<P>>(func)(t, x, moments, vals);
-    // } else {
-    //   std::get<md_func<P>>(func)(t, x, vals);
-    // }
   }
 
   //! indicates whether the entry contains a moment function

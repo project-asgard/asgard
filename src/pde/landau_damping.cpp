@@ -52,7 +52,7 @@ __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom
     int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < num) {
         // Avoiding std::max to prevent __device__ compilation header conflicts
-        out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0); 
+        out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0);
     }
 }
 
@@ -523,7 +523,7 @@ void self_test() {
 
 #ifdef ASGARD_ENABLE_DOUBLE
 
-  test_damping<double>("-l 4 -a 1.e-3 -t 4.8 -ppc none");
+  test_damping<double>("-l 4 -a 1.e-3 -ppc none -t 4.8");
   test_damping<double>("-s rk4 -l 4 -a 1.e-3 -t 4.8");
 
 #endif

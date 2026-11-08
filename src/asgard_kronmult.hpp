@@ -129,13 +129,13 @@ template<typename precision, typename coeff_type>
 void block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
                permutes const &perm, coeff_type const &cmats,
                precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work);
+               workspace<precision> &work) noexcept;
 
 #ifdef ASGARD_USE_FLOPCOUNTER
 //! counts the flops for the specific kronmult operation
 template<typename precision>
 int64_t block_cpu(int n, sparse_grid const &grid, connection_patterns const &conns,
-                  permutes const &perm, workspace<precision> &work);
+                  permutes const &perm, workspace<precision> &work) noexcept;
 #endif
 
 #ifdef ASGARD_USE_GPU
@@ -165,7 +165,19 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
                connection_patterns const &conns, permutes const &perm,
                coeff_type const &coeffs,
                precision alpha, precision const x[], precision beta, precision y[],
-               workspace<precision> &work, backup_type const &);
+               workspace<precision> &work, backup_type const &) noexcept;
+/*!
+ * \brief Overload directly accepting gpu::wrap_array
+ */
+template<typename precision, typename coeff_type, typename backup_type>
+void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
+               connection_patterns const &conns, permutes const &perm, coeff_type const &coeffs,
+               precision alpha, gpu::wrap_array<precision const> x, precision beta,
+               gpu::wrap_array<precision> y, workspace<precision> &work, backup_type const &back) noexcept
+{
+  block_gpu<precision, coeff_type, backup_type>
+    (dev, n, grid, conns, perm, coeffs, alpha, x(), beta, y(), work, back);
+}
 
 #ifdef ASGARD_GPU_MEMGREEDY
 /*!
@@ -176,7 +188,7 @@ void block_gpu(gpu::device dev, int n, sparse_grid const &grid,
  */
 template<typename precision>
 void connect_cpu(gpu::device dev, sparse_grid const &grid, connection_patterns const &conns,
-                 permutes const &perm, workspace<precision> &work);
+                 permutes const &perm) noexcept;
 
 #endif
 

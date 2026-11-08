@@ -28,6 +28,13 @@
 #define ASGARD_OMP_PARFOR_SIMD_EXTRA(clause) ASGARD_PRAGMA(omp parallel for simd clause)
 #endif
 
+#if defined(__GNUG__) || defined(__clang__)
+#define ASGARD_UNREACHANBLE __builtin_unreachable();
+#else
+// unknown compiler
+#define ASGARD_UNREACHANBLE
+#endif
+
 namespace asgard
 {
 
@@ -133,17 +140,6 @@ inline int ipow2_log2(int x)
   while (x >>= 1)
     result <<= 1;
   return result;
-}
-//! computes ipow2_log2(i) and std::pow(std::sqrt(2.0), intlog2(i))
-inline void intlog2_pow2pows2(int x, int &i2l2, double &is2l2)
-{
-  i2l2  = 1;
-  is2l2 = 1.0;
-  while (x >>= 1)
-  {
-    i2l2 <<= 1;
-    is2l2 *= 1.41421356237309505; // sqrt(2.0)
-  }
 }
 //! computes base^p where p is in integer
 template<typename P>

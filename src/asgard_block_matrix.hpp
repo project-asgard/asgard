@@ -75,7 +75,7 @@ public:
   //! applies the inverse of the matrix to the provided vector
   void solve(gpu::vector<P> &b) const;
   //! applies the inverse of the matrix to the provided vector
-  void solve(P b[]) const;
+  void solve(gpu::wrap_array<P> b) const;
   #endif
 
   //! (testing) writes the the matrix to the scream

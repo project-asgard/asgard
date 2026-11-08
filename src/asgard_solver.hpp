@@ -64,13 +64,13 @@ public:
 
   #ifdef ASGARD_USE_GPU
   //! solves Ax = b, b is in GPU memory
-  void operator() (group_id group, size_t stage, P b[]) const {
+  void operator() (group_id group, size_t stage, gpu::wrap_array<P> b) const {
     size_t const idx = mat_index(group, stage);
     assert(idx < mats.size());
     mats[idx].dense_mat.solve(b);
   }
   //! solves Ax = b, b is in GPU memory
-  void operator() (group_id group, P b[]) const { (*this)(group, 0, b); }
+  void operator() (group_id group, gpu::wrap_array<P> b) const { (*this)(group, 0, b); }
   #endif
 
   //! set the number of stages
@@ -282,14 +282,14 @@ struct solver_manager
 
   #ifdef ASGARD_USE_GPU
   //! direct solver only, just call the matrix inversion method
-  void solve_inplace(P x[]) {
+  void solve_inplace(gpu::wrap_array<P> x) {
     if (method() == solver_method::direct)
       std::get<solvers::direct<P>>(var)(group_id::all(), 0, x);
     else
       std::get<solvers::scaled_identity<P>>(var)(group_id::all(), 0, x);
   }
   //! direct solver only, just call the matrix inversion method
-  void solve_inplace(group_id group, size_t stage, P x[]) {
+  void solve_inplace(group_id group, size_t stage, gpu::wrap_array<P> x) {
     if (method() == solver_method::direct)
       std::get<solvers::direct<P>>(var)(group, stage, x);
     else

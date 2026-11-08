@@ -150,7 +150,7 @@ struct term_manager
   mutable gpu::vector<P> gpu_swork, gpu_sweights;
   #endif
 
-  mutable std::vector<P> jac_w2n, jac_n2h, jac_n2w; // Jacobi building cache for interp terms
+  mutable std::vector<P> jac_w2n, jac_n2w; // Jacobi building cache for interp terms
 
   //! returns the degree used for all the terms
   int degree() const { return hier.degree(); }
@@ -362,13 +362,14 @@ struct term_manager
   }
   #ifdef ASGARD_USE_GPU
   //! y = alpha * tme * x + beta * y, assumes workspace has been set (used for boundary conditions)
-  void kron_term(gpu::device dev, term_entry<P> const &tme, P alpha, P const x[], P beta, P y[]) const
+  void kron_term(gpu::device dev, term_entry<P> const &tme, P alpha, gpu::wrap_array<P const> x,
+                 P beta, gpu::wrap_array<P> y) const
   {
     if (tme.is_interpolatory()) {
       interp(dev, tme.interplan, grid, conn, moms, 0, x, alpha, tme.tmd, beta, y, kwork);
     } else {
       block_gpu(dev, basis.pdof, grid, conn, tme.perm, tme.gpu_coeffs,
-                alpha, x, beta, y, kwork, tme.coeffs);
+                alpha, x(), beta, y(), kwork, tme.coeffs);
     }
   }
   #endif
@@ -389,7 +390,7 @@ struct term_manager
   }
   #ifdef ASGARD_USE_GPU
   template<data_mode dmode>
-  void apply_sources_gpu(group_id group, P time, P alpha, P y[]);
+  void apply_sources_gpu(group_id group, P time, P alpha, gpu::wrap_array<P> y);
   #endif
 
   //! prints the total memory used

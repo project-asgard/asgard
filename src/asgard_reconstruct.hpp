@@ -145,6 +145,34 @@ protected:
   vector2d<int> compute_dag_down() const;
   //! Helper method that computes the level for each multi-index
   std::vector<int> compute_levels() const;
+
+  //! A mid-step way to create a value without support
+  struct unsupported_value{};
+  /*!
+   * \brief Value and support of a basis function
+   *
+   * A basis function can cross the axis within it's support,
+   * so the support check and the value are separated.
+   * This works a lot like std::optional<double> but without the access exceptions
+   * and access does not check if a value is within the support.
+   */
+  struct supported_value {
+    //! new value outside of the support
+    supported_value() : value(0), support(false) {}
+    //! new value outside of the support
+    supported_value(unsupported_value) : supported_value() {}
+    //! new value inside the support, val can be zero
+    supported_value(double val) : value(val), support(true) {}
+    //! check if the value is supported
+    operator bool () const { return support; }
+    //! returns the value
+    double operator() () const { return value; }
+    //! the actual value
+    double value;
+    //! check if the value is supported
+    bool support;
+  };
+
   /*!
    * \brief Find the values of the basis functions
    *
@@ -161,7 +189,7 @@ protected:
    * the optional is empty if the basis has no support over x.
    */
   template<int degree>
-  std::optional<double>
+  supported_value
   basis_value(int const p[], double const x[], double const c[],
               vector2d<double> &scratch) const;
 

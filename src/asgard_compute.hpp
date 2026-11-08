@@ -15,6 +15,10 @@ namespace asgard
 #ifdef ASGARD_USE_GPU
 namespace gpu
 {
+
+// forward declaration used by the const-version of wrap-array
+template<typename T> class vector;
+
 /*!
  * \brief strong type for a raw-array located on the gpu
  *
@@ -60,6 +64,36 @@ namespace gpu
  *   assert(wrap_array<T const>{y}() == y);
  *
  * \endcode
+ *
+ * \b Reasoning: The internal API of ASGarD needs to handle data on the CPU and GPU and in both
+ * owning and non-owning mode. The CPU owned data is stored in std::vector and raw arrays are
+ * used for CPU non-owned data. The GPU owned data is given by the gpu::vector, which leaves
+ * open the question about the non-owned data sitting explicitly on the GPU.
+ * At first, gpu::vector references were used throughout the code without explicit non-owning mode,
+ * but the vector comes with know size and this started creating misleading logic when vector
+ * of size N is used for a function call that requires M << N, e.g., kronmult operations
+ * on the position grid as opposed to the entire position + velocity grid.
+ *
+ * On the CPU side, std::vector keeps track of capacity, which allows for cheap downsizing and
+ * then restoring the original size, which only the added cost of zeroing out the additional space.
+ * However, keeping persistent capacity increases the memory footprint and that can cause issues
+ * on the GPU (much more so than on the CPU), the gpu::vector never keeps more capacity than
+ * the current size. Thus, many moment and moment related algorithms were converted to using
+ * non-owning raw pointers on the GPU, but that led to ambiguity with CPU pointers.
+ * An attempt was made to implement a wrapper that can create a smaller vector from an existing one,
+ * then grant "temporary" dual ownership and manually (RAII style) clearing that before the small
+ * vector was destroyed out of scope. This caused a bug, since the smaller vector did not "know"
+ * that it doesn't own the data. Modifying the gpu::vector to where it "knows" it's mode is not
+ * a reasonable thing to do.
+ *
+ * Thus, we create the wrap_array<P> and wrap_array<P const> that a strong types for non-const
+ * and const pointers. The gpu::vector objects can automatically convert to wrap-arrays,
+ * since that does not create ambiguity regarding where the data resides.
+ * The wrap-arrays are not owning and don't "know" their size, the size has to be inferred from
+ * the specific algorithm and reasonable use of assert() statements should be used at the time
+ * the of the creation of the array.
+ *
+ * For now, we do not push this to the user and user provided functions on the GPU take raw-pointers.
  */
 template<typename T, typename = void>
 struct wrap_array {
@@ -75,6 +109,10 @@ struct wrap_array {
   T *operator() () { return data; }
   //! returns the data, const
   T const *operator() () const { return data; }
+  //! returns the data
+  operator T *() { return data; }
+  //! returns the data, const
+  operator T const *() const { return data; }
   //! copy n-entries to host
   void copy_to_host(int64_t num, T x[]) const {
     gpu::memcopy_dev2host(num, data, x);
@@ -90,7 +128,7 @@ struct wrap_array {
     this->copy_to_host(num, x);
     return x;
   }
-  //! copy n-entries from the host, no array bounds checked here
+  //! copy n-entries from the host, no array bounds checked here, no resizing
   void copy_from_host(int64_t num, T const x[]) {
     gpu::memcopy_host2dev(num, x, data);
   }
@@ -134,10 +172,15 @@ struct wrap_array<T, std::enable_if_t<std::is_const_v<T>>> {
     data = other();
     return *this;
   };
-  //! returns the data
-  T *operator() () { return data; }
+  //! copy assignment from gpu::vector
+  wrap_array &operator =(vector<std::remove_const_t<T>> const &other) {
+    data = other.data();
+    return *this;
+  };
   //! returns the data, const
   T *operator() () const { return data; }
+  //! returns the data, const
+  operator T *() const { return data; }
   //! copy n-entries to host
   void copy_to_host(int64_t num, T x[]) const {
     gpu::memcopy_dev2host(num, data, x);
@@ -313,6 +356,25 @@ void dump(int n, P const x[], std::string message = "") {
   tools::dump(cpu, message);
 }
 
+template<typename T>
+inline void memcopy_dev2dev(int64_t num, wrap_array<T const> src, wrap_array<T> dest) {
+  memcopy_dev2dev(num, src(), dest());
+}
+
+template<typename T>
+inline void memcopy_host2dev(int64_t num, T const *src, wrap_array<T> dest) {
+  memcopy_host2dev(num, src, dest());
+}
+
+template<typename T>
+inline void memcopy_dev2host(int64_t num, wrap_array<T const> src, T *dest) {
+  memcopy_dev2host(num, src(), dest);
+}
+template<typename T>
+inline void memcopy_dev2host(int64_t num, wrap_array<T> src, T *dest) {
+  memcopy_dev2host(num, src(), dest);
+}
+
 } // namespace gpu
 #endif
 
@@ -390,6 +452,9 @@ public:
   //! fill a gpu array with zeros
   template<typename P>
   void fill_zeros(int64_t num, P x[]) const { gpu::fill_zeros<P>(num, x); }
+  //! fill a gpu array with zeros
+  template<typename P>
+  void fill_zeros(int64_t num, gpu::wrap_array<P> x) const { this->fill_zeros<P>(num, x()); }
   //! increment add, assuming contiguous gpu arrays
   template<typename P>
   void axpy(int num, no_deduce<P> alpha, P const x[], P y[]) const {
@@ -400,11 +465,19 @@ public:
   void axpy(int num, P const x[], P y[]) const {
     blas_.axpy(num, x, y);
   }
+  //! increment add, assuming contiguous gpu arrays
+  template<typename P>
+  void axpy(int num, no_deduce<P> alpha,  gpu::wrap_array<P const> x, gpu::wrap_array<P> y) const {
+    blas_.axpy(num, alpha, x(), y());
+  }
   //! sale an array, assuming contiguous gpu arrays
   template<typename P>
   void scal(int num, no_deduce<P> alpha, P x[]) const {
     blas_.scal(num, alpha, x);
   }
+  //! sale an array, assuming contiguous gpu arrays
+  template<typename P>
+  void scal(int num, no_deduce<P> alpha, gpu::wrap_array<P> x) const { scal(num, alpha, x()); }
   //! dot product between two vectors
   template<typename P>
   P dot(int num, P const x[], P const y[]) const {

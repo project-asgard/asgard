@@ -43,12 +43,12 @@ void dense_matrix<P>::solve(gpu::vector<P> &b) const
   compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
 }
 template<typename P>
-void dense_matrix<P>::solve(P b[]) const
+void dense_matrix<P>::solve(gpu::wrap_array<P> b) const
 {
   tools::time_event timing_("dense-matrix::solve-gpu");
   assert(is_factorized());
 
-  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b);
+  compute->getrs(nrows_, gpu_factor, gpu_ipiv, b());
 }
 #endif
 

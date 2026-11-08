@@ -6,8 +6,6 @@ time_data make_time_data(prog_opts const &options)
 {
   time_method sm = options.step_method.value_or(time_method::rk2);
 
-  time_data dtime; // initialize below
-
   double stop = options.stop_time.value_or(-1);
   double dt   = options.dt.value_or(-1);
   int64_t n   = options.num_time_steps.value_or(-1);

@@ -241,12 +241,12 @@ void reconstruct_solution::build_tree()
       if (monkey_count[current] < max_kids){
         int kid = kids[monkey_tail[current]][monkey_count[current]];
         if (kid == -1 or not free[kid]){
-            monkey_count[current]++; // no kid, keep counting
+          monkey_count[current]++; // no kid, keep counting
         }else{
-            tree[monkey_tail[current]][monkey_count[current]] = kid;
-            monkey_count[++current] = 0;
-            monkey_tail[current] = kid;
-            free[kid] = false;
+          tree[monkey_tail[current]][monkey_count[current]] = kid;
+          monkey_count[++current] = 0;
+          monkey_tail[current] = kid;
+          free[kid] = false;
         }
       }else{
         monkey_count[--current]++; // done with all kids here
@@ -272,7 +272,7 @@ void reconstruct_solution::build_tree()
 }
 
 template<int degree>
-std::optional<double>
+reconstruct_solution::supported_value
 reconstruct_solution::basis_value(int const p[], double const x[],
                                    double const c[], vector2d<double> &scratch) const
 {
@@ -288,24 +288,34 @@ reconstruct_solution::basis_value(int const p[], double const x[],
   int const &num_dimensions = cells_.num_dimensions();
   for (auto d : indexof<int>(num_dimensions))
   {
-    int p2l2;
-    double wd;
-    fm::intlog2_pow2pows2(p[d], p2l2, wd);
+    int p2l2 = 1;
+    double wd = 1.0;
+    int pd = p[d];
+    {
+      while (pd >>= 1)
+      {
+        p2l2 <<= 1;
+        wd *= 1.41421356237309505; // sqrt(2.0)
+      }
+    }
+
     w *= wd;
     xn[d] = (p[d] > 1) ? (p2l2 * (x[d] + 1.0) - p[d]) : x[d];
 
+    // the right-edge formula returns false if p[d] is 0, 1, or p[d] + 1 is a power of 2
+    bool const not_right_edge = (p[d] > 1 and ((p[d] + 1) & p[d]) != 0);
     // analytic formula work on (0, 1), general degree uses a shift to (-1, 1)
     if constexpr (degree == -1)
     {
       xn[d] = 2.0 * xn[d] - 1.0;
-      if (xn[d] < -1.0 or xn[d] > 1.0)
-        return std::optional<double>();
+      if (xn[d] < -1.0 or (not_right_edge and xn[d] >= 1.0))
+        return unsupported_value{};
     }
     else
     {
       // if the normalized point is out of bounds, return no-value
-      if (xn[d] < 0.0 or xn[d] > 1.0)
-        return std::optional<double>();
+      if (xn[d] < 0.0 or (not_right_edge and xn[d] >= 1.0))
+        return unsupported_value{};
     }
   }
 
@@ -372,7 +382,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       sum += v * c[i];
     }
 
-    return std::optional<double>(sum);
+    return supported_value{sum};
   }
   else if constexpr (degree == 2)
   {
@@ -417,7 +427,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       sum += v * c[i];
     }
 
-    return std::optional<double>(sum);
+    return supported_value{sum};
   }
   else if constexpr (degree == 1)
   {
@@ -459,7 +469,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       sum += v * c[i];
     }
 
-    return std::optional<double>(sum);
+    return supported_value{sum};
   }
   else // degree == 0
   {
@@ -468,7 +478,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       if (p[d] > 0 and xn[d] < 0.5)
         v = -v;
 
-    return c[0] * w * v;
+    return supported_value{c[0] * w * v};
   }
 }
 
@@ -482,7 +492,7 @@ double reconstruct_solution::walk_trees(double const x[]) const
   std::array<int, 31> monkey_count;
   std::array<int, 31> monkey_tail;
 
-  std::optional<double> basis;
+  supported_value basis;
   double result = 0;
 
   for(const auto &r : roots){
@@ -491,7 +501,7 @@ double reconstruct_solution::walk_trees(double const x[]) const
 
     if (basis)
     {
-      result += basis.value();
+      result += basis();
 
       int current = 0;
       monkey_tail[0] = r;
@@ -506,7 +516,7 @@ double reconstruct_solution::walk_trees(double const x[]) const
 
           if (basis)
           {
-            result += basis.value();
+            result += basis();
 
             monkey_tail[++current] = p;
             monkey_count[current] = pntr[p];
