@@ -111,7 +111,7 @@ void steady_state<P>::next_step(discretization_manager<P> const &disc,
     disc.set_ode_rhs_sources_group_gpu(group_id::all(), time, 1, endstep.data());
 
     if (disc.is_leader())
-      solver.solve_inplace(endstep.data());
+      solver.solve_inplace(endstep);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -562,7 +562,7 @@ void crank_nicolson<P>::next_step(discretization_manager<P> const &disc,
     solver.update_grid(disc.get_grid(), disc.get_conn(), disc.get_terms(), substep * dt, precon);
 
     if (disc.is_leader())
-      solver.solve_inplace(next.data());
+      solver.solve_inplace(next);
 
   } else { // iterative solver
     // form the right-hand-side inside work
@@ -739,7 +739,7 @@ void imex_stepper<P>::implicit_solve(
 
   if (uses_inplace) {
     R = current;
-    solver.solve_inplace(group_id{imex_implicit}, stage, R.data());
+    solver.solve_inplace(group_id{imex_implicit}, stage, R);
   } else { // iterative solver
 
     if (not disc.is_leader()) {
