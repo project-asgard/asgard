@@ -4,14 +4,49 @@
 
 #include "asgard_tools.hpp"
 
+// #undef ASGARD_USE_CBLAS // uncomment to test F77 fallback definitions of BLAS
+
 #ifdef ASGARD_USING_APPLEBLAS
   #include <Accelerate/Accelerate.h>
 #else
+
+#ifdef ASGARD_USE_CBLAS
+
   #ifdef ASGARD_USING_MKL
     #include <mkl_cblas.h>
   #else
     #include "cblas.h"
   #endif
+
+#else
+extern "C" {
+  float snrm2_(const int *N, const float *x, const int *incx);
+  double dnrm2_(const int *N, const double *x, const int *incx);
+
+  void saxpy_(const int *N, const float *alpha, const float *x, const int *incx, const float *y, const int *incy);
+  void daxpy_(const int *N, const double *alpha, const double *x, const int *incx, const double *y, const int *incy);
+
+  void sscal_(const int *N, const float *alpha, const float *x, const int *incx);
+  void dscal_(const int *N, const double *alpha, const double *x, const int *incx);
+
+  void sgemv_(const char *transa, const int *M, const int *N, const float *alpha, const float *A, const int *lda,
+              const float *x, const int *incx, const float *beta, float *y, const int *incy);
+  void dgemv_(const char *transa, const int *M, const int *N, const double *alpha, const double *A, const int *lda,
+              const double *x, const int *incx, const double *beta, double *y, const int *incy);
+
+  void srotg_(float *SA, float *SB, float *C, float *S);
+  void drotg_(double *SA, double *SB, double *C, double *S);
+
+  void srot_(const int *N, float *x, const int *incx, float *y, const int *incy, float *C, float *S);
+  void drot_(const int *N, double *x, const int *incx, double *y, const int *incy, double *C, double *S);
+
+  void stpsv_(const char *uplo, const char *transa, const char *diag, const int *N, const float *A,
+              const float *x, const int *incx);
+  void dtpsv_(const char *uplo, const char *transa, const char *diag, const int *N, const double *A,
+              const double *x, const int *incx);
+}
+#endif
+
 #endif
 
 #ifdef ASGARD_USE_OPENMP
@@ -29,6 +64,7 @@ namespace asgard {
 // fast math
 namespace fm {
 
+#ifdef ASGARD_USE_CBLAS
 //! converts N/n/T/t/C/c to a CBLAS_TRANSPOSE type, keeps this header private
 inline CBLAS_TRANSPOSE cblas_transpose_enum(char trans)
 {
@@ -54,32 +90,58 @@ inline CBLAS_DIAG cblas_diag_enum(char trans)
 {
   return (trans == 'U' or trans == 'u') ? CblasUnit : CblasNonUnit;
 }
+#endif
+
 //! computes norm L-2, BLAS snrm2()/dnrm2()
 template<typename P>
 P nrm2(int n, P const x[]) {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     return cblas_dnrm2(n, x, 1);
   else
     return cblas_snrm2(n, x, 1);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    return dnrm2_(&n, x, &one);
+  else
+    return snrm2_(&n, x, &one);
+#endif
 }
 //! computes y += alpha * x, BLAS saxpy()/daxpy()
 template<typename P>
 void axpy(int n, P alpha, P const x[], P y[]) {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_daxpy(n, alpha, x, 1, y, 1);
   else
-    cblas_daxpy(n, alpha, x, 1, y, 1);
+    cblas_faxpy(n, alpha, x, 1, y, 1);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    daxpy_(&n, &alpha, x, &one, y, &one);
+  else
+    saxpy_(&n, &alpha, x, &one, y, &one);
+#endif
 }
 //! scales vector by number, BLAS sscal()/dscal()
 template<typename P>
 void scal(int n, P alpha, P x[]) {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_dscal(n, alpha, x, 1);
   else
     cblas_sscal(n, alpha, x, 1);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    dscal_(&n, &alpha, x, &one);
+  else
+    sscal_(&n, &alpha, x, &one);
+#endif
 }
 template<typename P>
 void scal_omp(int n, P alpha, P x[]) {
@@ -95,10 +157,18 @@ void gemv(char trans, int m, int n, no_deduce<P> alpha, P const A[],
 {
   static_assert(is_double<P> or is_float<P>);
   // tools::time_event perf_("openblas gemv");
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_dgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
   else
     cblas_sgemv(CblasColMajor, cblas_transpose_enum(trans), m, n, alpha, A, m, x, 1, beta, y, 1);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    dgemv_(&trans, &m, &n, &alpha, A, &m, x, &one, &beta, y, &one);
+  else
+    sgemv_(&trans, &m, &n, &alpha, A, &m, x, &one, &beta, y, &one);
+#endif
 }
 template<typename P>
 void gemv_omp(char trans, int m, int n, no_deduce<P> alpha, P const A[],
@@ -151,19 +221,34 @@ void gemv_omp(char trans, int m, int n, no_deduce<P> alpha, P const A[],
 template<typename P>
 void rot(int n, P x[], P y[], P c, P s) {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_drot(n, x, 1, y, 1, c, s);
   else
     cblas_srot(n, x, 1, y, 1, c, s);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    drot_(&n, x, &one, y, &one, &c, &s);
+  else
+    srot_(&n, x, &one, y, &one, &c, &s);
+#endif
 }
 //! generate the parameters of a Givens rotation, BLAS srotg()/drotg()
 template<typename P>
 void rotg(P *a, P *b, P *c, P *s) {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_drotg(a, b, c, s);
   else
     cblas_srotg(a, b, c, s);
+#else
+  if constexpr (is_double<P>)
+    drotg_(a, b, c, s);
+  else
+    srotg_(a, b, c, s);
+#endif
 }
 //! triangular matrix-vector solve using packed format, BLAS stpsv()/dtpsv()
 template<typename P>
@@ -171,12 +256,20 @@ void tpsv(const char uplo, const char trans, const char diag, const int n,
           const P A[], P x[])
 {
   static_assert(is_double<P> or is_float<P>);
+#ifdef ASGARD_USE_CBLAS
   if constexpr (is_double<P>)
     cblas_dtpsv(CblasColMajor, cblas_uplo_enum(uplo), cblas_transpose_enum(trans),
                 cblas_diag_enum(diag), n, A, x, 1);
   else
     cblas_stpsv(CblasColMajor, cblas_uplo_enum(uplo), cblas_transpose_enum(trans),
                 cblas_diag_enum(diag), n, A, x, 1);
+#else
+  int const one = 1;
+  if constexpr (is_double<P>)
+    dtpsv_(&uplo, &trans, &diag, &n, A, x, &one);
+  else
+    stpsv_(&uplo, &trans, &diag, &n, A, x, &one);
+#endif
 }
 
 } // namespace fm
