@@ -335,8 +335,6 @@ private:
   int64_t size_ = 0;
 };
 
-
-
 //! \brief Transfer data between devices, assumes that compute->set_device(dest_dev)
 template<typename T>
 void mcopy(device src_dev, vector<T> const &src, device dest_dev, vector<T> &dest) {
