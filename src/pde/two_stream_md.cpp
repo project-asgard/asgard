@@ -56,7 +56,7 @@ void self_test();
  * \snippet two_stream_md.cpp two_stream_md make
  */
 template<typename P>
-__global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom, P* out) {
+__global__ void interp_positive_kernel(int64_t num, P const field[], P const mom[], P out[]) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
     out[i] = field[i] * ((mom[i] > 0.0) ? mom[i] : 0.0);
@@ -74,7 +74,7 @@ __global__ void interp_positive_kernel(int64_t num, P const* field, P const* mom
  * \snippet two_stream_md.cpp two_stream_md make
  */
 template<typename P>
-__global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom, P* out) {
+__global__ void interp_negative_kernel(int64_t num, P const field[], P const mom[], P out[]) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
     out[i] = field[i] * ((mom[i] < 0.0) ? mom[i] : 0.0);
@@ -91,7 +91,8 @@ __global__ void interp_negative_kernel(int64_t num, P const* field, P const* mom
  * \snippet two_stream_md.cpp two_stream_md make
  */
 template<typename P>
-__global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P const *ey, P* out) {
+__global__ void weight_kernel_2d(int64_t num, P const field[],
+                                 P const ex[], P const ey[], P out[]) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
     out[i] = field[i] * (ex[i] * ex[i] + ey[i] * ey[i]);
@@ -108,7 +109,8 @@ __global__ void weight_kernel_2d(int64_t num, P const *field, P const *ex, P con
  * \snippet two_stream_md.cpp two_stream_md make
  */
 template<typename P>
-__global__ void weight_kernel_3d(int64_t num, P const *field, P const *ex, P const *ey, P const *ez, P* out) {
+__global__ void weight_kernel_3d(int64_t num, P const field[],
+                                 P const ex[], P const ey[], P const ez[], P out[]) {
   int64_t i = blockIdx.x * blockDim.x + threadIdx.x;
   while (i < num) {
     out[i] = field[i] * (ex[i] * ex[i] + ey[i] * ey[i] + ez[i] * ez[i]);
@@ -141,7 +143,8 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
 //! [two_stream_md make]
 #endif
 
-  options.title = std::to_string(pos_dims) + "X" + std::to_string(pos_dims) + "V Two Stream Instability";
+  options.title = std::to_string(pos_dims) + "x" + std::to_string(pos_dims)
+                 + "v Two Stream Instability";
 
   asgard::pde_domain<P> domain(asgard::position_dims{pos_dims}, asgard::velocity_dims{pos_dims},
                                std::vector<asgard::domain_range>(2 * pos_dims, {-2 * PI, 2 * PI}));
@@ -169,7 +172,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   options.default_plotter_colormap = "viridis";
 
   // the CFL is more complicated, it depends both on the polynomial degree
-  // and on the maximum number of cells (TODO: add more here)
+  // and on the maximum number of cells
   {
     int const p = options.degree.value_or(default_degree);
     int const n = (1 << options.max_level()); // this is n^max_level
@@ -212,7 +215,7 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
     };
 
   // v * grad_x(f)
-  for (int d : asgard::iindexof(pos_dims)) {
+  for (int d = 0; d < pos_dims; d++) {
     vterms[d] = asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::periodic);
     vterms[pos_dims + d] = asgard::term_volume<P>(positive);
     pde += asgard::term_md<P>(vterms);
@@ -228,20 +231,22 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
 #ifdef ASGARD_USE_GPU
   std::function<void(int64_t, P, P const[], asgard::momentset_gpu<P> const&, P const[], P[])> weight;
   if (pos_dims == 2) {
-    weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
+    weight = [=](int64_t num, P t, P const x[],
+                 asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
     {
-      int threads = 256;
-      int blocks = (num + threads - 1) / threads;
+      int const threads = 256;
+      int const blocks = (num + threads - 1) / threads;
 
       asgard::gpu::vector<P> const &e_x = moments[melectric_x];
       asgard::gpu::vector<P> const &e_y = moments[melectric_y];
       weight_kernel_2d<<<blocks, threads>>>(num, f, e_x.data(), e_y.data(), fx);
     };
   } else {
-    weight = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
+    weight = [=](int64_t num, P t, P const x[],
+                 asgard::momentset_gpu<P> const &moments, P const f[], P fx[])
     {
-      int threads = 256;
-      int blocks = (num + threads - 1) / threads;
+      int const threads = 256;
+      int const blocks = (num + threads - 1) / threads;
 
       asgard::gpu::vector<P> const &e_x = moments[melectric_x];
       asgard::gpu::vector<P> const &e_y = moments[melectric_y];
@@ -279,28 +284,32 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
 #endif
 
   // E * grad_v(f)
-  for (int d : asgard::iindexof(pos_dims)) {
+  for (int d = 0; d < pos_dims; d++) {
     asgard::moment_id mid = mids[d];
 
 #ifdef ASGARD_USE_GPU
-    auto gpu_md_positive = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
-      int threads = 256;
-      int blocks = (num + threads - 1) / threads;
+    auto gpu_md_positive = [=](int64_t num, P t, P const x[],
+                               asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+      int const threads = 256;
+      int const blocks = (num + threads - 1) / threads;
       interp_positive_kernel<<<blocks, threads>>>(num, f, moments[mid].data(), fx);
     };
 
-    auto gpu_md_negative = [=](int64_t num, P t, P const x[], asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
-      int threads = 256;
-      int blocks = (num + threads - 1) / threads;
+    auto gpu_md_negative = [=](int64_t num, P t, P const x[],
+                               asgard::momentset_gpu<P> const &moments, P const f[], P fx[]) {
+      int const threads = 256;
+      int const blocks = (num + threads - 1) / threads;
       interp_negative_kernel<<<blocks, threads>>>(num, f, moments[mid].data(), fx);
     };
 
-    vterms[pos_dims + d] = asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides));
+    vterms[pos_dims + d] = asgard::term_div<P>(1, asgard::flux_type::upwind,
+                                               asgard::boundary_type::bothsides);
     pde += asgard::term_md<P>{
         asgard::term_md(asgard::term_interp<P>(gpu_md_positive, {mid, })),
         asgard::term_md<P>(vterms)
       };
-    vterms[pos_dims + d] = asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides));
+    vterms[pos_dims + d] = asgard::term_div<P>(1, asgard::flux_type::downwind,
+                                               asgard::boundary_type::bothsides);
     pde += asgard::term_md<P>{
         asgard::term_md(asgard::term_interp<P>(gpu_md_negative, {mid, })),
         asgard::term_md<P>(vterms)
@@ -327,13 +336,15 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
           vals[i] = field[i] * std::min(P{0}, ef[i]);
     };
 
-    vterms[pos_dims + d] = asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::upwind, asgard::boundary_type::bothsides));
+    vterms[pos_dims + d] = asgard::term_div<P>(1, asgard::flux_type::upwind,
+                                               asgard::boundary_type::bothsides);
     pde += asgard::term_md<P>{
         asgard::term_md(asgard::term_interp<P>(md_positive, {mid, })),
         asgard::term_md<P>(vterms)
       };
 
-    vterms[pos_dims + d] = asgard::term_1d<P>(asgard::term_div<P>(1, asgard::flux_type::downwind, asgard::boundary_type::bothsides));
+    vterms[pos_dims + d] = asgard::term_div<P>(1, asgard::flux_type::downwind,
+                                               asgard::boundary_type::bothsides);
     pde += asgard::term_md<P>{
         asgard::term_md(asgard::term_interp<P>(md_negative, {mid, })),
         asgard::term_md<P>(vterms)
@@ -375,15 +386,17 @@ asgard::pde_scheme<P> make_two_stream(int const pos_dims, asgard::prog_opts opti
   if (pos_dims == 2) {
     // the perturbation is applied in x with a uniform distribution in y
     // there are two counter streaming beams for vx and a maxwellian is used for vy
-    pde.add_initial(asgard::separable_func<P>({ic_perturbed_pos, ic_uniform_pos, ic_twostream_vel, ic_maxwellian_vel}));
+    pde.add_initial(asgard::separable_func<P>({ic_perturbed_pos, ic_uniform_pos,
+                                               ic_twostream_vel, ic_maxwellian_vel}));
 
     // use the adaptive weight function defined earlier
     pde.set_adapt_weight(weight, {melectric_x, melectric_y});
   } else { // pos_dims = 3
     // the perturbation is applied in x with a uniform distribution in y and z
     // there are two counter streaming beams for vx and a maxwellian is used for vy and vz
-    pde.add_initial(asgard::separable_func<P>({ic_perturbed_pos, ic_uniform_pos, ic_uniform_pos,
-                                               ic_twostream_vel, ic_maxwellian_vel, ic_maxwellian_vel}));
+    pde.add_initial(asgard::separable_func<P>(
+        {ic_perturbed_pos, ic_uniform_pos, ic_uniform_pos,
+         ic_twostream_vel, ic_maxwellian_vel, ic_maxwellian_vel}));
 
     // use the adaptive weight function defined earlier
     pde.set_adapt_weight(weight, {melectric_x, melectric_y, melectric_z});
