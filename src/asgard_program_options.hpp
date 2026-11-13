@@ -377,7 +377,7 @@ struct prog_opts
   std::optional<int> poisson_iterations;
 
   //! restart the simulation from a file
-  std::string restart_file;
+  std::filesystem::path restart_file;
   //! filename for the last time step
   std::filesystem::path outfile;
 
@@ -652,10 +652,15 @@ struct prog_opts
   bool constexpr is_mpi_rank_zero() const { return true; } // always "zero rank"
   #endif
 
-  #ifndef __ASGARD_DOXYGEN_SKIP
-  //! (internal use) if we encounter a "no-adapt" option, must skip adaptivity during restart
+  /*!
+   * \brief used only when restarting from a file, when this is true any adaptivity in the file will be ignored
+   *
+   * This is also set when the -noadapt or -noa command line option is flagged and can be read
+   * and used inside the PDE definition file.
+   */
   bool set_no_adapt = false;
 
+  #ifndef __ASGARD_DOXYGEN_SKIP
   //! provides a long string for the given time-stepping method
   static std::string get_name(time_method);
 

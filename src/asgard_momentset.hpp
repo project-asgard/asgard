@@ -13,14 +13,14 @@ struct dimension_id {
   //! do not create an empty dimension id
   dimension_id() = delete;
   //! set the index dimension
-  explicit dimension_id(int n) : id(n) {
+  explicit constexpr dimension_id(int n) : id(n) {
     rassert(0 <= n and n < max_num_dimensions,
             "invalid dimension, must be in 0 ... 5 for 1D through 6D problems");
   }
   //! holds the id of the position dimensions
   int const id;
   //! returns the index with a simple call
-  int operator()() const { return id; }
+  constexpr int operator()() const { return id; }
 };
 
 /*!
@@ -30,34 +30,34 @@ struct dimension_id {
 struct moment
 {
   //! produces zero moment with the specified number of velocity dimensions
-  static moment zero(int num_velocity) {
+  static constexpr moment zero(int num_velocity) {
     moment m(0);
     for (int d = 1; d < num_velocity; d++) m.pows[d] = 0;
     return m;
   }
   //! produces a moment for the electric field in the dim dimension
   //! i.e. dim = dimension_id(0) corresponds to E_x
-  static moment electric(dimension_id dim, int num_pos_dims) {
+  static constexpr moment electric(dimension_id dim, int num_pos_dims) {
     moment m = moment::zero(num_pos_dims);
     m.pows[dim()] = electric_flag;
     return m;
   }
   //! creating a placeholder (invalid) moment
-  moment() : pows{unset_flag, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
+  constexpr moment() : pows{unset_flag, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 1D moment with the given power
-  moment(int pv1) : pows{pv1, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
+  constexpr moment(int pv1) : pows{pv1, unset_flag, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 2D moment with the given powers
-  moment(int pv1, int pv2) : pows{pv1, pv2, unset_flag} { static_assert(max_mom_dims == 3); }
+  constexpr moment(int pv1, int pv2) : pows{pv1, pv2, unset_flag} { static_assert(max_mom_dims == 3); }
   //! create a 3D moment with the given powers
-  moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} { static_assert(max_mom_dims == 3); }
+  constexpr moment(int pv1, int pv2, int pv3) : pows{pv1, pv2, pv3} { static_assert(max_mom_dims == 3); }
   //! number of valid powers
-  int num_dims() const {
+  constexpr int num_dims() const {
     for (int i = 0; i < max_mom_dims; i++)
       if (pows[i] == unset_flag) return i;
     return max_mom_dims;
   }
   //! return the d-th power
-  int operator [] (int d) const { return pows[d]; }
+  constexpr int operator [] (int d) const { return pows[d]; }
   //! check whether two moments are the same
   bool operator == (moment const &other) const {
     return std::equal(pows.begin(), pows.end(), other.pows.begin());
@@ -67,7 +67,7 @@ struct moment
     return not (*this == other);
   }
   //! check whether a moment has all zero powers
-  bool is_zero() const {
+  constexpr bool is_zero() const {
     for (int const pow : pows) {
       if (pow == unset_flag) return true;
       if (pow != 0) return false;
@@ -75,7 +75,7 @@ struct moment
     return true;
   }
   //! check whether a moment is an electric field moment
-  bool is_electric() const {
+  constexpr bool is_electric() const {
     for (int const pow : pows)
       if (pow == electric_flag) return true;
     return false;
@@ -128,7 +128,7 @@ struct moment
 class moment_id {
 public:
   //! default placeholder id
-  moment_id() = default;
+  constexpr moment_id() = default;
   //! explicit constructor for the new id
   explicit constexpr moment_id(int num) : id_(num) {}
   //! get the id

@@ -101,7 +101,7 @@ public:
   void cell_centers(double x[]) const;
 
   //! \brief Indicates whether the snapshot has been initialized
-  operator bool () const { return (pterms_ == 0); }
+  operator bool () const { return (pdof_ == 0); }
 
 protected:
 #ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
@@ -143,8 +143,9 @@ protected:
 
   //! Helper method that finds the children of all multi-indexes
   vector2d<int> compute_dag_down() const;
-  //! Helper method that computes the level for each multi-index
-  std::vector<int> compute_levels() const;
+
+  //! Helper method that computes the level for each multi-index and returns the top level
+  std::pair<std::vector<int>, int> compute_levels() const;
 
   //! A mid-step way to create a value without support
   struct unsupported_value{};
@@ -201,7 +202,7 @@ protected:
 #endif
 
 private:
-  int pterms_ = 0;
+  int pdof_ = 0;
   int64_t block_size_ = 0;
 
   indexset cells_;
