@@ -5,8 +5,9 @@
 #define ASGARD_VERSION_PATCH @asgard_VERSION_PATCH@
 #define ASGARD_VERSION "@asgard_VERSION@"
 
-#cmakedefine ASGARD_USING_MKL
 #cmakedefine ASGARD_USING_APPLEBLAS
+#cmakedefine ASGARD_USING_CBLAS
+#cmakedefine ASGARD_USING_MKL
 
 #cmakedefine ASGARD_HAS_GITINFO
 #define ASGARD_GIT_BRANCH "@ASGARD_GIT_BRANCH@"

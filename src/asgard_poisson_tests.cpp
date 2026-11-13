@@ -110,7 +110,7 @@ poisson_errors<P> test_poisson_md(separable_func<P> rhs, std::array<P, 2> xleft,
     efield.copy_to_host(moms[mid]);
   };
   poisson.solve_periodic(gpu_rhs_ref, terms.grid, terms.conn, interp_func, terms.kwork);
-  gpu::vector<P> const &gpu_phi_wav = poisson.get_potential();
+  gpu::vector<P> const &gpu_phi_wav = poisson.get_gpu_potential();
   std::vector<P> phi_wav(n);
   gpu_phi_wav.copy_to_host(phi_wav);
   #else

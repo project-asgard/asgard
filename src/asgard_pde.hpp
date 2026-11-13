@@ -1598,7 +1598,7 @@ public:
     if (options_.restarting()) {
       // more error checking is done during the file reading process
       if (not std::filesystem::exists(options_.restart_file))
-        throw std::runtime_error("Cannot find file: '" + options_.restart_file + "'");
+        throw std::runtime_error("Cannot find file: '" + options_.restart_file.string() + "'");
     } else {
       // cold start, apply defaults and sanitize
       if (options_.start_levels.empty()) {

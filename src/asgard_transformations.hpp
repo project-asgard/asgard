@@ -148,21 +148,10 @@ public:
     dmax.fill(1);
     setup_projection_matrices();
   }
-  //! initialize with the given domain
+  //! initialize with the given domain (primarily for testing)
   hierarchy_manipulator(int degree, int num_dimensions,
                         std::initializer_list<P> rmin,
                         std::initializer_list<P> rmax)
-      : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
-  {
-    assert(num_dimensions <= max_num_dimensions);
-    std::copy_n(rmin.begin(), num_dimensions, dmin.begin());
-    std::copy_n(rmax.begin(), num_dimensions, dmax.begin());
-    setup_projection_matrices();
-  }
-  //! flexibile initialize, randes are defined in array-like objects
-  template<typename rangemin, typename rangemax>
-  hierarchy_manipulator(int degree, int num_dimensions,
-                        rangemin const &rmin, rangemax const &rmax)
       : degree_(degree), quad(make_quadrature<P>(2 * degree_ + 1, -1, 1))
   {
     assert(num_dimensions <= max_num_dimensions);

@@ -88,18 +88,14 @@ if (ASGARD_BUILD_OPENBLAS)
     install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/_deps/openblas-build/lib/"
             DESTINATION lib)
 
-    set (BLAS_FOUND 1)
-    set (LAPACK_FOUND 1)
+    set(ASGARD_USING_CBLAS ON)
 
     add_library (asgard::LINALG INTERFACE IMPORTED)
     target_link_libraries (asgard::LINALG INTERFACE openblas)
 
 #  Manually set the openblas include directory since openblas only sets the
 #  include directory for the install.
-    target_include_directories (asgard::LINALG
-                                INTERFACE
-                                ${FETCHCONTENT_BASE_DIR}/openblas-build
-    )
+    target_include_directories (asgard::LINALG INTERFACE ${FETCHCONTENT_BASE_DIR}/openblas-build)
 
 else ()
 
@@ -116,27 +112,35 @@ else ()
     # otherwise search for cblas.h (e.g., using OpenBLAS)
     if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
         set(ASGARD_USING_APPLEBLAS ON)
+        set(ASGARD_USING_CBLAS     ON)
     else()
         string(FIND "${BLAS_LIBRARIES}" "mkl" __asgard_mkl_pos)
 
         if (__asgard_mkl_pos GREATER_EQUAL 0)
-            set(ASGARD_USING_MKL ON)
-        else()
-            find_path(__asg_check_cblas cblas.h)
-            if (NOT __asg_check_cblas)
-                # some OpenBLAS installs put cblas.h in a sub-folder
-                find_path(__asg_cblas "cblas.h" PATH_SUFFIXES "openblas")
-                if (NOT __asg_cblas)
-                    message(FATAL_ERROR
-"ASGarD found a BLAS package but could not find the required cblas.h header \
-please include the path to the header in CMAKE_INCLUDE_PATH, e.g., -DCMAKE_INCLUDE_PATH=/some/path/ \
-or set environment variable CMAKE_INCLUDE_PATH")
-                endif()
-                target_include_directories(asgard::LINALG INTERFACE ${__asg_cblas})
-            else()
+
+            find_path(__asg_check_cblas "mkl_cblas.h")
+            if (__asg_check_cblas)
                 target_include_directories(asgard::LINALG INTERFACE ${__asg_check_cblas})
+                set(ASGARD_USING_CBLAS ON)
+                set(ASGARD_USING_MKL   ON)
             endif()
+
+        else()
+
+            string(FIND "${BLAS_LIBRARIES}" "openblas" __asgard_openblas_pos)
+
+            if (__asgard_openblas_pos GREATER_EQUAL 0)
+
+                find_path(__asg_check_cblas "cblas.h" PATH_SUFFIXES "openblas")
+                if (__asg_check_cblas)
+                    target_include_directories(asgard::LINALG INTERFACE ${__asg_check_cblas})
+                    set(ASGARD_USING_CBLAS ON)
+                endif()
+
+            endif()
+
         endif()
-        unset(__asgard_mkl_pos)
+
     endif()
+    unset(__asg_check_cblas)
 endif ()

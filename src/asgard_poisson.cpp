@@ -83,7 +83,6 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   #endif
 }
 
-#ifndef ASGARD_USE_GPU
 template<typename P>
 void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
                           sparse_grid const &position_grid, connection_patterns const &conn,
@@ -162,7 +161,6 @@ void poisson_md<P>::solve_potential_(std::vector<P> &density, sparse_grid const 
   if (bc == poisson_bc::periodic)
     density[0] = density0;
 }
-#endif
 
 #ifdef ASGARD_USE_GPU
 template<typename P>
@@ -334,7 +332,8 @@ void poisson_md<P>::kron_diag_(term_entry<P> const &tme, sparse_grid const &grid
 }
 
 template<typename P>
-void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
+void poisson_md<P>::update_preconditioner(sparse_grid const &position_grid,
+                                          connection_patterns const &conn,
                                           poisson_bc const bc)
 {
   // return if nothing more to do

@@ -63,7 +63,6 @@ public:
              std::array<P, max_num_dimensions> const &xright, connection_patterns const &conn,
              hierarchy_manipulator<P> const &hier, moments_list const &mlist,
              build_term_func<P> build, moment_id const m0, prog_opts const &opts);
-  #ifndef ASGARD_USE_GPU
   /*!
   * \brief Given the wavelet representation of the density, find the electric field also in wavelet space
   */
@@ -79,7 +78,6 @@ public:
   }
   //! returns the electric potential vector - used for testing
   std::vector<P> const &get_potential() { return potential; };
-  #endif
 
   //! update the preconditioner for the iterative solver, called on refinement
   void update_preconditioner(sparse_grid const &position_grid, connection_patterns const &conn,
@@ -106,7 +104,7 @@ public:
     solve(density, position_grid, conn, interpolate, work, poisson_bc::periodic);
   }
   //! returns the electric potential vector - used for testing
-  gpu::vector<P> const &get_potential() { return gpu_potential; };
+  gpu::vector<P> const &get_gpu_potential() { return gpu_potential; };
   #endif
 
 private:
@@ -114,16 +112,16 @@ private:
   void kron_diag_(term_entry<P> const &tme, sparse_grid const &grid, connection_patterns const &conn,
                   int const block_size, std::vector<P> &y) const;
 
+  //! solves for just the electric potential, used as a substep inside the solver
+  void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
+                        connection_patterns const &conn, kronmult::workspace<P> &work,
+                        poisson_bc const bc);
+
   #ifdef ASGARD_USE_GPU
   //! remaps a vector from the old grid to the new grid, used for warm starting the potential
   void remap_(indexset const& iset_old, indexset const &iset_new, gpu::vector<P> &x) const;
   // Solves for just the electric potential, used as a substep inside the solver
   void solve_potential_(gpu::wrap_array<P> density, sparse_grid const &grid,
-                        connection_patterns const &conn, kronmult::workspace<P> &work,
-                        poisson_bc const bc);
-  #else
-  //! solves for just the electric potential, used as a substep inside the solver
-  void solve_potential_(std::vector<P> &density, sparse_grid const &grid,
                         connection_patterns const &conn, kronmult::workspace<P> &work,
                         poisson_bc const bc);
   #endif

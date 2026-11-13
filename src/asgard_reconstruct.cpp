@@ -10,7 +10,7 @@ template<typename precision>
 reconstruct_solution::reconstruct_solution(
     int dims, int64_t num_cells, int const asg_cells[],
     int degree, precision const solution[])
-    : pterms_(degree + 1), block_size_(fm::ipow(pterms_, dims)), domain_scale(1.0)
+    : pdof_(degree + 1), block_size_(fm::ipow(pdof_, dims)), domain_scale(1.0)
 {
   inv_slope.fill(1);
   shift.fill(0);
@@ -33,14 +33,14 @@ reconstruct_solution::reconstruct_solution(
     // using coefficient matrices for the left/right wavelets
     // and scale factors for the legendre basis
     // legendre calculation uses recurence relation, so we only need the scale
-    wavelets.resize(2 * pterms_ * pterms_ + pterms_);
-    wleft  = wavelets.data() + pterms_;
-    wright = wleft + pterms_ * pterms_;
+    wavelets.resize(2 * pdof_ * pdof_ + pdof_);
+    wleft  = wavelets.data() + pdof_;
+    wright = wleft + pdof_ * pdof_;
 
-    // first pterms_ entries are the scale factors of the
+    // first pdof_ entries are the scale factors of the
     // orthogonal Legendre polynomials on the interval (0, 1)
     wavelets[0] = 1.0;
-    for (int i = 1; i < pterms_; i++)
+    for (int i = 1; i < pdof_; i++)
       wavelets[i] = std::sqrt(2.0 * i + 1.0);
 
     auto leg = legendre::poly<double>(degree);
@@ -51,13 +51,13 @@ reconstruct_solution::reconstruct_solution(
     // but the basis_value() will access in a different pattern
     // hence we transpose the data for faster simd use later on
     auto w = wleft;
-    for (auto i : indexof<int>(pterms_))
-      for (auto j : indexof<int>(pterms_))
+    for (auto i : indexof<int>(pdof_))
+      for (auto j : indexof<int>(pdof_))
         *w++ = wavs[j][i];
     // copy the right coefficients
-    for (auto i : indexof<int>(pterms_))
-      for (auto j : indexof<int>(pterms_))
-        *w++ = wavs[j][i + pterms_];
+    for (auto i : indexof<int>(pdof_))
+      for (auto j : indexof<int>(pdof_))
+        *w++ = wavs[j][i + pdof_];
   }
 }
 
@@ -124,7 +124,7 @@ void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) 
 
 void reconstruct_solution::reconstruct(double const x[], int num_x, double y[]) const
 {
-  switch (pterms_ - 1)
+  switch (pdof_ - 1)
   {
   case 0:
     reconstruct<0>(x, num_x, y);
@@ -182,7 +182,7 @@ vector2d<int> reconstruct_solution::compute_dag_down() const
   return kids;
 }
 
-std::vector<int> reconstruct_solution::compute_levels() const
+std::pair<std::vector<int>, int> reconstruct_solution::compute_levels() const
 {
   int num_dimensions = cells_.num_dimensions();
   int64_t num_cells  = cells_.num_indexes();
@@ -192,21 +192,44 @@ std::vector<int> reconstruct_solution::compute_levels() const
   };
 
   std::vector<int> level(num_cells);
-#pragma omp parallel for schedule(static)
-  for (int64_t i = 0; i < num_cells; i++)
+  int max_level = 0;
+  #pragma omp parallel
   {
-    int const *p = cells_[i];
-    level[i] = level1d(p[0]);
-    for (int j = 1; j < num_dimensions; j++)
-      level[i] += level1d(p[j]);
+    int local_max = 0;
+
+    #pragma omp for schedule(static)
+    for (int64_t i = 0; i < num_cells; i++)
+    {
+      int const *p = cells_[i];
+
+      int l = level1d(p[0]);
+      if (local_max < l)
+        local_max = l;
+      level[i] = l;
+      for (int j = 1; j < num_dimensions; j++) {
+        l = level1d(p[j]);
+        if (local_max < l)
+          local_max = l;
+        level[i] += l;
+      }
+      if (local_max < level[i])
+        local_max = level[i];
+    }
+
+    #pragma omp critical
+    {
+      if (max_level < local_max)
+        max_level = local_max;
+    }
   }
-  return level;
+
+  return std::make_pair(level, max_level);
 }
 
 void reconstruct_solution::build_tree()
 {
-  vector2d<int> kids     = compute_dag_down();
-  std::vector<int> level = compute_levels();
+  vector2d<int> kids      = compute_dag_down();
+  auto [level, max_level] = compute_levels();
 
   int max_kids      = static_cast<int>(kids.stride());
   int64_t num_cells = cells_.num_indexes();
@@ -222,8 +245,9 @@ void reconstruct_solution::build_tree()
   // monkey_tail always points the branch that the monkey came from
 
   // at level 31 we overflow the 32-bit int, no need for more
-  std::array<int, 31> monkey_count;
-  std::array<int, 31> monkey_tail;
+  std::array<int, 64> workspace;
+  int *monkey_count = workspace.data();
+  int *monkey_tail  = workspace.data() + max_level + 1;
 
   roots.clear();
   int next_root = 0; // index at 0 is always the zero-index and the first root
@@ -276,8 +300,8 @@ reconstruct_solution::supported_value
 reconstruct_solution::basis_value(int const p[], double const x[],
                                    double const c[], vector2d<double> &scratch) const
 {
-  // degree 0, 1, and 2 are hard-coded as analytic formulat
-  // degree -1 means that we are using general degree and should use pterms_
+  // degree 0, 1, and 2 are hard-coded as analytic formulas
+  // degree -1 means that we are using general degree and should use pdof_
   static_assert(degree >= -1 and degree <= 2,
                 "unsupported degree, use 0, 1, 2 for analytic expressions, "
                 "and degree -1 for the general case");
@@ -331,7 +355,7 @@ reconstruct_solution::basis_value(int const p[], double const x[],
         double lmm = 1.0, lm = xn[d];
         vals[0] = 1.0;
         vals[1] = lm * wavelets[1];
-        for (int n = 2; n < pterms_; n++)
+        for (int n = 2; n < pdof_; n++)
         {
           double l = ((2 * n - 1) * xn[d] * lm - (n - 1) * lmm) / static_cast<double>(n);
           vals[n] = l * wavelets[n];
@@ -343,25 +367,25 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       {
         if (xn[d] < 0.0)
         {
-          std::copy_n(wleft, pterms_, vals);
+          std::copy_n(wleft, pdof_, vals);
           double mono = xn[d];
-          for (int i = 1; i < pterms_; i++)
+          for (int i = 1; i < pdof_; i++)
           {
 #pragma omp simd
-            for (int j = 0; j < pterms_; j++)
-              vals[j] += mono * wleft[i * pterms_ + j];
+            for (int j = 0; j < pdof_; j++)
+              vals[j] += mono * wleft[i * pdof_ + j];
             mono *= xn[d];
           }
         }
         else
         {
-          std::copy_n(wright, pterms_, vals);
+          std::copy_n(wright, pdof_, vals);
           double mono = xn[d];
-          for (int i = 1; i < pterms_; i++)
+          for (int i = 1; i < pdof_; i++)
           {
 #pragma omp simd
-            for (int j = 0; j < pterms_; j++)
-              vals[j] += mono * wright[i * pterms_ + j];
+            for (int j = 0; j < pdof_; j++)
+              vals[j] += mono * wright[i * pdof_ + j];
             mono *= xn[d];
           }
         }
@@ -375,8 +399,8 @@ reconstruct_solution::basis_value(int const p[], double const x[],
       double v = w;
       for (int d = num_dimensions - 1; d >= 0; d--)
       {
-        v *= scratch[d][t % pterms_];
-        t /= pterms_;
+        v *= scratch[d][t % pdof_];
+        t /= pdof_;
       }
 
       sum += v * c[i];
@@ -487,7 +511,7 @@ double reconstruct_solution::walk_trees(double const x[]) const
 {
   vector2d<double> workspace;
   if constexpr (degree == -1)
-    workspace = vector2d<double>(pterms_, cells_.num_dimensions());
+    workspace = vector2d<double>(pdof_, cells_.num_dimensions());
 
   std::array<int, 31> monkey_count;
   std::array<int, 31> monkey_tail;
@@ -534,13 +558,11 @@ double reconstruct_solution::walk_trees(double const x[]) const
 }
 
 #ifdef ASGARD_ENABLE_DOUBLE
-template reconstruct_solution::reconstruct_solution(
-    int, int64_t, int const[], int, double const[]);
+template reconstruct_solution::reconstruct_solution(int, int64_t, int const[], int, double const[]);
 #endif
 
 #ifdef ASGARD_ENABLE_FLOAT
-template reconstruct_solution::reconstruct_solution(
-    int, int64_t, int const[], int, float const[]);
+template reconstruct_solution::reconstruct_solution(int, int64_t, int const[], int, float const[]);
 #endif
 
 } // namespace asgard
@@ -581,14 +603,12 @@ void asgard_reconstruct_solution_setbounds(void *pntr, double const amin[],
 
 void asgard_reconstruct_solution(void const *pntr, double const x[], int num_x, double y[])
 {
-  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)
-      ->reconstruct(x, num_x, y);
+  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)->reconstruct(x, num_x, y);
 }
 
 void asgard_reconstruct_cell_centers(void const *pntr, double x[])
 {
-  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)
-      ->cell_centers(x);
+  reinterpret_cast<asgard::reconstruct_solution const *>(pntr)->cell_centers(x);
 }
 
 void asgard_print_version_help()
