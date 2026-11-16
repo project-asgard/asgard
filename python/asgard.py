@@ -260,11 +260,11 @@ class pde_snapshot:
         return mom_field
 
     def get_efield(self, dim):
-        assert dim <= self.num_position, f"invalid dimension index {dim}, must be no larger than {self.num_position}"
+        assert dim <= self.num_position, f"invalid dimension index {dim}, must be less than {self.num_position}"
         name = "__moment_"
-        for p in range(self.num_velocity):
-            name += f"0" if p != dim - 1 else f"{-0xef}"
-        for i in range(self.num_velocity, 3):
+        for p in range(self.num_position):
+            name += f"{-0xef}" if p == dim else "0"
+        for i in range(self.num_position, 3):
             name += "x"
 
         mom_field = self.get_aux_field(name)
@@ -272,6 +272,23 @@ class pde_snapshot:
         mom_field.subtitle = ""
 
         return mom_field
+
+    def get_human_moment_str(mom_str):
+        '''
+        Returns a human readable string from the moment string
+        '''
+        assert "__moment_" in mom_str, "get_human_moment_str() called with something that isn't a moment string: {mom_str}"
+        mom = mom_str.removeprefix("__moment_")
+        if f"{-0xef}" in mom:
+            # this is an electric field
+            if f"00{-0xef}" in mom:
+                return "moment: electric field (dimension 2)"
+            elif f"0{-0xef}" in mom:
+                return "moment: electric field (dimension 1)"
+            else:
+                return "moment: electric field (dimension 0)"
+        else:
+            return "moment: " + " ".join(mom.split("x", 1)[0])
 
     def plot_data1d(self, dims, num_points = 32):
         '''
@@ -429,6 +446,15 @@ class pde_snapshot:
         s += f"  state size:     {sstate_size}\n"
         s += f"  grid-indexes:   {padspaces}{snum_cells}\n"
         s += "  time:           %f\n" % self.time
+
+        if len(self.aux_fields) > 0:
+            s += f"  auxiliary fields:\n"
+            for i in range(len(self.aux_fields)):
+                if "__moment_" in self.aux_fields[i]['name']:
+                    s += f"    {i}: {pde_snapshot.get_human_moment_str(self.aux_fields[i]['name'])}\n"
+                else:
+                    s += f"    {i}: {self.aux_fields[i]['name']}\n"
+
         return s
 
     def long_str(self):
@@ -511,7 +537,7 @@ def plot_with_args(argv = None):
         print(" -g, -grid                   : plot the grid")
         print(" -view                       : adjust the view plane")
         print(" -fig                        : figure name to save to file")
-        print(" -aux                        : auxilary field id")
+        print(" -aux                        : auxiliary field id")
         print(" -mom                        : plot a moment, must be registered in the pde-scheme")
         print('                               the format is -mom "0 1" or -mom "0:1" ')
         print(" -efield                     : plot the electric field, must be registered in the pde-scheme")
@@ -582,11 +608,13 @@ def plot_with_args(argv = None):
                     i += 2
                 elif argv[i] == "-aux":
                     assert moment is None, "cannot simultaneously plot aux field and moment"
+                    assert efield is None, "cannot simultaneously plot aux field and electric field"
                     auxfield = argv[i + 1] if i + 1 < n else None
                     i += 2
                     assert auxfield is not None, "-aux requires an filed number"
                 elif argv[i] == "-mom":
-                    assert auxfield is None, "cannot simultaneously plot aux field and moment"
+                    assert auxfield is None, "cannot simultaneously plot moment and aux field"
+                    assert efield is None, "cannot simultaneously plot moment andd electric field"
                     moment = argv[i + 1] if i + 1 < n else None
                     i += 2
                     assert moment is not None, '-mom requires an index, e.g., -mom "0 1" or -mom "0:1" '
@@ -597,10 +625,11 @@ def plot_with_args(argv = None):
                     moment = [int(p) for p in lpows]
                 elif argv[i] == "-efield":
                     assert auxfield is None, "cannot simultaneously plot aux field and electric field"
+                    assert moment is None, "cannot simultaneously plot a moment and electric field"
                     efield = int(argv[i + 1]) if i + 1 < n else None
-                    assert 1 <= efield <= 3, "-efield requires an index between 1 and 3"
+                    assert efield is not None, "-efield requires an index, e.g., -efield 1"
+                    assert 0 <= efield <= 2, "-efield requires a position index 0, 1, or 2"
                     i += 2
-                    assert efield is not None, "-efield requires an index, e.g., -efield 1 "
                 elif argv[i] == "-grid" or argv[i] == "-g":
                     addgrid = True
                     i += 1

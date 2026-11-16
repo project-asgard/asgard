@@ -566,8 +566,12 @@ public:
   //! returns the poisson solver
   auto &get_poisson() const { return terms.moms.poisson_solver; }
 
-  //! allows an auxiliary field to be saved for post-processing
+  //! allows an auxiliary field to be saved for post-processing, referenced on MPI rank-0 only
   void add_aux_field(aux_field_entry<precision> f) {
+    #ifdef ASGARD_USE_MPI
+    if (not is_leader())
+      return;
+    #endif
     aux_fields.emplace_back(std::move(f));
     if (aux_fields.back().grid.empty()) // if grid provided
       aux_fields.back().grid = terms.grid.get_cells(); // assume the current grid
