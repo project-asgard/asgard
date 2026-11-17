@@ -133,6 +133,7 @@ private:
   std::array<moment_id, max_pos_dims> moms_electric;
   std::vector<term_entry<P>> laplacian_terms;
   block_sparse_matrix<P> derivative_mat;
+  std::array<kronmult::permutes, max_pos_dims> derivative_perm;
   std::array<P, max_pos_dims> derivative_scale;
   std::vector<P> potential;
   solvers::cg<P> cg_solver;

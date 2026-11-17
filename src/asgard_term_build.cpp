@@ -17,23 +17,24 @@ term_entry<P>::term_entry(term_md<P> tin)
   }
 
   int const num_dims = tmd.num_dims();
-  std::vector<int> active_dirs;
-  active_dirs.reserve(num_dims);
+  std::array<int, max_num_dimensions> active_dirs;
+
   int flux_dir = -1;
+  int num_active = 0;
   for (int d : iindexof(num_dims))
   {
     auto const &t1d = tmd.dim(d);
     if (not t1d.is_identity()) {
-      active_dirs.push_back(d);
+      active_dirs[num_active++] = d;
       if (t1d.has_flux()) {
         flux_dir = d;
-        if (active_dirs.size() > 1)
-          std::swap(active_dirs.front(), active_dirs.back());
+        if (num_active > 1)
+          std::swap(active_dirs[0], active_dirs[num_active - 1]);
       }
     }
   }
 
-  perm = kronmult::permutes(active_dirs, flux_dir);
+  perm = kronmult::permutes(num_active, active_dirs, flux_dir);
 }
 
 template<typename P>
@@ -577,10 +578,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
   } // end of the moment dependencies logic
-
-  #ifdef ASGARD_USE_GPU
-  kwork.row_map.resize(max_num_gpus); // TODO: check if this is needed
-  #endif
 }
 
 

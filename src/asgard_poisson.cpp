@@ -21,8 +21,10 @@ poisson_md<P>::poisson_md(int const num_pos, int const max_level, std::array<P, 
   int const nelem = fm::ipow2(max_level);
 
   // set up scaling for each direction
-  for (int const d : iindexof(num_dims))
+  for (int const d : iindexof(num_dims)) {
     derivative_scale[d] = static_cast<P>(nelem) / (xright[d] - xleft[d]);
+    derivative_perm[d] = kronmult::permutes(1, {d, });
+  }
 
   // set up moms_electric
   for (int const d : iindexof(num_dims))
@@ -101,8 +103,7 @@ void poisson_md<P>::solve(std::vector<P> &density, momentset<P> &moms,
     moment_id const &mid = moms_electric[d];
     if (mid == moment_id::unset()) continue;
     moms[mid].resize(n);
-    kronmult::permutes perm = std::vector<int>{d, };
-    block_cpu(pdof, position_grid, conn, perm, derivative_mat,
+    block_cpu(pdof, position_grid, conn, derivative_perm[d], derivative_mat,
               -derivative_scale[d], potential.data(), P{0.0}, moms[mid].data(), work);
   }
 }
@@ -180,8 +181,7 @@ void poisson_md<P>::solve(gpu::wrap_array<P> density, sparse_grid const &positio
   {
     moment_id const mid = moms_electric[d];
     if (mid == moment_id::unset()) continue;
-    kronmult::permutes perm = std::vector<int>{d, };
-    block_gpu(gpu::device{0}, pdof, position_grid, conn, perm, gpu_derivative_mat,
+    block_gpu(gpu::device{0}, pdof, position_grid, conn, derivative_perm[d], gpu_derivative_mat,
               -derivative_scale[d], gpu_potential.data(), P{0.0}, gpu_efield.data(), work, derivative_mat);
 
     // interpolate electric field moment

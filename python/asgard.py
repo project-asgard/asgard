@@ -428,6 +428,23 @@ class pde_snapshot:
 
         return presult
 
+    def aux_str(self, max_num_aux = None):
+        if len(self.aux_fields) == 0:
+            return ""
+
+        num_show = len(self.aux_fields)
+        if max_num_aux is not None and max_num_aux < num_show:
+            num_show = max_num_aux
+
+        s = f"  auxiliary fields:\n"
+        for i in range(num_show):
+            if "__moment_" in self.aux_fields[i]['name']:
+                s += f"    {i}: {pde_snapshot.get_human_moment_str(self.aux_fields[i]['name'])}\n"
+            else:
+                s += f"    {i}: {self.aux_fields[i]['name']}\n"
+
+        return s
+
     def __str__(self):
         s = "title: %s\n" % self.title
         if self.subtitle != "":
@@ -445,20 +462,13 @@ class pde_snapshot:
         s += f"  degree:         {self.degree}\n"
         s += f"  state size:     {sstate_size}\n"
         s += f"  grid-indexes:   {padspaces}{snum_cells}\n"
-        s += "  time:           %f\n" % self.time
-
-        if len(self.aux_fields) > 0:
-            s += f"  auxiliary fields:\n"
-            for i in range(len(self.aux_fields)):
-                if "__moment_" in self.aux_fields[i]['name']:
-                    s += f"    {i}: {pde_snapshot.get_human_moment_str(self.aux_fields[i]['name'])}\n"
-                else:
-                    s += f"    {i}: {self.aux_fields[i]['name']}\n"
+        s += f"  time:           {self.time}\n"
 
         return s
 
     def long_str(self):
         s = str(self) + '\n'
+
         if 'grid_adapt_threshold' not in self.params and 'grid_adapt_relative' not in self.params:
             s += '  non-adaptive grid\n'
         else:
@@ -474,6 +484,8 @@ class pde_snapshot:
         s += "\n  num-steps       %d" % self.params['dtime_step']
         s += "\n  remaining steps %d" % self.params['dtime_remaining']
         s += f"\n  time-step (dt)  {self.params['dtime_dt']:1.10e}\n"
+
+        s += self.aux_str()
 
         return '\n' + s
 
@@ -541,7 +553,7 @@ def plot_with_args(argv = None):
         print(" -mom                        : plot a moment, must be registered in the pde-scheme")
         print('                               the format is -mom "0 1" or -mom "0:1" ')
         print(" -efield                     : plot the electric field, must be registered in the pde-scheme")
-        print('                               the format is -efield {1 | 2 | 3} where the integer is the dimension index ')
+        print('                               the format is -efield {0 | 1 | 2} where the integer is the dimension index ')
         print(" -cmap                       : set the matplotlib colormap, see Matplotlib docs")
         print("")
         print("no file and no option provided, shows the version of the")
@@ -552,8 +564,12 @@ def plot_with_args(argv = None):
         else:
             print(f"{argv[0]}  {argv[1]}  {argv[2]}")
             shot = pde_snapshot(argv[2])
-            print("\n", shot, shot.timer_report)
+            max_num_aux = 10
+            print("\n", shot, shot.aux_str(max_num_aux), shot.timer_report)
+            if len(shot.aux_fields) > max_num_aux:
+                print("(to see full list of the auxiliary fields use the verbose -ss or -vv commands)")
     elif argv[1] in ("-ss", "-vv"):
+        print(f"working with {argv[1]}  {argv[2]}")
         if len(argv) < 3:
             print("-ss/-vv summary option requires a filename")
         else:

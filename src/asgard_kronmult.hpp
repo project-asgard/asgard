@@ -34,27 +34,24 @@ struct permutes
   //! \brief Empty permutation list.
   permutes() = default;
   //! \brief Initialize the permutations.
-  permutes(int num_dimensions);
+  permutes(int num_dims);
   //! \brief Create uniform transformation, only lower or upper.
-  permutes(int num_dimensions, conn_fill same_fill);
+  permutes(int num_dims, conn_fill same_fill);
   //! Creates a transformation with the specified active and flux directions.
-  permutes(std::vector<int> const &active_dirs, int fdir = -1)
-      : permutes(static_cast<int>(active_dirs.size()))
+  permutes(int num_dims, std::array<int, max_num_dimensions> const &active_dirs, int fdir = -1)
+      : permutes(num_dims)
   {
+    assert(fdir == -1 or fdir == active_dirs[0]);
     remap_directions(active_dirs);
     flux_dir = fdir;
   }
   //! \brief (debugging) Convert the fill to a string.
   std::string_view fill_name(int perm, int stage) const;
   //! \brief Shows the number of dimensions considered in the permutation
-  int num_dimensions() const
-  {
-    return ops.stride();
-  }
+  int num_dimensions() const { return ops.stride(); }
   //! \brief Reindexes the dimensions to match the active (non-identity) dimensions
-  void remap_directions(std::vector<int> const &active_dirs)
+  void remap_directions(std::array<int, max_num_dimensions> const &active_dirs)
   {
-    assert(static_cast<size_t>(ops.stride()) == active_dirs.size());
     for (int i = 0; i < ops.num_strips(); i++) {
       step *sweep = ops[i];
       for (int d = 0; d < ops.stride(); d++) {
