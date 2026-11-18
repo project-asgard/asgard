@@ -252,7 +252,7 @@ void differentiate_tests()
   // auto df3 = [](P x) -> double { return 3 * std::cos(3 * x); };
 
   std::array<kronmult::permutes, 3> perm;
-  for (int i = 0; i < 3; i++) perm[i] = kronmult::permutes(std::vector<int>{i, });
+  for (int i : iindexof(3)) perm[i] = kronmult::permutes(1, {i, });
 
   auto make_diff = [&](hierarchy_manipulator<P> const &hier, connection_patterns const &conns,
                        int level, P xlength)

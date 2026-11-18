@@ -660,6 +660,8 @@ if (ASGARD_BUILD_TESTS)
     set(asgard_pde_ranks_bound_internal 2 3 4)
     set(asgard_pde_ranks_relaxation_internal 2)
     set(asgard_pde_ranks_two_stream 2 3 4)
+    set(asgard_pde_ranks_two_stream_md 2)
+    set(asgard_pde_ranks_landau_damping 2)
   endif()
 
   # basic test, no crash and covers the human-readable lines of output

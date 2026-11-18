@@ -849,9 +849,12 @@ void discretization_manager<precision>::ode_euler_base_gpu(
 
     if (term_scal.value != 0) {
       terms.apply_gpu(group, -term_scal.value, in, (is_leader()) ? 1 : 0, out);
+      // if this MPI-rank has no terms, clear the out
       if (not terms.has_terms())
         compute->fill_zeros(num_entries, out);
     } else {
+      // leader already holds copy of in, if using zero coefficient
+      // then just fill the non-leaders to zero
       if (not is_leader())
         compute->fill_zeros(num_entries, out);
     }

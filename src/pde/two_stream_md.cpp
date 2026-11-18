@@ -477,16 +477,14 @@ R"help(<< additional options for this file >>
   while (disc.remaining_steps() > 0
          and disc.advance_time(stride))
   {
-    disc.progress_report();
+    if (not disc.stop_verbosity())
+      disc.progress_report();
     disc.add_aux_field({"snapshot time = " + std::to_string(disc.time()),
                         disc.current_state()});
   }
 
   // save final state
   disc.add_aux_field({"final state", disc.current_state()});
-
-  // re-enable the output to show final stats
-  disc.set_verbosity(asgard::verbosity_level::high);
 
   // write everything to a file
   disc.final_output();

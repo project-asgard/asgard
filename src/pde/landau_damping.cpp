@@ -415,16 +415,14 @@ int main(int argc, char** argv)
   while (disc.remaining_steps() > 0
          and disc.advance_time(stride))
   {
-    disc.progress_report();
+    if (not disc.stop_verbosity())
+      disc.progress_report();
     disc.add_aux_field({"snapshot time = " + std::to_string(disc.time()),
                         disc.current_state()});
   }
 
   // save final state
   disc.add_aux_field({"final state", disc.current_state()});
-
-  // re-enable the output to show final stats
-  disc.set_verbosity(asgard::verbosity_level::high);
 
   // write everything to a file
   disc.final_output();
@@ -461,9 +459,15 @@ void test_damping(std::string const &opt_str) {
   moment_id const melectric_y = pde.register_electric_moment(asgard::dimension_id(1));
   discretization_manager disc(std::move(pde), verbosity_level::quiet);
 
+  struct time_entry {
+    P time;
+    P Ep;
+  };
+
   int64_t const nt = disc.remaining_steps();
-  std::vector<P> efield(nt);
-  std::vector<P> time(nt);
+  tassert(nt > 2);
+  std::vector<time_entry> history;
+  history.reserve(nt);
 
   for (int64_t i = 0; i < nt; i++)
   {
@@ -471,7 +475,7 @@ void test_damping(std::string const &opt_str) {
 
     disc.sync_mpi_state();
 
-    if (not disc.has_poisson()) // in MPI context, do error checking only on Poisson-ranks
+    if (not disc.is_leader())
       continue;
 
     auto efieldx = disc.get_moment(melectric_x);
@@ -480,21 +484,24 @@ void test_damping(std::string const &opt_str) {
     P Ep = 0;
     for (auto ex : efieldx) Ep += ex * ex;
     for (auto ey : efieldy) Ep += ey * ey;
-    efield[i] = Ep;
-    time[i] = disc.time();
+    history.push_back(time_entry{disc.time(), Ep});
   }
+
+  if (not disc.is_leader()) // only MPI-rank 0 does the checks below
+    return;
+
   std::vector<std::pair<P, P>> peaks;
-  for (size_t i = 1; i < efield.size() - 1; i++) {
-    if (efield[i] > efield[i - 1] and efield[i] > efield[i + 1])
-      peaks.emplace_back(time[i], std::log(efield[i]));
+  peaks.reserve(history.size() - 2);
+  for (size_t i = 1; i < history.size() - 1; i++) {
+    if (history[i].Ep > history[i - 1].Ep and history[i].Ep > history[i + 1].Ep)
+      peaks.emplace_back(history[i].time, std::log(history[i].Ep));
   }
+  tassert(peaks.size() > 1);
 
   P sum_t = 0;
   P sum_lnE = 0;
   P sum_t_lnE = 0;
   P sum_t2 = 0;
-  size_t n = peaks.size();
-  tassert(n > 1);
   for (std::pair<P, P> const &peak : peaks) {
     P t = peak.first;
     P lnE = peak.second;
@@ -504,16 +511,20 @@ void test_damping(std::string const &opt_str) {
     sum_t_lnE += t * lnE;
     sum_t2 += t * t;
   }
+
+  // check decay-rate, energy over time
+  size_t n = peaks.size();
   P numerator = n * sum_t_lnE - sum_t * sum_lnE;
   P denominator = n * sum_t2 - sum_t * sum_t;
   P gamma = numerator / denominator;
-  P gamma_theory = -0.3067189338;
+  P constexpr gamma_theory = -0.3067189338;
   tassert(std::abs(gamma - gamma_theory) < 1.e-2);
 
-  P omega_theory = 1.4156618886;
+  // check frequency of the peak occurrences
+  P constexpr omega_theory = 1.4156618886;
   for (size_t i = 1; i < peaks.size(); i++) {
-    P dt = peaks[i].first - peaks[i - 1].first;
-    P omega = asgard::PI / dt;
+    P const dt = peaks[i].first - peaks[i - 1].first;
+    P const omega = asgard::PI / dt;
     tcheckless(i, std::abs(omega - omega_theory), 1.e-2);
   }
 }

@@ -254,11 +254,8 @@ template<typename P>
 int num_non_finite(int64_t num, P const x[]) {
   constexpr int max_threads = 1024;
   int const num_blocks = round_up(num, max_threads);
-  static ::asgard::gpu::vector<int> sum = []() -> ::asgard::gpu::vector<int> {
-        ::asgard::gpu::vector<int> result(1);
-        compute->fill_zeros(result);
-        return result;
-      }();
+  static ::asgard::gpu::vector<int> sum(1);
+  compute->fill_zeros(sum);
   kernel_num_non_finite<P, max_threads><<<num_blocks, max_threads>>>(num, x, sum.data());
   int cpu_res = 0;
   gpu::memcopy_dev2host(1, sum.data(), &cpu_res);

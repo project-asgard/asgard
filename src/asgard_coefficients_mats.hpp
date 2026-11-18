@@ -3,11 +3,41 @@
 
 #include "asgard_legendre_matrices.hpp"
 
-// private header, exposes some of the coefficient methods for easier testing
-// also reduces the clutter in asgard_coefficients.cpp
-
 namespace asgard
 {
+// type-tags
+struct interior_quadrature{};
+struct edge_quadrature{};
+
+template<typename mode_type, typename P>
+inline span2d<P> make_raw(legendre_basis<P> const &basis, P xleft, P xright, P dx, int num_cells,
+                          sfixed_func1d<P> const &rhs, rhs_raw_data<P> &rhs_raw)
+{
+  static_assert(std::is_same_v<mode_type, interior_quadrature> or
+                std::is_same_v<mode_type, edge_quadrature>);
+
+  bool constexpr use_edge = std::is_same_v<mode_type, edge_quadrature>;
+  int constexpr offset = (use_edge) ? 1 : 0;
+
+  int const stride = (basis.num_quad + offset);
+  rhs_raw.pnts.resize(stride * num_cells + offset);
+  rhs_raw.vals.resize(rhs_raw.pnts.size());
+#pragma omp parallel for
+  for (int i = 0; i < num_cells; i++) {
+    P const l = xleft + i * dx;
+    if constexpr (use_edge)
+      rhs_raw.pnts[i * stride] = l;
+    for (int k = 0; k < basis.num_quad; k++)
+      rhs_raw.pnts[i * stride + k + offset] = (0.5 * basis.qp[k] + 0.5) * dx + l;
+  }
+  // right most cell
+  if constexpr (use_edge)
+    rhs_raw.pnts.back() = xright;
+
+  rhs(rhs_raw.pnts, rhs_raw.vals);
+
+  return span2d<P>(stride, num_cells, rhs_raw.vals.data());
+}
 
 enum class rhs_type {
   is_func, is_const
@@ -42,22 +72,8 @@ void gen_no_flux_cmat(legendre_basis<P> const &basis, P xleft, P xright, int lev
   }
 
   span2d<P> rhs_vals;
-  if constexpr (rtype == rhs_type::is_func) {
-    // left point, interior pnts, right-point, left/right in adjacent cells will match
-    rhs_raw.pnts.resize(basis.num_quad * num_cells);
-    rhs_raw.vals.resize(rhs_raw.pnts.size());
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++) {
-      P const l = xleft + i * dx;
-      for (int k = 0; k < basis.num_quad; k++)
-        rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
-    }
-    // right most cell
-    rhs_raw.pnts.back() = xright;
-    rhs(rhs_raw.pnts, rhs_raw.vals);
-
-    rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
-  }
+  if constexpr (rtype == rhs_type::is_func)
+    rhs_vals = make_raw<interior_quadrature>(basis, xleft, xright, dx, num_cells, rhs, rhs_raw);
 
   P const vscale = P{2} / dx; // volume scale
 
@@ -159,28 +175,8 @@ void gen_tri_cmat(legendre_basis<P> const &basis, P xleft, P xright, int level,
   }
 
   span2d<P> rhs_vals;
-  if constexpr (rtype == rhs_type::is_func) {
-    // left point, interior pnts, right-point, left/right in adjacent cells will match
-    int const stride = (basis.num_quad + 1);
-    rhs_raw.pnts.resize(stride * num_cells + 1);
-    rhs_raw.vals.resize(rhs_raw.pnts.size());
-#pragma omp parallel for
-    for (int i = 0; i < num_cells; i++) {
-      P const l = xleft + i * dx;
-      rhs_raw.pnts[i * stride] = l;
-      for (int k = 0; k < basis.num_quad; k++)
-        rhs_raw.pnts[i * stride + k + 1] = (0.5 * basis.qp[k] + 0.5) * dx + l;
-    }
-    // right most cell
-    rhs_raw.pnts.back() = xright;
-    rhs(rhs_raw.pnts, rhs_raw.vals);
-
-    // for the i-th cell rhs_vals[i][0] is the left-most point
-    // rhs_vals[i][1] ... rhs_vals[i][num_quad] are the interior quadrature points
-    // right-most point of the i-th cell is at rhs_vals[i+1][0]
-
-    rhs_vals = span2d<P>(stride, num_cells, rhs_raw.vals.data());
-  }
+  if constexpr (rtype == rhs_type::is_func)
+    rhs_vals = make_raw<edge_quadrature>(basis, xleft, xright, dx, num_cells, rhs, rhs_raw);
 
   P const fscale = static_cast<int>(flux); // scale +/- 1
 
@@ -461,19 +457,8 @@ void gen_volume_mat(legendre_basis<P> const &basis, P xleft, P xright, int level
   int const nblock = basis.pdof * basis.pdof;
   coeff.resize_and_zero(nblock, num_cells);
 
-  span2d<P> rhs_vals;
-  rhs_raw.pnts.resize(basis.num_quad * num_cells);
-  rhs_raw.vals.resize(rhs_raw.pnts.size());
-#pragma omp parallel for
-  for (int i = 0; i < num_cells; i++) {
-    P const l = xleft + i * dx; // left edge of cell i
-    for (int k = 0; k < basis.num_quad; k++)
-      rhs_raw.pnts[i * basis.num_quad + k] = (0.5 * basis.qp[k] + 0.5) * dx + l;
-  }
-
-  rhs(rhs_raw.pnts, rhs_raw.vals);
-
-  rhs_vals = span2d<P>(basis.num_quad, num_cells, rhs_raw.vals.data());
+  span2d<P> rhs_vals = make_raw<interior_quadrature>(basis, xleft, xright, dx, num_cells,
+                                                     rhs, rhs_raw);
 
 #pragma omp parallel
   {

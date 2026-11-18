@@ -17,23 +17,24 @@ term_entry<P>::term_entry(term_md<P> tin)
   }
 
   int const num_dims = tmd.num_dims();
-  std::vector<int> active_dirs;
-  active_dirs.reserve(num_dims);
+  std::array<int, max_num_dimensions> active_dirs;
+
   int flux_dir = -1;
+  int num_active = 0;
   for (int d : iindexof(num_dims))
   {
     auto const &t1d = tmd.dim(d);
     if (not t1d.is_identity()) {
-      active_dirs.push_back(d);
+      active_dirs[num_active++] = d;
       if (t1d.has_flux()) {
         flux_dir = d;
-        if (active_dirs.size() > 1)
-          std::swap(active_dirs.front(), active_dirs.back());
+        if (num_active > 1)
+          std::swap(active_dirs[0], active_dirs[num_active - 1]);
       }
     }
   }
 
-  perm = kronmult::permutes(active_dirs, flux_dir);
+  perm = kronmult::permutes(num_active, active_dirs, flux_dir);
 }
 
 template<typename P>
@@ -221,6 +222,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     sources_md.resize(pde.sources_md_.size());
     for (size_t i = 0; i < pde.sources_md_.size(); i++) {
       sources_md[i].func = std::move(pde.sources_md_[i]);
+      sources_md[i].mids = std::move(pde.sources_moments_[i]);
     }
 
     sources.reserve(num_sources);
@@ -454,7 +456,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = pde.sources_moments_[gid];
+      auto const &mids = src.mids;
       insert(mids, gpu_moms[src.rec.device][gid]);
       insert(mids, all_interp[gid]);
       if (not src.is_gpu())
@@ -519,7 +521,7 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
       auto const &src = sources_md[gid];
       if (not src or not src.is_moment() or not resources.owns(src.rec)) continue;
 
-      auto const &mids = pde.sources_moments_[gid];
+      auto const &mids = src.mids;
       insert(mids, regular[gid]);
       insert(mids, intp[gid]);
     }
@@ -576,10 +578,6 @@ term_manager<P>::term_manager(prog_opts const &options, pde_domain<P> const &dom
     }
 
   } // end of the moment dependencies logic
-
-  #ifdef ASGARD_USE_GPU
-  kwork.row_map.resize(max_num_gpus); // TODO: check if this is needed
-  #endif
 }
 
 
@@ -1314,9 +1312,21 @@ void term_manager<P>::assign_compute_resources()
       }
     };
 
-  auto load_balance_terms = [&](int gid, int num_workers, balance_mode mode)
+  struct balance_mode_gpu_type{};
+  struct balance_mode_mpi_type{};
+
+  auto load_balance_terms = [&](int gid, int num_workers, auto mode_var)
     -> void {
       assert(num_workers >= 1);
+
+      using mode_type = std::decay_t<decltype(mode_var)>;
+      static_assert(std::is_same_v<mode_type, balance_mode_mpi_type> or
+                    std::is_same_v<mode_type, balance_mode_gpu_type>);
+
+      constexpr balance_mode mode =
+        (std::is_same_v<mode_type, balance_mode_mpi_type>)
+          ? balance_mode::mpi_ranks : balance_mode::gpus;
+
       compute_terms_work(gid, mode);
 
       // consider cases: num_workers == 1 or num_workers > 1
@@ -1334,24 +1344,37 @@ void term_manager<P>::assign_compute_resources()
 
       balance_manager load{num_workers};
 
-      if (mode == balance_mode::gpus) {
-        for (auto const &item : work) {
-          int const worker = load.lowest();
-          terms[item.id].rec.device = worker;
-          load.add(worker, item.work);
+      for (auto const &item : work) {
+        if (terms[item.id].tmd.is_electric(moms.moments())) {
+          terms[item.id].rec.device = 0;
+          load.add(0, item.work);
         }
-      } else {
-        for (auto const &item : work) {
+      }
+
+      for (auto const &item : work) {
+        if (not terms[item.id].tmd.is_electric(moms.moments())) {
           int const worker = load.lowest();
-          terms[item.id].rec.group = worker;
+          if constexpr (mode == balance_mode::gpus)
+            terms[item.id].rec.device = worker;
+          else
+            terms[item.id].rec.group = worker;
           load.add(worker, item.work);
         }
       }
     };
 
-  auto load_balance_src = [&](int gid, int num_workers, balance_mode mode)
+  auto load_balance_src = [&](int gid, int num_workers, auto mode_var)
     -> void {
       assert(num_workers >= 1);
+
+      using mode_type = std::decay_t<decltype(mode_var)>;
+      static_assert(std::is_same_v<mode_type, balance_mode_mpi_type> or
+                    std::is_same_v<mode_type, balance_mode_gpu_type>);
+
+      constexpr balance_mode mode =
+        (std::is_same_v<mode_type, balance_mode_mpi_type>)
+          ? balance_mode::mpi_ranks : balance_mode::gpus;
+
       compute_src_work(gid, mode);
 
       // consider cases: num_workers == 1 or num_workers > 1
@@ -1375,24 +1398,30 @@ void term_manager<P>::assign_compute_resources()
 
       balance_manager load{num_workers};
 
-      if (mode == balance_mode::gpus) {
-        for (auto const &item : work) {
-          int const worker = load.lowest_back();
-          if (item.id >= 0)
+      for (auto const &item : work) {
+        if (item.id < 0 and sources_md[std::abs(item.id + 1)].is_electric(moms.moments())) {
+          if constexpr (mode == balance_mode::gpus)
+            sources_md[std::abs(item.id + 1)].rec.device = 0;
+          else
+            sources_md[std::abs(item.id + 1)].rec.group = 0;
+          load.add(0, item.work);
+        }
+      }
+
+      for (auto const &item : work) {
+        int const worker = load.lowest_back();
+        if (item.id >= 0) {
+          if constexpr (mode == balance_mode::gpus)
             sources[item.id].rec.device = worker;
           else
-            sources_md[std::abs(item.id + 1)].rec.device = worker;
-          load.add(worker, item.work);
-        }
-      } else {
-        for (auto const &item : work) {
-          int const worker = load.lowest_back();
-          if (item.id >= 0)
             sources[item.id].rec.group = worker;
+        } else if (not sources_md[std::abs(item.id + 1)].is_electric(moms.moments())) {
+          if constexpr (mode == balance_mode::gpus)
+            sources_md[std::abs(item.id + 1)].rec.device = worker;
           else
             sources_md[std::abs(item.id + 1)].rec.group = worker;
-          load.add(worker, item.work);
         }
+        load.add(worker, item.work);
       }
     };
 
@@ -1400,16 +1429,16 @@ void term_manager<P>::assign_compute_resources()
   int const num_gpus  = std::max(compute->num_gpus(), 1);
 
   if (term_groups.empty()) {
-    load_balance_terms(-1, num_ranks, balance_mode::mpi_ranks);
-    load_balance_terms(-1, num_gpus, balance_mode::gpus);
-    load_balance_src(-1, num_ranks, balance_mode::mpi_ranks);
-    load_balance_src(-1, num_gpus, balance_mode::gpus);
+    load_balance_terms(-1, num_ranks, balance_mode_mpi_type{});
+    load_balance_terms(-1, num_gpus, balance_mode_gpu_type{});
+    load_balance_src(-1, num_ranks, balance_mode_mpi_type{});
+    load_balance_src(-1, num_gpus, balance_mode_gpu_type{});
   } else {
     for (int gid = 0; gid < static_cast<int>(term_groups.size()); gid++) {
-      load_balance_terms(gid, num_ranks, balance_mode::mpi_ranks);
-      load_balance_terms(gid, num_gpus, balance_mode::gpus);
-      load_balance_src(gid, num_ranks, balance_mode::mpi_ranks);
-      load_balance_src(gid, num_gpus, balance_mode::gpus);
+      load_balance_terms(gid, num_ranks, balance_mode_mpi_type{});
+      load_balance_terms(gid, num_gpus, balance_mode_gpu_type{});
+      load_balance_src(gid, num_ranks, balance_mode_mpi_type{});
+      load_balance_src(gid, num_gpus, balance_mode_gpu_type{});
     }
   }
 

@@ -103,8 +103,16 @@ struct source_entry_interp
   }
   //! indicates whether the entry contains any function of any kind
   operator bool () const { return not std::holds_alternative<std::monostate>(func); }
+  //! return true if the term uses the electric field
+  bool is_electric(moments_list const &moments) const {
+    for (moment_id const &mid : mids)
+      if (moments[mid].is_electric()) return true;
+    return false;
+  }
   //! interpolatory function for the source entry
   md_source_func<P> func;
+  //! moments for the source entry, if any
+  std::vector<moment_id> mids;
 };
 
 /*!

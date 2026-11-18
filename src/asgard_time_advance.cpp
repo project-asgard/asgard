@@ -83,7 +83,7 @@ void steady_state<P>::next_step(
         }, work, endstep);
     break;
     default:
-      throw std::runtime_error("steady state solver cannot use the adi preconditioner");
+      ASGARD_UNREACHANBLE
     }
 
     disc.mpi_iteration_stop();
@@ -149,7 +149,7 @@ void steady_state<P>::next_step(discretization_manager<P> const &disc,
         }, gwork, endstep);
     break;
     default:
-      throw std::runtime_error("steady state solver cannot use the adi preconditioner");
+      ASGARD_UNREACHANBLE
     }
 
     disc.mpi_iteration_stop_gpu();
@@ -290,8 +290,7 @@ void rungekutta<P>::next_step(
       }
       break;
     default: // unreachable
-      assert(false); // should never get here
-      break;
+      ASGARD_UNREACHANBLE
   }
 }
 
@@ -317,6 +316,10 @@ void rungekutta<P>::next_step(
   tools::time_event performance_(name);
 
   next.resize(disc.num_dof());
+  #ifdef ASGARD_USE_MPI
+  if (not disc.is_leader())
+    compute->fill_zeros(next); // the leader data is overwritten, but the rest are not used here
+  #endif
   assert(next.size() == current.size());
 
   P const time = disc.time();
@@ -383,8 +386,7 @@ void rungekutta<P>::next_step(
       }
       break;
     default: // unreachable
-      assert(false); // should never get here
-      break;
+      ASGARD_UNREACHANBLE
   }
 }
 #endif
@@ -672,7 +674,7 @@ void imex_stepper<P>::implicit_solve(
         }, current, R);
     break;
     default:
-      throw std::runtime_error("adi preconditioner not available for IMEX steppers");
+      ASGARD_UNREACHANBLE
     break;
     }
 
@@ -770,7 +772,7 @@ void imex_stepper<P>::implicit_solve(
         }, current, R);
     break;
     default:
-      throw std::runtime_error("adi preconditioner not available for IMEX steppers");
+      ASGARD_UNREACHANBLE
     break;
     }
 
@@ -891,8 +893,7 @@ template<typename P> // implemented in time-advance
 bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
 {
   // periodically reports time, first initialization is not important
-  static tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
-  wctime = tools::simple_timer::current_time(); // initialization for this call to advance_in_time()
+  tools::simple_timer::time_point wctime = tools::simple_timer::current_time();
 
   time_advance_manager<P> const &stepper = manager.stepper;
 
@@ -982,6 +983,13 @@ bool advance_in_time(discretization_manager<P> &manager, int64_t num_steps)
                   << "       this is an indication of either bad pde_scheme or incompatible ASGarD options\n"
                   << "       e.g., adaptive tolerance or solver tolerance is too high,\n"
                   << "       max-grid level is too low, time-step is too large, etc.\n";
+
+        #ifdef ASGARD_USE_MPI
+        // the bad entries may be restricted to a single MPI rank
+        // use the C++ exception to force-terminate the MPI session
+        throw std::runtime_error("One or more MPI-ranks detected inf/nan, raising exception");
+        #endif
+
         resync_gpu();
         return false;
       }

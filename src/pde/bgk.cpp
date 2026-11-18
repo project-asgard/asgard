@@ -125,6 +125,7 @@ asgard::pde_scheme<P> make_bgk(pde_mode mode, asgard::prog_opts options) {
   options.subtitle = "collision frequency " + std::to_string(nu);
 
   options.subtitle += (mode == pde_mode::poisson) ? " with poisson" : " shock example";
+  options.subtitle += (use_hybrid) ? " (hybrid)" : " (non-hybrid)";
 
   std::vector<asgard::domain_range> ranges;
   ranges.reserve(2 * dims);

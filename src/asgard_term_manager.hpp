@@ -210,14 +210,14 @@ struct term_manager
     if (mass_term) {
       tools::time_event timing_("rebuild mass mats");
       int const num_dims = grid.num_dims();
-      std::vector<int> active_dirs;
-      active_dirs.reserve(num_dims);
+      int num_active = 0;
+      std::array<int, max_num_dimensions> active_dirs;
       for (int d : iindexof(num_dims))
         if (not mass_term[d].is_identity()) {
           build_raw_mass(d, mass_term[d], max_level, mass[d]);
           mass_forward[d] = hier.diag2hierarchical(mass[d], max_level, conn);
           mass[d].spd_factorize(basis.pdof);
-          active_dirs.push_back(d);
+          active_dirs[num_active++] = d;
           if (moms) {
             assert(not mass_term[d].has_rhs_f());
             if (mass_term[d].has_rhs_nof()) {
@@ -230,7 +230,7 @@ struct term_manager
             }
           }
         }
-      mass_perm = kronmult::permutes(active_dirs);
+      mass_perm = kronmult::permutes(num_active, active_dirs);
     }
   }
   //! rebuild the small matrices to the current level for the grid
