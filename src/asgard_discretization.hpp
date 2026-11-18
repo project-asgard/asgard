@@ -618,30 +618,6 @@ public:
   }
   #endif
 
-#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
-  //! returns a ref to the sparse grid
-  sparse_grid const &get_grid() const { return terms.grid; }
-  //! returns the current grid generation
-  int grid_generation() const { return terms.grid.generation(); }
-  //! synchronizes the grid across MPI ranks and GPU devices
-  void grid_sync() {
-    #ifdef ASGARD_USE_MPI
-    terms.grid.mpi_sync(terms.resources, grid_synced_gen_);
-    grid_synced_gen_ = terms.grid.generation();
-    #endif
-    #ifdef ASGARD_USE_GPU
-    terms.grid.gpu_sync();
-    #endif
-  }
-  //! returns the term manager
-  term_manager<precision> const &get_terms() const { return terms; }
-  //! returns the compute resources meta structure
-  resource_set const &get_resources() const { return terms.resources; }
-
-  //! return the hierarchy_manipulator
-  hierarchy_manipulator<precision> const &get_hier() const { return terms.hier; }
-  //! return the connection patterns
-  connection_patterns const &get_conn() const { return terms.conn; }
   //! (testing/debugging) copy ns to the current state, e.g., force an initial condition
   void set_current_state(std::vector<precision> const &ns) {
     rassert(ns.size() == state.size(), "cannot set state with different size");
@@ -649,9 +625,6 @@ public:
   }
   //! get the current moment manager, allows detailed access to loaded moments
   moment_manager<precision> const &get_moment_manager() const { return terms.moms; }
-
-  //! (debugging) prints the term-matrices
-  void print_mats() const;
 
   #ifdef ASGARD_USE_MPI
   //! returns true if this is mpi rank 0, always true when MPI is not enabled
@@ -680,6 +653,34 @@ public:
 
   //! report memory usage by different componets
   void report_memusage(std::ostream &os = std::cout) const;
+
+#ifndef __ASGARD_DOXYGEN_SKIP_INTERNAL
+  //! returns a ref to the sparse grid
+  sparse_grid const &get_grid() const { return terms.grid; }
+  //! returns the current grid generation
+  int grid_generation() const { return terms.grid.generation(); }
+  //! synchronizes the grid across MPI ranks and GPU devices
+  void grid_sync() {
+    #ifdef ASGARD_USE_MPI
+    terms.grid.mpi_sync(terms.resources, grid_synced_gen_);
+    grid_synced_gen_ = terms.grid.generation();
+    #endif
+    #ifdef ASGARD_USE_GPU
+    terms.grid.gpu_sync();
+    #endif
+  }
+  //! returns the term manager
+  term_manager<precision> const &get_terms() const { return terms; }
+  //! returns the compute resources meta structure
+  resource_set const &get_resources() const { return terms.resources; }
+
+  //! return the hierarchy_manipulator
+  hierarchy_manipulator<precision> const &get_hier() const { return terms.hier; }
+  //! return the connection patterns
+  connection_patterns const &get_conn() const { return terms.conn; }
+
+  //! (debugging) prints the term-matrices
+  void print_mats() const;
 
   // performs integration in time
   friend bool advance_in_time<precision>(discretization_manager<precision> &, int64_t);

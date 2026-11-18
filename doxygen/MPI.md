@@ -41,6 +41,7 @@ Those include:
 * `asgard::discretization_manager::advance_time()`
 * `asgard::discretization_manager::sync_mpi_state()`
 * `asgard::discretization_manager::current_state_mpi()`
+
 All of the `_mpi()` methods can also be called without an MPI context and they will act as expected,
 e.g., `sync` is a no-op and `current_state` is just the current state.`
 

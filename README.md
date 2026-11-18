@@ -43,5 +43,6 @@ Oak Ridge National Laboratory.
 *  C++17
 *  cmake 3.19
 *  BLAS/LAPACK
+*  optional: OpenMP, CUDA, ROCm, MPI, HDF5
 
 See the detailed [Installation](doxygen/installation.md) instructions.

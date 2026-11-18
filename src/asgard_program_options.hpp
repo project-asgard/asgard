@@ -235,7 +235,7 @@ struct split_views
  *
  * The file and command line capabilities are provided for
  * convenience and are entirely optional.
- * The asgsrd::prog_opts objects can be default-constructed as empty,
+ * The asgard::prog_opts objects can be default-constructed as empty,
  * i.e., no options provided, then each of the values can be set manually
  * before passing into other ASGarD objects.
  * Many of the common options also have a "default" variant that can be set
@@ -256,8 +256,9 @@ struct split_views
  * \endcode
  * This will process the inputs from argv and will also include any inputs
  * from a file. If an option is present multiple times, the last option
- * will take precedence, this options hard-coded in the file can be adjusted
- * from the command line, but only if they appear after the -if option.
+ * will take precedence. Thus, options hard-coded in the file can be adjusted
+ * from the command line, but only if they appear after the -if option that
+ * provides the filename.
  *
  * List of the standard ASGarD options can be seen with:
  * \code
@@ -483,7 +484,7 @@ struct prog_opts
    * \param singles are valid custom options that appear by themselves, i.e.,
    *                do not require a second value entry
    * \param with_value are valid custom options that should be followed by a value,
-   *                   this, both entries are considered "known"
+   *                   thus, both entries are considered "known"
    *
    * \returns a list of command-line entries that are neither ASGarD nor known custom
    *          options
@@ -526,18 +527,15 @@ struct prog_opts
       throw std::runtime_error(ucli);
     }
   }
-  //! throws if any invalid (unknown by ASGarD) command line arguments are present
+  /*!
+   * \brief throws if any invalid (unknown by ASGarD) command line arguments are present
+   *
+   * This assumes that the project will use only the standard ASGarD command line options.
+   * If additional options are needed, then use asgard::prog_opts::throw_if_argv_not_in()
+   */
   void throw_if_invalid() const {
     throw_if_argv_not_in({}, {});
   }
-  /*!
-   * \brief throw if bad value is encountered, e.g., negative dt or degree
-   *
-   * This mostly checks if values that should be positive are indeed positive.
-   * It does not check deeper logic, e.g., the number of initial levels match
-   * the number of dimensions of the pde, or math logic
-   */
-  void throw_if_bad_value() const;
 
   //! sets the title, if the user did not provide a custom title
   void set_default_title(std::string_view const &dtitle) {
@@ -653,10 +651,11 @@ struct prog_opts
   #endif
 
   /*!
-   * \brief used only when restarting from a file, when this is true any adaptivity in the file will be ignored
+   * \brief Clears any previously set adaptivity
    *
    * This is also set when the -noadapt or -noa command line option is flagged and can be read
    * and used inside the PDE definition file.
+   * The main use-case is to cancel adaptivity set in an input file or a restart file.
    */
   bool set_no_adapt = false;
 

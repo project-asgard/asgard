@@ -91,13 +91,12 @@ enum class pde_mode
  * \ingroup asgard_examples_bgk
  * \brief Make single BGK PDE
  *
- * Constructs the pde description for the given umber of dimensions
- * and options.
+ * Constructs the pde description for the given number of dimension and options.
  *
  * \tparam P is either double or float, the asgard::default_precision will select
  *           first double, if unavailable, will go for float
  *
- * \param pde_mode is type ofPDE to set
+ * \param mode is the type of the PDE to set
  * \param options is the set of options
  *
  * \returns the asgard::pde_scheme definition

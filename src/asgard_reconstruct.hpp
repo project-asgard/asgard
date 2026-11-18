@@ -55,7 +55,7 @@ public:
   /*!
    * \brief Constructor, prepares the data-structures for reconstruction
    *
-   * \tparam precision is auto-directed as float or double, reconstruction
+   * \tparam precision is auto-directed as float or double, internally reconstruction
    *                   uses double precision but the coefficients can be
    *                   provided in single precision
    *

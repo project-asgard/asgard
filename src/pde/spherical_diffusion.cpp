@@ -34,6 +34,11 @@
  * \par
  * The purpose of this example is to show how to incorporate volume Jacobian
  * and non-trivial mass matrix into the discretization scheme.
+ *
+ * \par
+ * \b Note: currently, moments and the Poisson electric field solver work only with Cartesian
+ * coordinate systems.
+ * Non-separable interpolation operator terms work with non-Cartesian coordinates.
  */
 
 /*!

@@ -506,7 +506,7 @@ public:
     os << '\n';
   }
  /*!
-  * \ingroup asgard_discretization
+  * \ingroup asgard_pde_definition
   * \brief Allows writing the separable function stats
   */
   friend std::ostream &operator<<(std::ostream &os, separable_func<P> const &func) {
