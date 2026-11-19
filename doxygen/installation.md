@@ -18,7 +18,8 @@ Minimum requirements run ASGarD
 
 Recommended but optional
 * [OpenMP](https://en.wikipedia.org/wiki/OpenMP) for CPU multi-threading and better vectorization using AVX and AVX512 registers
-    * supported by GCC and most recent versions of Clang (16 or newer)
+    * supported by GCC
+    * multi-threading is supported by Clang, OpenMP SIMD directives are not supported and have been disabled automatically
 * If you have Nvidia GPU ASGarD can take advantage of the [linear algebra libraries](https://developer.nvidia.com/cublas) and custom [CUDA kernels](https://developer.nvidia.com/cuda-zone)
 * If you have AMD GPU compatible with the AMD ROCm framework, ASGarD can take advantage of the [linear algebra libraries](https://rocm.docs.amd.com/en/latest/reference/api-libraries.html) and custom [HIP kernels](https://rocm.docs.amd.com/projects/HIP/en/docs-develop/what_is_hip.html)
 * [HDF5](https://en.wikipedia.org/wiki/Hierarchical_Data_Format) and [HighFive](https://bluebrain.github.io/HighFive/) libraries to output the solution state
@@ -101,8 +102,12 @@ Notes:
 * The default greedy algorithm for GPU calculations uses more memory by explicitly indexing
   the connections between sparse-grid cells, which is faster (especially for smaller problems)
   while it uses lots of more memory (especially for large problems).
+* In the current version of ASGarD, the MPI options distributes the workload associated with
+  multiple PDE terms, but it does not distribute the solution state;
+  each MPI rank will have a full instance of the solution state, which doesn't alleviate
+  the single-node memory requirement. Scalability is limited.
 * The best values for `MPI_BCAST` and `MPI_REDUCE` thresholds are system specific,
-  several tests may be needed to find the best values for a specific platform.
+  several experiments may be needed to find the best values for a specific platform.
 * `ASGARD_TEST_MPI_OMP_NUM_THREADS` affects only some of the tests when both MPI and OpenMP are enabled,
   the option is there to avoid oversubscribing the CPU which will result in a massive drop of performance.
 * It is recommended to use system native BLAS and HDF5, the build options are provided

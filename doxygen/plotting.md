@@ -14,8 +14,8 @@ In addition, ASGarD provides two tools for quick plotting and prototyping:
 
 #### Setting up the environment
 
-Below, the assumption is that ASGarD has been installed in <prefix> in either a VENV
-environment or the environment has been enabled:
+Below, the assumption is that ASGarD has been installed in `<prefix>` in either a VENV
+environment or the ASGarD bash environment has been enabled:
 ```
   source <prefix>/share/asgard/asgard-env.sh
 ```
@@ -42,6 +42,18 @@ Alternatively
   asgardplot.sh cont.h5
 ```
 
+#### Help and summary data
+
+List of accepted options:
+```
+  asgardplot.sh --help
+```
+Summary of a given file
+```
+  asgardplot.sh -s cont.h5
+  asgardplot.sh -ss cont.h5
+```
+The `-ss` option is more verbose. The summary works even if `matplotlib` module is not present.
 
 #### The run-and-plot script
 
@@ -109,6 +121,11 @@ and the associated powers:
 The moment syntax is similar to `view` but only integer powers are accepted
 and only if the moment has been registered with asgard::pde_scheme::register_moment
 
+The electric field is a special type of moment:
+```
+  asgardrun.sh -plt "-efield 0" ./two_stream -a 1.E-3
+```
+The electric field, `-efiled`, accepts values 0, 1, and 2.
 
 #### Colormaps
 
@@ -131,15 +148,6 @@ However, other colormaps can be used depending on the preferences:
 ```
 The `cmap` option can take any of the over 30 matplotlib maps available,
 the shorthand switches are good alternatives.
-
-
-#### Showing summary
-
-Even if the Python matplotlib module is not available, file stats can be read with
-```
-  asgardplot.sh -s <filename>
-  asgardplot.sh -stats <filename>
-```
 
 
 #### Additional options
