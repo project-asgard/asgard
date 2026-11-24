@@ -15,7 +15,6 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/inputs_1d_2.txt"   "${CMAKE_CURRENT_
 
 if (asgard_PYTHON_FOUND)
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/continuity_2d.py"  "${CMAKE_CURRENT_BINARY_DIR}/continuity_2d.py" COPYONLY)
-    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/continuity_2d.m"   "${CMAKE_CURRENT_BINARY_DIR}/continuity_2d.m" COPYONLY)
 
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/inputs_1d.py"   "${CMAKE_CURRENT_BINARY_DIR}/inputs_1d.py" COPYONLY)
 
