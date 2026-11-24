@@ -485,18 +485,31 @@ void sparse_grid::refine(connect_1d const &hierarchy, strategy mode, std::vector
       stat[i] = marked[i];
       if (stat[i] == istatus::refine) {
         // refining but only if the children are missing
+        bool has_missing = false;
         std::array<int, max_num_dimensions> idx;
         std::copy_n(iset_[i], num_dims, idx.data());
         for (int d : iindexof(num_dims)) {
-          idx[d] *= 2;
-          if (not iset_.missing(idx)) {
-            idx[d] += 1;
-            // if both kids are here, don't refine
-            if (not iset_.missing(idx))
-              stat[i] = istatus::keep;
+          idx[d] *= 2; // set the index to the first child
+          if (idx[d] >= max_index_[d]) { // reached max-level, ignore this dimension
+            idx[d] /= 2; // reset the index
+            continue;
           }
-          idx[d] = iset_[i][d];
+          if (iset_.missing(idx)) {
+            has_missing = true;
+            break;
+          } else {
+            idx[d] += 1;
+            if (iset_.missing(idx)) {
+              has_missing = true;
+              break;
+            } else {
+              idx[d] = iset_[i][d];
+            }
+          }
         }
+        if (not has_missing) // if all children are present in all directions, no need to refine
+          stat[i] = istatus::keep;
+
       }
     }
   }

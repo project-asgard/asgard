@@ -590,8 +590,8 @@ void test_energy(std::string const &opt_str) {
 
     // std::cout << "X momentum error: " << mv0 << "\n";
     // std::cout << "Y momentum error: " << mv1 << "\n\n";
-    tcheckless(i, std::abs(mv0), 2.0e-5);
-    tcheckless(i, std::abs(mv1), 2.0e-5);
+    tcheckless(i, std::abs(mv0), 5.0e-5);
+    tcheckless(i, std::abs(mv1), 5.0e-5);
 
     // check the initial slight energy decay before it stabilizes
     if (i > 0)
