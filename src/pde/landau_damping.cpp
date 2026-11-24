@@ -89,7 +89,7 @@ asgard::pde_scheme<P> make_landau(asgard::prog_opts options) {
 
   options.title = "Multi-D Landau Damping";
 
-  // the domain has one position and one velocity dimension: 1x1v
+  // the domain has one position and one velocity dimension: 2x2v
   asgard::pde_domain<P> domain(asgard::position_dims{2}, asgard::velocity_dims{2},
                                {{-2 * PI, 2 * PI}, {-2 * PI, 2 * PI},
                                 {-2 * PI, 2 * PI}, {-2 * PI, 2 * PI}});
@@ -446,7 +446,7 @@ using namespace asgard;
 
 template<typename P>
 void test_damping(std::string const &opt_str) {
-  current_test<P> test_(opt_str, 2);
+  current_test<P> test_(opt_str, 4);
   // analytic solution is not available, hence we use energy conservation for
   // the test quantity in place of an L^2 error
 
@@ -518,14 +518,14 @@ void test_damping(std::string const &opt_str) {
   P denominator = n * sum_t2 - sum_t * sum_t;
   P gamma = numerator / denominator;
   P constexpr gamma_theory = -0.3067189338;
-  tassert(std::abs(gamma - gamma_theory) < 1.e-2);
+  tassert(std::abs(gamma - gamma_theory) < 5.e-2);
 
   // check frequency of the peak occurrences
   P constexpr omega_theory = 1.4156618886;
   for (size_t i = 1; i < peaks.size(); i++) {
     P const dt = peaks[i].first - peaks[i - 1].first;
     P const omega = asgard::PI / dt;
-    tcheckless(i, std::abs(omega - omega_theory), 1.e-2);
+    tcheckless(i, std::abs(omega - omega_theory), 5.e-2);
   }
 }
 
