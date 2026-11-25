@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['cell_5fcenters_0',['cell_centers',['../classasgard_1_1reconstruct__solution.html#a7183c0f4968688a3130a8c19d2d8f372',1,'asgard::reconstruct_solution']]],
+  ['cell_5fsize_1',['cell_size',['../classasgard_1_1pde__domain.html#aad7a2471949a7a4c23dcf2f4276f7a70',1,'asgard::pde_domain::cell_size()'],['../classasgard_1_1pde__scheme.html#acb433c9563378c931cf397865a593182',1,'asgard::pde_scheme::cell_size()']]],
+  ['chain_2',['chain',['../classasgard_1_1term__md.html#ac5a34f6b0570b3cc2c27e175f919dc90',1,'asgard::term_md::chain(int i)'],['../classasgard_1_1term__md.html#a69f5ef1c96630279b93a1e1140461c66',1,'asgard::term_md::chain(int i) const']]],
+  ['chain_5fback_3',['chain_back',['../classasgard_1_1term__1d.html#af69e1c3c08c2a2a6036090f639522f77',1,'asgard::term_1d']]],
+  ['chain_5flevel_4',['chain_level',['../classasgard_1_1boundary__flux.html#af8164579de917b537a33d6aa19b0db51',1,'asgard::boundary_flux::chain_level(int dim)'],['../classasgard_1_1boundary__flux.html#a72caa1e2f8a991f84e7ef3e49e261cfa',1,'asgard::boundary_flux::chain_level(int dim) const']]],
+  ['chain_5flink_5',['chain_link',['../classasgard_1_1term__1d.html#a4490683a60cfb9ae59ba0e669ba45818',1,'asgard::term_1d::chain_link(int i) const'],['../classasgard_1_1term__1d.html#a218869714fcc613b48c9109478261a2f',1,'asgard::term_1d::chain_link(int i)']]],
+  ['change_6',['change',['../classasgard_1_1term__1d.html#a6d2c7fbd03037e2455790f9c3fc85745',1,'asgard::term_1d']]],
+  ['clear_7',['clear',['../classasgard_1_1vector2d.html#a107c31f97087d9eb402f441c1977778e',1,'asgard::vector2d']]],
+  ['clear_5faux_5ffields_8',['clear_aux_fields',['../classasgard_1_1discretization__manager.html#a35f7828525d70de1adeb496cf144246d',1,'asgard::discretization_manager']]],
+  ['compute_5fmoments_9',['compute_moments',['../classasgard_1_1discretization__manager.html#a915ab3af3abd8196646b8676858835dd',1,'asgard::discretization_manager::compute_moments(group_id gid=group_id::all()) const'],['../classasgard_1_1discretization__manager.html#acdbcc6a5ec8a5e551b5261aa56bb0063',1,'asgard::discretization_manager::compute_moments(group_id gid, std::vector&lt; precision &gt; const &amp;f) const'],['../classasgard_1_1discretization__manager.html#a638ca0cddd71dc2e0f8ea772b057eca1',1,'asgard::discretization_manager::compute_moments(std::vector&lt; precision &gt; const &amp;f) const']]],
+  ['compute_5fmoments_5fgpu_10',['compute_moments_gpu',['../classasgard_1_1discretization__manager.html#a583bb7a60b109a4fa7e8a3dcb0d479ac',1,'asgard::discretization_manager::compute_moments_gpu(group_id gid=group_id::all()) const'],['../classasgard_1_1discretization__manager.html#a4a3ff215d639991e4ecb5f10c13f2380',1,'asgard::discretization_manager::compute_moments_gpu(precision const f[]) const'],['../classasgard_1_1discretization__manager.html#ae42e4a4fc859aae9cd11986075eae40f',1,'asgard::discretization_manager::compute_moments_gpu(group_id gid, precision const f[]) const']]],
+  ['compute_5fperturbation_11',['compute_perturbation',['../group__asgard__examples__vplb.html#ga8fec0cfcd859c6d3c07c706e24217144',1,'compute_perturbation(asgard::discretization_manager&lt; P &gt; const &amp;disc):&#160;vplb.cpp'],['../group__asgard__examples__bgk.html#ga8fec0cfcd859c6d3c07c706e24217144',1,'compute_perturbation(asgard::discretization_manager&lt; P &gt; const &amp;disc):&#160;bgk.cpp']]],
+  ['const_5fat_12',['const_at',['../classasgard_1_1separable__func.html#a709c234eae4559936ae1098ca49e0895',1,'asgard::separable_func']]],
+  ['const_5fone_13',['const_one',['../classasgard_1_1separable__func.html#aec673ae0d1722e86d187837f9ff75c37',1,'asgard::separable_func']]],
+  ['copy_5fout_14',['copy_out',['../classasgard_1_1vector2d.html#add06b20979f8d7b1f406318da13d812b',1,'asgard::vector2d']]],
+  ['current_5fstate_15',['current_state',['../classasgard_1_1discretization__manager.html#abe689cf39c38c10bded512f09d697058',1,'asgard::discretization_manager']]],
+  ['current_5fstate_5fmpi_16',['current_state_mpi',['../classasgard_1_1discretization__manager.html#a55dadf329f207abb1a1288afe6e59364',1,'asgard::discretization_manager']]],
+  ['current_5fstep_17',['current_step',['../classasgard_1_1discretization__manager.html#abb016e2514d9fcc7d6a6bb88107f2a8b',1,'asgard::discretization_manager']]]
+];
