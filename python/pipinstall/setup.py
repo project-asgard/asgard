@@ -6,7 +6,7 @@ from skbuild.exceptions import SKBuildError
 from skbuild.cmaker import get_cmake_version
 from skbuild import setup  # This line replaces 'from setuptools import setup'
 
-asg_ver = '1.0.0rc1'  # trying to keep this set to the "next" release
+asg_ver = '1.0.0'  # trying to keep this set to the "next" release
 
 with open('README.md', 'r') as fh:
      readme_file = fh.readlines()
@@ -52,7 +52,7 @@ if sys.platform == 'darwin' and not isvirtual:
 cmake_args=[
         '-DCMAKE_BUILD_TYPE=Release',
         '-DBUILD_SHARED_LIBS=ON',
-        '-DASGARD_FAST_FLAGS=ON',
+        '-DASGARD_FAST_FLAGS=OFF',
         '-DASGARD_TRYUSE_OPENMP=ON',
         '-DASGARD_USE_PYTHON:BOOL=ON',
         '-DPython_EXECUTABLE:PATH={0:1s}'.format(sys.executable),
