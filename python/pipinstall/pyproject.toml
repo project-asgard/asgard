@@ -3,7 +3,7 @@ name = "ornl-asgard"
 license = {text = "MIT"}
 classifiers = ["Programming Language :: Python :: 3",
                "Programming Language :: C++",
-               "Development Status :: 3 - Alpha",
+               "Development Status :: 5 - Production/Stable",
                "Operating System :: OS Independent",
                "Operating System :: MacOS",
                "Operating System :: POSIX :: Linux",
